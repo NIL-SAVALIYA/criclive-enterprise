@@ -237,19 +237,12 @@ export async function getLiveScoreService(matchId) {
 
         score,
 
-        batting,
-
-        bowling,
-
         currentBatters,
 
         currentBowling,
 
-        currentPartnership,
 
         lastSixBalls,
-
-        fallOfWickets: wickets,
 
         matchStatus
     };

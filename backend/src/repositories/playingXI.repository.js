@@ -200,3 +200,18 @@ export async function countPlayingXI( matchId,teamId,db = prisma) {
         }
     });
 }
+
+
+export async function getPlayersByIds(playerIds,db=prisma) {
+    return db.player.findMany({
+        where: {
+            id: {
+                in: playerIds
+            }
+        },
+        select: {
+            id: true,
+            teamId: true
+        }
+    });
+}

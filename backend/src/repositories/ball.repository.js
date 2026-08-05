@@ -329,3 +329,50 @@ export async function countDeliveries(inningsId,db=prisma) {
     });
 
 }
+
+// new function for commentry
+
+export async function getCommentaryByInnings(inningsId) {
+
+    return await prisma.ball.findMany({
+        where: {
+            inningsId
+        },
+        select: {
+            id: true,
+            over: true,
+            ball: true,
+            commentary: true,
+            batRuns: true,
+            extraRuns: true,
+            totalRuns: true,
+            extraType: true,
+            isWicket: true,
+            wicketType: true,
+            createdAt: true,
+
+            batsman: {
+                select: {
+                    firstName: true,
+                    lastName: true
+                }
+            },
+
+            bowler: {
+                select: {
+                    firstName: true,
+                    lastName: true
+                }
+            }
+        },
+        orderBy: [
+            {
+                over: "desc"
+            },
+            {
+                ball: "desc"
+            }
+        ]
+    });
+
+}

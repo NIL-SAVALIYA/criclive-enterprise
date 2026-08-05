@@ -63,6 +63,8 @@ import { buildWicketSummary } from "../engine/wicket.engine.js";
 import { evaluateMatchResult } from "../engine/matchResult.engine.js";
 
 import { calculateOvers } from "../engine/bowling.engine.js";
+import { emitLiveScore, emitCommentary, emitScorecardRefresh } from "../socket/socket.server.js";
+
 
 /* -------------------------------------------------------------------------- */
 /*                              Ball Service                                  */
@@ -93,7 +95,12 @@ export async function createBallService(data) {
             newBatsmanId = null,
             fielderId = null,
 
-            commentary = ""
+            commentary = "",
+            shotZone = null,
+            shotX = null,
+            shotY = null,
+            pitchLength = null,
+            pitchLine = null
 
         } = data;
 
@@ -198,6 +205,16 @@ export async function createBallService(data) {
             fielderId,
 
             commentary,
+
+            shotZone,
+
+            shotX,
+
+            shotY,
+
+            pitchLength,
+
+            pitchLine,
 
             legalDeliveries: innings.legalBalls,
 
@@ -586,4 +603,20 @@ export async function createBallService(data) {
 
     });
 
+    if (result && result.ball) {
+        const matchId = result.ball.innings?.matchId;
+        if (matchId) {
+            emitLiveScore(matchId, result.liveScore);
+            emitCommentary(matchId, {
+                commentary: result.ball.commentary,
+                over: result.ball.over,
+                ball: result.ball.ball,
+                totalRuns: result.ball.totalRuns,
+                isWicket: result.ball.isWicket
+            });
+            emitScorecardRefresh(matchId, result);
+        }
+    }
+
+    return result;
 }

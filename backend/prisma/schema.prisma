@@ -55,8 +55,11 @@ model Team {
 
   players Player[]
 
+  pointsTable PointsTable[]
+
   playingXI PlayingXI[]
   manager   User?       @relation(fields: [managerId], references: [id])
+
 }
 
 model Innings {
@@ -148,6 +151,16 @@ model Ball {
   fielderId String?
 
   commentary String?
+
+  shotZone String?
+
+  shotX Float?
+
+  shotY Float?
+
+  pitchLength String?
+
+  pitchLine String?
 
   createdAt DateTime @default(now())
 
@@ -250,6 +263,8 @@ model Match {
 
   completedAt DateTime?
 
+  resultType MatchResultType?
+
   innings Innings[]
 
   playingXI PlayingXI[]
@@ -275,6 +290,8 @@ model Tournament {
   registeredTeams TournamentTeam[]
 
   matches Match[]
+
+  pointsTable PointsTable[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -464,6 +481,51 @@ model Partnership {
   @@index([inningsId])
 }
 
+model PointsTable {
+  id String @id @default(uuid())
+
+  tournamentId String
+
+  teamId String
+
+  played Int @default(0)
+
+  won Int @default(0)
+
+  lost Int @default(0)
+
+  tied Int @default(0)
+
+  noResult Int @default(0)
+
+  points Int @default(0)
+
+  runsScored Int @default(0)
+
+  ballsFaced Int @default(0)
+
+  runsConceded Int @default(0)
+
+  ballsBowled Int @default(0)
+
+  netRunRate Float @default(0)
+
+  position Int?
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id])
+
+  team Team @relation(fields: [teamId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  updatedAt DateTime @updatedAt
+
+  @@unique([tournamentId, teamId])
+  @@index([tournamentId])
+}
+
+
+
 enum PlayerType {
   BATSMAN
   BOWLER
@@ -539,3 +601,16 @@ enum MatchResultType {
   TIE
   NO_RESULT
 }
+
+model Notification {
+  id        String   @id @default(uuid())
+  type      String
+  title     String
+  message   String
+  matchId   String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+

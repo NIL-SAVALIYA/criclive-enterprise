@@ -23,7 +23,6 @@ export async function createInnings(data, db = prisma) {
         }
 
     });
-
 }
 
 /*
@@ -184,4 +183,36 @@ export async function getLiveInnings(matchId, db = prisma) {
             match: true
         }
     });
+}
+
+/*
+|--------------------------------------------------------------------------
+| Complete Innings
+|--------------------------------------------------------------------------
+*/
+
+export async function completeInnings(id, db = prisma) {
+
+    return db.innings.update({
+
+        where: {
+            id
+        },
+
+        data: {
+            status: "COMPLETED"
+        },
+
+        include: {
+
+            match: true,
+
+            battingTeam: true,
+
+            bowlingTeam: true
+
+        }
+
+    });
+
 }

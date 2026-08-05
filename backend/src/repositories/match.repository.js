@@ -1,7 +1,7 @@
 import prisma from "../config/db.js";
 
-export async function createMatch(data) {
-    return prisma.match.create({
+export async function createMatch(data,db=prisma) {
+    return db.match.create({
         data,
         include: {
             teamA: true,
@@ -11,8 +11,8 @@ export async function createMatch(data) {
     });
 }
 
-export async function getAllMatches() {
-    return prisma.match.findMany({
+export async function getAllMatches(db=prisma) {
+    return db.match.findMany({
         include: {
             teamA: true,
             teamB: true,
@@ -24,8 +24,164 @@ export async function getAllMatches() {
     });
 }
 
-export async function getMatchById(id) {
-    return prisma.match.findUnique({
+/*
+|--------------------------------------------------------------------------
+| Get Live Matches
+|--------------------------------------------------------------------------
+*/
+
+export async function getLiveMatches(db = prisma) {
+    return db.match.findMany({
+        where: {
+            status: "LIVE"
+        },
+        select: {
+            id: true,
+            status: true,
+            matchDate: true,
+            venue: true,
+
+            teamA: {
+                select: {
+                    id: true,
+                    name: true,
+                    shortName: true,
+                    logoUrl: true
+                }
+            },
+
+            teamB: {
+                select: {
+                    id: true,
+                    name: true,
+                    shortName: true,
+                    logoUrl: true
+                }
+            },
+
+            tossWinner: {
+                select: {
+                    id: true,
+                    name: true,
+                    shortName: true
+                }
+            }
+        },
+        orderBy: {
+            matchDate: "asc"
+        }
+    });
+}
+
+/*
+|--------------------------------------------------------------------------
+| Get Upcoming Matches
+|--------------------------------------------------------------------------
+*/
+
+export async function getUpcomingMatches(db = prisma) {
+    return db.match.findMany({
+        where: {
+            status: "UPCOMING"
+        },
+        select: {
+            id: true,
+            status: true,
+            matchDate: true,
+            venue: true,
+
+            teamA: {
+                select: {
+                    id: true,
+                    name: true,
+                    shortName: true,
+                    logoUrl: true
+                }
+            },
+
+            teamB: {
+                select: {
+                    id: true,
+                    name: true,
+                    shortName: true,
+                    logoUrl: true
+                }
+            },
+
+            tossWinner: {
+                select: {
+                    id: true,
+                    name: true,
+                    shortName: true
+                }
+            }
+        },
+        orderBy: {
+            matchDate: "asc"
+        }
+    });
+}
+
+/*
+|--------------------------------------------------------------------------
+| Get Completed Matches
+|--------------------------------------------------------------------------
+*/
+
+export async function getCompletedMatches(db = prisma) {
+    return db.match.findMany({
+        where: {
+            status: "COMPLETED"
+        },
+
+        select: {
+            id: true,
+            status: true,
+            matchDate: true,
+            venue: true,
+
+            teamA: {
+                select: {
+                    id: true,
+                    name: true,
+                    shortName: true,
+                    logoUrl: true
+                }
+            },
+
+            teamB: {
+                select: {
+                    id: true,
+                    name: true,
+                    shortName: true,
+                    logoUrl: true
+                }
+            },
+
+            tossWinner: {
+                select: {
+                    id: true,
+                    name: true,
+                    shortName: true
+                }
+            },
+
+            winnerTeam: {
+                select: {
+                    id: true,
+                    name: true,
+                    shortName: true
+                }
+            }
+        },
+        orderBy: {
+            completedAt: "desc"
+        }
+    });
+}
+
+export async function getMatchById(id,db=prisma) {
+    return db.match.findUnique({
         where: { id },
         include: {
             teamA: true,
@@ -35,8 +191,8 @@ export async function getMatchById(id) {
     });
 }
 
-export async function updateMatch(id, data) {
-    return prisma.match.update({
+export async function updateMatch(id, data,db=prisma) {
+    return db.match.update({
         where: { id },
         data,
         include: {
@@ -47,8 +203,8 @@ export async function updateMatch(id, data) {
     });
 }
 
-export async function deleteMatch(id) {
-    return prisma.match.delete({
+export async function deleteMatch(id,db=prisma) {
+    return db.match.delete({
         where: { id }
     });
 }
@@ -61,9 +217,9 @@ export async function deleteMatch(id) {
 |--------------------------------------------------------------------------
 */
 
-export async function createManyMatches(data) {
+export async function createManyMatches(data,db=prisma) {
 
-    return prisma.match.createMany({
+    return db.match.createMany({
 
         data
 
@@ -77,9 +233,9 @@ export async function createManyMatches(data) {
 |--------------------------------------------------------------------------
 */
 
-export async function getMatchesByTournament(tournamentId) {
+export async function getMatchesByTournament(tournamentId,db=prisma) {
 
-    return prisma.match.findMany({
+    return  db.match.findMany({
 
         where: {
             tournamentId
@@ -129,9 +285,9 @@ export async function getMatchesByTournament(tournamentId) {
 |--------------------------------------------------------------------------
 */
 
-export async function countMatchesByTournament(tournamentId) {
+export async function countMatchesByTournament(tournamentId,db=prisma) {
 
-    return prisma.match.count({
+    return db.match.count({
 
         where: {
             tournamentId

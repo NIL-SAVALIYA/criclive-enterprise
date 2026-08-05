@@ -7,61 +7,61 @@ import {
     findRoleByName,
     createUser
 
-}  from "../repositories/user.repository.js";
+} from "../repositories/user.repository.js";
 import { create } from "node:domain";
 
 
 export async function registerUser(userData) {
 
-            const {
+    const {
 
-                firstName,
-                lastName,
-                email,
-                password,
-                role
+        firstName,
+        lastName,
+        email,
+        password,
+        role
 
-            }=userData;
-        
-
-            const existingUser= await findUserByEmail(email);
+    } = userData;
 
 
-            if(existingUser) {
-                throw new Error("Email already registered.");
-            }
-
-            const roleData = await findRoleByName(role);
-
-            if(!roleData) {
-                throw new Error("Invalid role.");
-            }
-
-            const hasedPassword = await bcrypt.hash(password,10);
+    const existingUser = await findUserByEmail(email);
 
 
-            const user= await createUser({
+    if (existingUser) {
+        throw new Error("Email already registered.");
+    }
 
-                    firstName,
-                    lastName,
-                    email,
-                    password: hasedPassword,
-                    roleId: roleData.id
+    const roleData = await findRoleByName(role);
 
-            });
+    if (!roleData) {
+        throw new Error("Invalid role.");
+    }
 
-
-            return {
-
-                 id:user.id,
-                 firstName: user.firstName,
-                 lastName: user.lastName,
-                 email: user.email,
-                 role: roleData.name
+    const hasedPassword = await bcrypt.hash(password, 10);
 
 
+    const user = await createUser({
 
-            };
+        firstName,
+        lastName,
+        email,
+        password: hasedPassword,
+        roleId: roleData.id
+
+    });
+
+
+    return {
+
+        id: user.id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: roleData.name
+
+
+
+    };
 
 
 }
@@ -74,54 +74,62 @@ import env from "../config/env.js";
 
 export async function loginUser(loginData) {
 
-            const{
-                email,
-                password
-            }=loginData;
+    const {
+        email,
+        password
+    } = loginData;
 
-            //find User 
-            
-            const user = await findUserByEmail(email);
-            
-            //compare password
+    console.log("LOGIN EMAIL:", email);
+    //find User 
 
-            const isPasswordValid = await bcrypt.compare(password,user.password);
+    const user = await findUserByEmail(email);
 
-            if(!isPasswordValid) {
+    console.log("FOUND USER:", user);
 
-                throw new Error("Invalid Email or password.");
-            }
+    // Check if user exists
+    if (!user) {
+        throw new Error("Invalid email or password.");
+    }
+
+    // Compare password
+    const isPasswordValid = await bcrypt.compare(
+        password,
+        user.password
+    );
+
+    if (!isPasswordValid) {
+        throw new Error("Invalid email or password.");
+    }
+
+    //Generate JWT
+
+    const token = jwt.sign(
+        {
+
+            userId: user.id,
+            role: user.role.name
+        },
+        env.JWT_SECRET,
+        {
+            expiresIn: "7d"
+        }
 
 
-            //Generate JWT
 
-            const token = jwt.sign(
-                {
-
-                    userId: user.id,
-                    role: user.role.name
-                },
-                env.JWT_SECRET,
-                {
-                    expiresIn: "7d"
-                }
-
-            
-
-            );
+    );
 
 
-            return {
-                token,
-                user: {
-                    id: user.id,
-                    firstName: user.firstName,
-                    lastName: user.lastName,
-                    email: user.email,
-                    role: user.role.name
+    return {
+        token,
+        user: {
+            id: user.id,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            email: user.email,
+            role: user.role.name
 
-                }
-            };
+        }
+    };
 
 }
 // NEW import for getprofile of user by ID:

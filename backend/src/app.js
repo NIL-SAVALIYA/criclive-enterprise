@@ -1,44 +1,62 @@
 import express from "express";
-import authRoutes from "./routes/auth.routes.js";
-// new import needed for role of user's....
-import roleRoutes from "./routes/role.routes.js";
-// new import needed for user.controller.js,user.routes.js,user.service.js....
-import userRoutes from "./routes/user.routes.js";
-//new import for team management CRUD
-import teamRoutes from "./routes/team.routes.js";
-//other import for player management CRUD
-import playerRoutes from "./routes/player.routes.js";
-//other import for match management CRUD
-import matchRoutes  from  "./routes/match.routes.js";
-//other import for tournament management
-import tournamentRoutes from "./routes/tournament.routes.js";
-//add for tournament-team model
-import tournamentTeamRoutes from "./routes/tournament-team.routes.js";
-//add for fixture  of match in tournament
-import fixtureRoutes from "./routes/fixture.routes.js";
-//add for inning.routes.js
-import inningsRoutes from "./routes/innings.routes.js";
-//add for ball.routes.js
-import ballRoutes from "./routes/ball.routes.js";
-//add for inning.routes.js
-import liveScoreRoutes from "./routes/liveScore.routes.js";
-//add for pointsTable.routes.js
-import pointsTableRoutes from "./routes/pointsTable.routes.js";
+import cors from "cors";
+import helmet from "helmet";
+import compression from "compression";
+import swaggerUi from "swagger-ui-express";
+import { swaggerSpec } from "./config/swagger.js";
+import { apiRateLimiter } from "./middleware/rateLimiter.middleware.js";
 
+import authRoutes from "./routes/auth.routes.js";
+import roleRoutes from "./routes/role.routes.js";
+import userRoutes from "./routes/user.routes.js";
+import teamRoutes from "./routes/team.routes.js";
+import playerRoutes from "./routes/player.routes.js";
+import matchRoutes from "./routes/match.routes.js";
+import tournamentRoutes from "./routes/tournament.routes.js";
+import tournamentTeamRoutes from "./routes/tournament-team.routes.js";
+import fixtureRoutes from "./routes/fixture.routes.js";
+import inningsRoutes from "./routes/innings.routes.js";
+import ballRoutes from "./routes/ball.routes.js";
+import liveScoreRoutes from "./routes/liveScore.routes.js";
+import pointsTableRoutes from "./routes/pointsTable.routes.js";
+import liveMatchRoutes from "./routes/liveMatch.routes.js";
+import commentaryRoutes from "./routes/commentary.routes.js";
+import matchSummaryRoutes from "./routes/matchSummary.routes.js";
+import dashboardRoutes from "./routes/dashboard.routes.js";
+import tournamentStatisticsRoutes from "./routes/tournamentStatistics.routes.js";
+import playerStatisticsRoutes from "./routes/playerStatistics.routes.js";
+import playingXIRoutes from "./routes/playingXI.routes.js";
+import tossRoutes from "./routes/toss.routes.js";
+import startMatchRoutes from "./routes/startMatch.routes.js";
+import endInningsRoutes from "./routes/endInnings.routes.js";
+
+// Advanced Analytics, Records & Notifications Routes
+import analyticsRoutes from "./routes/analytics.routes.js";
+import recordsRoutes from "./routes/records.routes.js";
+import notificationRoutes from "./routes/notification.routes.js";
 
 const app = express();
 
+// Security & Production Middleware
+app.use(helmet({ contentSecurityPolicy: false }));
+app.use(cors({ origin: "*", credentials: true }));
+app.use(compression());
 app.use(express.json());
+app.use("/api/", apiRateLimiter);
 
+// Swagger Documentation
+app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+
+// Health Check
 app.get("/api/health", (req, res) => {
-
-    res.status(200).json({
-        success: true,
-        message: "Cricket League Management System is running........."
-    });
-
+  res.status(200).json({
+    success: true,
+    message: "Cricket League Management System API is running smoothly.",
+    timestamp: new Date()
+  });
 });
 
+// Register Core APIs
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/roles", roleRoutes);
 app.use("/api/v1/users", userRoutes);
@@ -46,11 +64,35 @@ app.use("/api/v1/teams", teamRoutes);
 app.use("/api/v1/players", playerRoutes);
 app.use("/api/v1/matches", matchRoutes);
 app.use("/api/v1/tournaments", tournamentRoutes);
+app.use("/api/v1/tournaments", tournamentStatisticsRoutes);
 app.use("/api/v1/tournament-teams", tournamentTeamRoutes);
 app.use("/api/v1/fixtures", fixtureRoutes);
 app.use("/api/v1/innings", inningsRoutes);
 app.use("/api/innings/:inningsId/balls", ballRoutes);
 app.use("/api/matches", liveScoreRoutes);
 app.use("/api/points-table", pointsTableRoutes);
+app.use("/api/v1/matches", liveMatchRoutes);
+app.use("/api/v1/commentary", commentaryRoutes);
+app.use("/api/v1/matches", matchSummaryRoutes);
+app.use("/api/v1/dashboard", dashboardRoutes);
+app.use("/api/v1/players", playerStatisticsRoutes);
+app.use("/api/v1/matches", playingXIRoutes);
+app.use("/api/v1/matches", tossRoutes);
+app.use("/api/v1/matches", startMatchRoutes);
+app.use("/api/v1/innings", endInningsRoutes);
+
+// Advanced Features API Routes
+app.use("/api/v1/matches", analyticsRoutes);
+app.use("/api/v1/records", recordsRoutes);
+app.use("/api/v1/notifications", notificationRoutes);
+
+// Global Error Handler
+app.use((err, req, res, next) => {
+  console.error("🔥 Global Error Handler:", err);
+  res.status(err.status || 500).json({
+    success: false,
+    message: err.message || "Internal Server Error"
+  });
+});
 
 export default app;

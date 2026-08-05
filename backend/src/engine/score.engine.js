@@ -194,6 +194,16 @@ export function buildBallData({
 
     commentary,
 
+    shotZone,
+
+    shotX,
+
+    shotY,
+
+    pitchLength,
+
+    pitchLine,
+
     legalDeliveries,
 
     totalDeliveries
@@ -267,7 +277,17 @@ export function buildBallData({
 
         fielderId,
 
-        commentary
+        commentary,
+
+        shotZone,
+
+        shotX,
+
+        shotY,
+
+        pitchLength,
+
+        pitchLine
 
     };
 
