@@ -29,14 +29,12 @@ router.post(
 // Get All Teams (Authenticated read-only)
 router.get(
   "/",
-  authenticate,
   getAll
 );
 
 // Get Team By ID (Authenticated read-only)
 router.get(
   "/:id",
-  authenticate,
   getOne
 );
 

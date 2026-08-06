@@ -29,14 +29,12 @@ router.post(
 // Get All Tournaments (Authenticated read-only)
 router.get(
   "/",
-  authenticate,
   getAll
 );
 
 // Get Tournament By ID (Authenticated read-only)
 router.get(
   "/:id",
-  authenticate,
   getOne
 );
 
