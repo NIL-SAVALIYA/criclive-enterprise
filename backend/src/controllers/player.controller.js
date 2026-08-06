@@ -57,7 +57,7 @@ export async function getAll(req, res) {
     return res.status(200).json({
       success: true,
       data,
-      ...(pagination && { pagination })
+      ...(pagination ? { pagination } : {})
     });
   } catch (error) {
     return res.status(500).json({

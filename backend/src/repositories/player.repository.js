@@ -23,8 +23,14 @@ export async function createPlayer(data, db = prisma) {
  * Retrieves players with search, filtering, and pagination.
  */
 export async function getAllPlayers(params = {}, db = prisma) {
-  const { page = 1, limit = 10, search, teamId, playerType } = params;
-  const skip = (page - 1) * limit;
+
+  const {
+    page,
+    limit,
+    search,
+    teamId,
+    playerType
+  } = params;
 
   const where = {};
 
@@ -43,48 +49,54 @@ export async function getAllPlayers(params = {}, db = prisma) {
     where.playerType = playerType;
   }
 
-  const [players, total] = await Promise.all([
-    db.player.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: [
-        { teamId: "asc" },
-        { jerseyNumber: "asc" },
-        { firstName: "asc" }
-      ],
-      include: {
-        team: {
-          select: {
-            id: true,
-            name: true,
-            shortName: true,
-            logoUrl: true
-          }
-        },
-        _count: {
-          select: {
-            battingScorecards: true,
-            bowlingScorecards: true,
-            playingXI: true
-          }
+  const query = {
+    where,
+    orderBy: [
+      { team: { name: "asc" } },
+      { jerseyNumber: "asc" }
+    ],
+    include: {
+      team: {
+        select: {
+          id: true,
+          name: true,
+          shortName: true,
+          logoUrl: true
+        }
+      },
+      _count: {
+        select: {
+          battingScorecards: true,
+          bowlingScorecards: true,
+          playingXI: true
         }
       }
-    }),
+    }
+  };
+
+  // Apply pagination only if page and limit are provided
+  if (page && limit) {
+    query.skip = (page - 1) * limit;
+    query.take = Number(limit);
+  }
+
+  const [players, total] = await Promise.all([
+    db.player.findMany(query),
     db.player.count({ where })
   ]);
 
   return {
     players,
-    pagination: {
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit)
-    }
+    pagination: page && limit
+      ? {
+        total,
+        page: Number(page),
+        limit: Number(limit),
+        totalPages: Math.ceil(total / limit)
+      }
+      : null
   };
 }
-
 /**
  * Retrieves a player by ID with team details and career scorecard counts.
  */
