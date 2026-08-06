@@ -20,7 +20,7 @@ export async function getMatchAnalyticsService(matchId) {
   let liveMatchData = null;
   try {
     liveMatchData = await getLiveMatchService(matchId);
-  } catch (err) {
+  } catch {
     // Match not started or live match info not initialized yet
   }
 

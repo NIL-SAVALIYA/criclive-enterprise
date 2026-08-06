@@ -1,27 +1,59 @@
 import { Router } from "express";
-
 import {
-    create,
-    getAll,
-    getOne,
-    update,
-    remove
+  create,
+  getAll,
+  getOne,
+  update,
+  remove
 } from "../controllers/team.controller.js";
-
 import { authenticate } from "../middleware/auth.middleware.js";
 import { authorize } from "../middleware/authorize.middleware.js";
+import { Roles } from "../constants/roles.js";
 
 const router = Router();
 
-// Only ADMIN and ORGANIZER can create/update/delete teams
-router.post("/", authenticate, authorize("ADMIN", "ORGANIZER"), create);
+/*
+|--------------------------------------------------------------------------
+| Team Routes (RBAC Protected)
+|--------------------------------------------------------------------------
+*/
 
-router.get("/", authenticate, getAll);
+// Create Team (ADMIN, ORGANIZER, TOURNAMENT_ADMIN)
+router.post(
+  "/",
+  authenticate,
+  authorize(Roles.ADMIN, Roles.ORGANIZER, Roles.TOURNAMENT_ADMIN),
+  create
+);
 
-router.get("/:id", authenticate, getOne);
+// Get All Teams (Authenticated read-only)
+router.get(
+  "/",
+  authenticate,
+  getAll
+);
 
-router.put("/:id", authenticate, authorize("ADMIN", "ORGANIZER"), update);
+// Get Team By ID (Authenticated read-only)
+router.get(
+  "/:id",
+  authenticate,
+  getOne
+);
 
-router.delete("/:id", authenticate, authorize("ADMIN"), remove);
+// Update Team (ADMIN, ORGANIZER, TEAM_MANAGER)
+router.put(
+  "/:id",
+  authenticate,
+  authorize(Roles.ADMIN, Roles.ORGANIZER, Roles.TEAM_MANAGER),
+  update
+);
+
+// Delete Team (ADMIN only)
+router.delete(
+  "/:id",
+  authenticate,
+  authorize(Roles.ADMIN),
+  remove
+);
 
 export default router;

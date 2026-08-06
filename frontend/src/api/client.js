@@ -12,6 +12,12 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  console.log('🚀 [FRONTEND API REQUEST]:', {
+    url: `${config.baseURL || ''}${config.url}`,
+    method: config.method?.toUpperCase(),
+    headers: config.headers,
+    body: config.data
+  });
   return config;
 });
 

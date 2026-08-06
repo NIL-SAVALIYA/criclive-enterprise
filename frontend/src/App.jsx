@@ -11,6 +11,7 @@ import TeamsAndPlayers from './pages/TeamsAndPlayers';
 import Players from './pages/Players';
 import AdminScoringConsole from './pages/AdminScoringConsole';
 import AdminDashboard from './pages/AdminDashboard';
+import MatchControlCenter from './pages/MatchControlCenter';
 import Fixtures from './pages/Fixtures';
 
 export default function App() {
@@ -46,6 +47,14 @@ export default function App() {
                 element={
                   <ProtectedRoute allowedRoles={['ADMIN']}>
                     <AdminDashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/match-control/:matchId"
+                element={
+                  <ProtectedRoute allowedRoles={['ADMIN', 'SCORER']}>
+                    <MatchControlCenter />
                   </ProtectedRoute>
                 }
               />

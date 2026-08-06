@@ -1,53 +1,40 @@
 import prisma from "../config/db.js";
 
-export async function findUserByEmail(email,db=prisma) {
-
+export async function findUserByEmail(email, db = prisma) {
+    const normalizedEmail = email ? email.trim().toLowerCase() : "";
     return db.user.findUnique({
-
         where: {
-            email
+            email: normalizedEmail
         },
-
         include: {
             role: true
         }
-
     });
-
 }
 
-export async function  findRoleByName(name,db=prisma) {
-
-         return db.role.findUnique({
-
-                where: {
-
-                        name
-                }
-
-         });
-         
+export async function findRoleByName(name, db = prisma) {
+    return db.role.findUnique({
+        where: {
+            name
+        }
+    });
 }
 
-
-export async function createUser(data,db=prisma) {
-
+export async function createUser(data, db = prisma) {
+    const normalizedData = {
+        ...data,
+        email: data.email ? data.email.trim().toLowerCase() : data.email
+    };
     return db.user.create({
-        data    
+        data: normalizedData
     });
-
 }
 
-//new function added for first profile API 
-
-export async function findUserById(id,db=prisma) {
-
+export async function findUserById(id, db = prisma) {
     return db.user.findUnique({
-
         where: {
             id
         },
-
         select: {
             id: true,
             firstName: true,
@@ -66,13 +53,10 @@ export async function findUserById(id,db=prisma) {
                 }
             }
         }
-
     });
-
 }
-//new section for role Management CRUD 
 
-export async function getAllUsers(db=prisma) {
+export async function getAllUsers(db = prisma) {
     return db.user.findMany({
         select: {
             id: true,
@@ -98,7 +82,7 @@ export async function getAllUsers(db=prisma) {
     });
 }
 
-export async function updateUser(id, data,db=prisma) {
+export async function updateUser(id, data, db = prisma) {
     return db.user.update({
         where: {
             id
@@ -107,7 +91,7 @@ export async function updateUser(id, data,db=prisma) {
     });
 }
 
-export async function deleteUser(id,db=prisma) {
+export async function deleteUser(id, db = prisma) {
     return db.user.delete({
         where: {
             id

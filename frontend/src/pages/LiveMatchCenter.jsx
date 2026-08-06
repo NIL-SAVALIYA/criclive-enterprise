@@ -50,7 +50,7 @@ export default function LiveMatchCenter() {
   const live = socketScore || matchDetails || {};
   const score = live.score || live.currentInnings || {};
   const currentBatters = live.currentBatters || {};
-  const currentBowler = live.currentBowler || {};
+  const currentBowler = live.currentBowling || {};
   const partnership = live.partnership || {};
   const recentBalls = live.recentBalls || [];
   const winProb = analytics?.winProbability;
@@ -199,11 +199,10 @@ export default function LiveMatchCenter() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-5 py-3 border-b-2 font-bold text-xs transition-all shrink-0 ${
-                isActive
-                  ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10'
-                  : 'border-transparent text-gray-400 hover:text-white'
-              }`}
+              className={`flex items-center gap-2 px-5 py-3 border-b-2 font-bold text-xs transition-all shrink-0 ${isActive
+                ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10'
+                : 'border-transparent text-gray-400 hover:text-white'
+                }`}
             >
               <Icon className="w-4 h-4" />
               {tab.label}
@@ -232,7 +231,7 @@ export default function LiveMatchCenter() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800 font-mono">
-                  {(scorecardData?.battingScorecard || live.batting || []).map((b, idx) => (
+                  {(scorecardData?.batting || socketScorecard?.batting || []).map((b, idx) => (
                     <tr key={b.id || idx} className="hover:bg-gray-800/40">
                       <td className="p-3 font-bold text-white font-sans">{b.name || `${b.player?.firstName} ${b.player?.lastName}`}</td>
                       <td className="p-3 text-gray-400 font-sans">{b.isOut ? `b ${b.dismissalType || 'out'}` : 'not out'}</td>
@@ -264,7 +263,7 @@ export default function LiveMatchCenter() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800 font-mono">
-                  {(scorecardData?.bowlingScorecard || live.bowling || []).map((bw, idx) => (
+                  {(scorecardData?.bowling || socketScorecard?.bowling || []).map((bw, idx) => (
                     <tr key={bw.id || idx} className="hover:bg-gray-800/40">
                       <td className="p-3 font-bold text-white font-sans">{bw.name || `${bw.bowler?.firstName} ${bw.bowler?.lastName}`}</td>
                       <td className="p-3 text-gray-300">{bw.overs}</td>

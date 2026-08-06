@@ -25,7 +25,7 @@ export function calculateWinProbability({
     };
   }
 
-  let battingProb = 50;
+  let battingProb;
 
   if (inningsNumber === 1) {
     // Innings 1 calculation: Par score estimation (e.g. 8 runs/over baseline = 160 runs for 20 overs)
@@ -51,9 +51,6 @@ export function calculateWinProbability({
       const reqRunRate = (runsNeeded / ballsRemaining) * 6;
       const currRunRate = (totalRuns / legalBalls) * 6;
 
-      // Resource factor (Wickets in hand vs overs remaining ratio)
-      const resourceWeight = (wicketsInHand / 10) * (ballsRemaining / totalMatchBalls);
-      
       // Standard target difficulty metric
       if (reqRunRate <= 6) {
         battingProb = 75 + (10 - reqRunRate) * 3;

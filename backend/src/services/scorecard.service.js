@@ -2,7 +2,7 @@
 import { getMatchById } from "../repositories/match.repository.js";
 import { getLiveInnings } from "../repositories/innings.repository.js";
 import { getBattingScorecardsByInnings } from "../repositories/battingScorecard.repository.js";
-import { getBowlingScorecardsByInnings, getCurrentBowler } from "../repositories/bowlingScorecard.repository.js";
+import { getBowlingScorecardsByInnings } from "../repositories/bowlingScorecard.repository.js";
 import { getFallOfWicketsByInnings } from "../repositories/fallOfWicket.repository.js";
 
 export async function getScorecardService(matchId) {

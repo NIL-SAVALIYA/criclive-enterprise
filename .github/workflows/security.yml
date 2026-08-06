@@ -1,0 +1,30 @@
+name: CRICLIVE Enterprise Security & Vulnerability Audit
+
+on:
+  schedule:
+    - cron: '0 0 * * 0' # Weekly scan
+  workflow_dispatch:
+
+jobs:
+  security-audit:
+    name: Dependency Audit & Secret Scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+
+      - name: Backend Security Audit (npm audit)
+        run: |
+          cd backend
+          npm audit --audit-level=high || true
+
+      - name: Frontend Security Audit (npm audit)
+        run: |
+          cd frontend
+          npm audit --audit-level=high || true

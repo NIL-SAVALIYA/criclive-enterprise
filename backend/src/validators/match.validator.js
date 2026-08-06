@@ -1,58 +1,63 @@
 import { z } from "zod";
 
+export const MatchStatusEnum = z.enum([
+  "UPCOMING",
+  "LIVE",
+  "COMPLETED",
+  "CANCELLED"
+]);
+
+export const TossDecisionEnum = z.enum([
+  "BAT",
+  "BOWL"
+]);
+
 export const createMatchSchema = z.object({
-    teamAId: z.string().uuid(),
+  tournamentId: z.string().uuid("Tournament ID must be a valid UUID.").optional(),
 
-    teamBId: z.string().uuid(),
+  teamAId: z.string().uuid("Team A ID must be a valid UUID."),
 
-    venue: z.string().min(3),
+  teamBId: z.string().uuid("Team B ID must be a valid UUID."),
 
-    matchDate: z.string().datetime(),
+  venue: z.string().trim().min(3, "Venue must be at least 3 characters."),
 
-    tossWinnerId: z.string().uuid().optional(),
+  matchDate: z.string().datetime({ message: "Invalid date format for match date." }),
 
-    tossDecision: z.enum([
-        "BAT",
-        "BOWL"
-    ]).optional(),
+  tossWinnerId: z.string().uuid("Toss winner ID must be a valid UUID.").optional().nullable(),
 
-    status: z.enum([
-        "UPCOMING",
-        "LIVE",
-        "COMPLETED",
-        "CANCELLED"
-    ]).optional()
+  tossDecision: TossDecisionEnum.optional().nullable(),
 
+  status: MatchStatusEnum.optional().default("UPCOMING")
 }).refine(
-    (data) => data.teamAId !== data.teamBId,
-    {
-        message: "Team A and Team B cannot be the same.",
-        path: ["teamBId"]
-    }
+  (data) => data.teamAId !== data.teamBId,
+  {
+    message: "Team A and Team B cannot be the same.",
+    path: ["teamBId"]
+  }
 );
 
 export const updateMatchSchema = z.object({
+  tournamentId: z.string().uuid().optional(),
 
-    teamAId: z.string().uuid().optional(),
+  teamAId: z.string().uuid().optional(),
 
-    teamBId: z.string().uuid().optional(),
+  teamBId: z.string().uuid().optional(),
 
-    venue: z.string().min(3).optional(),
+  venue: z.string().trim().min(3).optional(),
 
-    matchDate: z.string().datetime().optional(),
+  matchDate: z.string().datetime().optional(),
 
-    tossWinnerId: z.string().uuid().optional(),
+  tossWinnerId: z.string().uuid().optional().nullable(),
 
-    tossDecision: z.enum([
-        "BAT",
-        "BOWL"
-    ]).optional(),
+  tossDecision: TossDecisionEnum.optional().nullable(),
 
-    status: z.enum([
-        "UPCOMING",
-        "LIVE",
-        "COMPLETED",
-        "CANCELLED"
-    ]).optional()
+  status: MatchStatusEnum.optional()
+});
 
+export const matchQuerySchema = z.object({
+  page: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 1)),
+  limit: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 10)),
+  search: z.string().optional(),
+  tournamentId: z.string().optional(),
+  status: MatchStatusEnum.optional()
 });

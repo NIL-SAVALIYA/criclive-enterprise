@@ -48,7 +48,7 @@ export function initSocket(server) {
     });
 
     // Reconnect Request
-    socket.on("reconnect_sync", (data) => {
+    socket.on("reconnect_sync", () => {
       socket.emit("sync_ack", { timestamp: new Date(), status: "CONNECTED" });
     });
 

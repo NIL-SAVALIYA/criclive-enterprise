@@ -1,298 +1,210 @@
 import prisma from "../config/db.js";
 
-export async function createMatch(data,db=prisma) {
-    return db.match.create({
-        data,
-        include: {
-            teamA: true,
-            teamB: true,
-            tossWinner: true
-        }
-    });
+/**
+ * Creates a new match record.
+ */
+export async function createMatch(data, db = prisma) {
+  return db.match.create({
+    data,
+    include: {
+      teamA: { select: { id: true, name: true, shortName: true, logoUrl: true } },
+      teamB: { select: { id: true, name: true, shortName: true, logoUrl: true } },
+      tossWinner: { select: { id: true, name: true, shortName: true } }
+    }
+  });
 }
 
-export async function getAllMatches(db=prisma) {
-    return db.match.findMany({
-        include: {
-            teamA: true,
-            teamB: true,
-            tossWinner: true
+/**
+ * Retrieves matches with search, filtering, and pagination.
+ */
+export async function getAllMatches(params = {}, db = prisma) {
+  const { page = 1, limit = 10, search, tournamentId, status } = params;
+  const skip = (page - 1) * limit;
+
+  const where = {};
+
+  if (search) {
+    where.OR = [
+      { venue: { contains: search, mode: "insensitive" } },
+      { teamA: { name: { contains: search, mode: "insensitive" } } },
+      { teamB: { name: { contains: search, mode: "insensitive" } } }
+    ];
+  }
+
+  if (tournamentId) {
+    where.tournamentId = tournamentId;
+  }
+
+  if (status) {
+    where.status = status;
+  }
+
+  const [matches, total] = await Promise.all([
+    db.match.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: {
+        matchDate: "asc"
+      },
+      include: {
+        tournament: { select: { id: true, name: true, format: true } },
+        teamA: { select: { id: true, name: true, shortName: true, logoUrl: true } },
+        teamB: { select: { id: true, name: true, shortName: true, logoUrl: true } },
+        tossWinner: { select: { id: true, name: true, shortName: true } },
+        winnerTeam: { select: { id: true, name: true, shortName: true } },
+        _count: {
+          select: {
+            innings: true,
+            playingXI: true
+          }
+        }
+      }
+    }),
+    db.match.count({ where })
+  ]);
+
+  return {
+    matches,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    }
+  };
+}
+
+/**
+ * Retrieves a match by ID with complete team, innings, and toss relations.
+ */
+export async function getMatchById(id, db = prisma) {
+  return db.match.findUnique({
+    where: { id },
+    include: {
+      tournament: { select: { id: true, name: true, format: true, status: true } },
+      teamA: { select: { id: true, name: true, shortName: true, logoUrl: true } },
+      teamB: { select: { id: true, name: true, shortName: true, logoUrl: true } },
+      tossWinner: { select: { id: true, name: true, shortName: true } },
+      winnerTeam: { select: { id: true, name: true, shortName: true } },
+      innings: {
+        select: {
+          id: true,
+          inningsNumber: true,
+          totalRuns: true,
+          wickets: true,
+          overs: true,
+          status: true,
+          battingTeamId: true,
+          bowlingTeamId: true
         },
-        orderBy: {
-            matchDate: "asc"
+        orderBy: { inningsNumber: "asc" }
+      },
+      _count: {
+        select: {
+          playingXI: true,
+          innings: true
         }
-    });
+      }
+    }
+  });
 }
 
-/*
-|--------------------------------------------------------------------------
-| Get Live Matches
-|--------------------------------------------------------------------------
-*/
+/**
+ * Updates a match record by ID.
+ */
+export async function updateMatch(id, data, db = prisma) {
+  return db.match.update({
+    where: { id },
+    data,
+    include: {
+      teamA: { select: { id: true, name: true, shortName: true, logoUrl: true } },
+      teamB: { select: { id: true, name: true, shortName: true, logoUrl: true } },
+      tossWinner: { select: { id: true, name: true, shortName: true } }
+    }
+  });
+}
 
+/**
+ * Deletes a match record by ID.
+ */
+export async function deleteMatch(id, db = prisma) {
+  return db.match.delete({
+    where: { id }
+  });
+}
+
+/**
+ * Gets currently active LIVE matches.
+ */
 export async function getLiveMatches(db = prisma) {
-    return db.match.findMany({
-        where: {
-            status: "LIVE"
-        },
-        select: {
-            id: true,
-            status: true,
-            matchDate: true,
-            venue: true,
-
-            teamA: {
-                select: {
-                    id: true,
-                    name: true,
-                    shortName: true,
-                    logoUrl: true
-                }
-            },
-
-            teamB: {
-                select: {
-                    id: true,
-                    name: true,
-                    shortName: true,
-                    logoUrl: true
-                }
-            },
-
-            tossWinner: {
-                select: {
-                    id: true,
-                    name: true,
-                    shortName: true
-                }
-            }
-        },
-        orderBy: {
-            matchDate: "asc"
-        }
-    });
+  return db.match.findMany({
+    where: { status: "LIVE" },
+    include: {
+      teamA: { select: { id: true, name: true, shortName: true, logoUrl: true } },
+      teamB: { select: { id: true, name: true, shortName: true, logoUrl: true } },
+      tossWinner: { select: { id: true, name: true, shortName: true } }
+    },
+    orderBy: { matchDate: "asc" }
+  });
 }
 
-/*
-|--------------------------------------------------------------------------
-| Get Upcoming Matches
-|--------------------------------------------------------------------------
-*/
-
+/**
+ * Gets UPCOMING matches.
+ */
 export async function getUpcomingMatches(db = prisma) {
-    return db.match.findMany({
-        where: {
-            status: "UPCOMING"
-        },
-        select: {
-            id: true,
-            status: true,
-            matchDate: true,
-            venue: true,
-
-            teamA: {
-                select: {
-                    id: true,
-                    name: true,
-                    shortName: true,
-                    logoUrl: true
-                }
-            },
-
-            teamB: {
-                select: {
-                    id: true,
-                    name: true,
-                    shortName: true,
-                    logoUrl: true
-                }
-            },
-
-            tossWinner: {
-                select: {
-                    id: true,
-                    name: true,
-                    shortName: true
-                }
-            }
-        },
-        orderBy: {
-            matchDate: "asc"
-        }
-    });
+  return db.match.findMany({
+    where: { status: "UPCOMING" },
+    include: {
+      teamA: { select: { id: true, name: true, shortName: true, logoUrl: true } },
+      teamB: { select: { id: true, name: true, shortName: true, logoUrl: true } },
+      tossWinner: { select: { id: true, name: true, shortName: true } }
+    },
+    orderBy: { matchDate: "asc" }
+  });
 }
 
-/*
-|--------------------------------------------------------------------------
-| Get Completed Matches
-|--------------------------------------------------------------------------
-*/
-
+/**
+ * Gets COMPLETED matches.
+ */
 export async function getCompletedMatches(db = prisma) {
-    return db.match.findMany({
-        where: {
-            status: "COMPLETED"
-        },
-
-        select: {
-            id: true,
-            status: true,
-            matchDate: true,
-            venue: true,
-
-            teamA: {
-                select: {
-                    id: true,
-                    name: true,
-                    shortName: true,
-                    logoUrl: true
-                }
-            },
-
-            teamB: {
-                select: {
-                    id: true,
-                    name: true,
-                    shortName: true,
-                    logoUrl: true
-                }
-            },
-
-            tossWinner: {
-                select: {
-                    id: true,
-                    name: true,
-                    shortName: true
-                }
-            },
-
-            winnerTeam: {
-                select: {
-                    id: true,
-                    name: true,
-                    shortName: true
-                }
-            }
-        },
-        orderBy: {
-            completedAt: "desc"
-        }
-    });
+  return db.match.findMany({
+    where: { status: "COMPLETED" },
+    include: {
+      teamA: { select: { id: true, name: true, shortName: true, logoUrl: true } },
+      teamB: { select: { id: true, name: true, shortName: true, logoUrl: true } },
+      tossWinner: { select: { id: true, name: true, shortName: true } },
+      winnerTeam: { select: { id: true, name: true, shortName: true } }
+    },
+    orderBy: { completedAt: "desc" }
+  });
 }
 
-export async function getMatchById(id,db=prisma) {
-    return db.match.findUnique({
-        where: { id },
-        include: {
-            teamA: true,
-            teamB: true,
-            tossWinner: true
-        }
-    });
+/**
+ * Gets all matches belonging to a specific tournament.
+ */
+export async function getMatchesByTournament(tournamentId, db = prisma) {
+  return db.match.findMany({
+    where: { tournamentId },
+    include: {
+      teamA: { select: { id: true, name: true, shortName: true } },
+      teamB: { select: { id: true, name: true, shortName: true } },
+      tossWinner: { select: { id: true, name: true, shortName: true } }
+    },
+    orderBy: { matchDate: "asc" }
+  });
 }
 
-export async function updateMatch(id, data,db=prisma) {
-    return db.match.update({
-        where: { id },
-        data,
-        include: {
-            teamA: true,
-            teamB: true,
-            tossWinner: true
-        }
-    });
+/**
+ * Counts total matches in a tournament.
+ */
+export async function countMatchesByTournament(tournamentId, db = prisma) {
+  return db.match.count({ where: { tournamentId } });
 }
 
-export async function deleteMatch(id,db=prisma) {
-    return db.match.delete({
-        where: { id }
-    });
-}
-
-//
-
-/*
-|--------------------------------------------------------------------------
-| Create Multiple Matches
-|--------------------------------------------------------------------------
-*/
-
-export async function createManyMatches(data,db=prisma) {
-
-    return db.match.createMany({
-
-        data
-
-    });
-
-}
-
-/*
-|--------------------------------------------------------------------------
-| Get Matches By Tournament
-|--------------------------------------------------------------------------
-*/
-
-export async function getMatchesByTournament(tournamentId,db=prisma) {
-
-    return  db.match.findMany({
-
-        where: {
-            tournamentId
-        },
-
-        include: {
-
-            tournament: true,
-
-            teamA: {
-                select: {
-                    id: true,
-                    name: true,
-                    shortName: true
-                }
-            },
-
-            teamB: {
-                select: {
-                    id: true,
-                    name: true,
-                    shortName: true
-                }
-            },
-
-            tossWinner: {
-                select: {
-                    id: true,
-                    name: true,
-                    shortName: true
-                }
-            }
-
-        },
-
-        orderBy: {
-            matchDate: "asc"
-        }
-
-    });
-
-}
-
-/*
-|--------------------------------------------------------------------------
-| Count Matches By Tournament
-|--------------------------------------------------------------------------
-*/
-
-export async function countMatchesByTournament(tournamentId,db=prisma) {
-
-    return db.match.count({
-
-        where: {
-            tournamentId
-        }
-
-    });
-
+/**
+ * Bulk creates multiple match fixtures.
+ */
+export async function createManyMatches(data, db = prisma) {
+  return db.match.createMany({ data });
 }

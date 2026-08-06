@@ -39,22 +39,40 @@ const app = express();
 
 // Security & Production Middleware
 app.use(helmet({ contentSecurityPolicy: false }));
-app.use(cors({ origin: "*", credentials: true }));
+
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(",")
+  : ["http://localhost:3000", "http://localhost:5173", "http://127.0.0.1:3000"];
+
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS"));
+    }
+  },
+  credentials: true
+}));
+
+import { requestLogger } from "./middleware/requestLogger.middleware.js";
+import diagnosticsRoutes from "./routes/diagnostics.routes.js";
+
+app.use(requestLogger);
 app.use(compression());
 app.use(express.json());
 app.use("/api/", apiRateLimiter);
+app.use("/", diagnosticsRoutes);
 
 // Swagger Documentation
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
-// Health Check
-app.get("/api/health", (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: "Cricket League Management System API is running smoothly.",
-    timestamp: new Date()
-  });
-});
+import healthRoutes from "./routes/health.routes.js";
+
+// Health & Readiness Probes
+app.use("/", healthRoutes);
+app.use("/api", healthRoutes);
+app.use("/api/v1", healthRoutes);
 
 // Register Core APIs
 app.use("/api/v1/auth", authRoutes);
@@ -68,7 +86,7 @@ app.use("/api/v1/tournaments", tournamentStatisticsRoutes);
 app.use("/api/v1/tournament-teams", tournamentTeamRoutes);
 app.use("/api/v1/fixtures", fixtureRoutes);
 app.use("/api/v1/innings", inningsRoutes);
-app.use("/api/innings/:inningsId/balls", ballRoutes);
+app.use("/api/v1/innings/:inningsId/balls", ballRoutes);
 app.use("/api/matches", liveScoreRoutes);
 app.use("/api/points-table", pointsTableRoutes);
 app.use("/api/v1/matches", liveMatchRoutes);
@@ -88,6 +106,7 @@ app.use("/api/v1/notifications", notificationRoutes);
 
 // Global Error Handler
 app.use((err, req, res, next) => {
+  void next;
   console.error("🔥 Global Error Handler:", err);
   res.status(err.status || 500).json({
     success: false,

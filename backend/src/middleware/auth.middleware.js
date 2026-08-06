@@ -35,7 +35,7 @@ export function authenticate(req,res, next) {
         next();
 
 
-        }  catch(error) {
+        }  catch {
 
             return res.status(401).json({
 

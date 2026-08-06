@@ -20,13 +20,15 @@
 |--------------------------------------------------------------------------
 */
 
+import { WicketType } from "../constants/cricket.constants.js";
+
 export function countsToBowler(
 
     wicketType
 
 ) {
 
-    return wicketType !== "RUN_OUT";
+    return wicketType !== WicketType.RUN_OUT;
 
 }
 

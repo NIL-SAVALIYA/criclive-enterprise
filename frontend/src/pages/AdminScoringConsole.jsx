@@ -1,10 +1,14 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../api/client';
 import WagonWheelSVG from '../components/WagonWheelSVG';
 import PitchMapCanvas from '../components/PitchMapCanvas';
 import { Play, Settings, Shield, Target, PieChart, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function AdminScoringConsole() {
+  const [searchParams] = useSearchParams();
+  const urlMatchId = searchParams.get('matchId');
+
   const [matches, setMatches] = useState([]);
   const [selectedMatchId, setSelectedMatchId] = useState('');
   const [matchDetails, setMatchDetails] = useState(null);
@@ -30,15 +34,36 @@ export default function AdminScoringConsole() {
         const res = await api.get('/matches');
         const list = res.data.data || [];
         setMatches(list);
+
         if (list.length > 0) {
-          setSelectedMatchId(list[0].id);
+          // Priority 1: Match ID from URL parameter
+          let targetMatch = urlMatchId ? list.find(m => m.id === urlMatchId) : null;
+
+          // Priority 2: First LIVE match
+          if (!targetMatch) {
+            targetMatch = list.find(m => m.status === 'LIVE');
+          }
+
+          // Priority 3: First UPCOMING match
+          if (!targetMatch) {
+            targetMatch = list.find(m => m.status === 'UPCOMING');
+          }
+
+          // Priority 4: First match in returned list
+          if (!targetMatch) {
+            targetMatch = list[0];
+          }
+
+          if (targetMatch) {
+            setSelectedMatchId(targetMatch.id);
+          }
         }
       } catch (err) {
         console.error('Failed to fetch matches:', err);
       }
     }
     loadMatches();
-  }, []);
+  }, [urlMatchId]);
 
   useEffect(() => {
     if (selectedMatchId) {
@@ -49,6 +74,7 @@ export default function AdminScoringConsole() {
   async function loadMatchDetails(mId) {
     try {
       const res = await api.get(`/matches/${mId}/live`);
+      console.log("LIVE MATCH DATA:", res.data.data);
       setMatchDetails(res.data.data);
     } catch (err) {
       console.error('Failed to load match live status:', err);
@@ -68,15 +94,21 @@ export default function AdminScoringConsole() {
 
   async function handleRecordBall(e) {
     e.preventDefault();
-    if (!matchDetails || !matchDetails.currentInnings) {
-      setStatusMsg({ type: 'error', text: 'No active live innings found for this match.' });
+    if (!matchDetails || !matchDetails.innings) {
+      setStatusMsg({
+        type: 'error',
+        text: 'No active live innings found for this match.'
+      });
       return;
     }
 
-    const inningsId = matchDetails.currentInnings.id;
-    const strikerId = matchDetails.striker?.id || matchDetails.battingScorecard?.[0]?.playerId;
-    const nonStrikerId = matchDetails.nonStriker?.id || matchDetails.battingScorecard?.[1]?.playerId;
-    const bowlerId = matchDetails.currentBowler?.id || matchDetails.bowlingScorecard?.[0]?.bowlerId;
+    const inningsId = matchDetails.innings.id;
+
+    const strikerId = matchDetails.currentBatters?.striker?.id;
+
+    const nonStrikerId = matchDetails.currentBatters?.nonStriker?.id;
+
+    const bowlerId = matchDetails.currentBowling?.id;
 
     if (!strikerId || !bowlerId) {
       setStatusMsg({ type: 'error', text: 'Please ensure Striker and Bowler are assigned in Playing XI.' });
@@ -125,8 +157,8 @@ export default function AdminScoringConsole() {
     }
   }
 
-  const currentInnings = matchDetails?.currentInnings || {};
-
+  const innings = matchDetails?.innings || {};
+  const score = matchDetails?.score || {};
   return (
     <div className="space-y-8 pb-12">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -156,11 +188,10 @@ export default function AdminScoringConsole() {
 
       {statusMsg && (
         <div
-          className={`p-4 rounded-xl text-xs font-bold flex items-center gap-2 ${
-            statusMsg.type === 'success'
-              ? 'bg-emerald-950/80 border border-emerald-500/50 text-emerald-300'
-              : 'bg-red-950/80 border border-red-500/50 text-red-300'
-          }`}
+          className={`p-4 rounded-xl text-xs font-bold flex items-center gap-2 ${statusMsg.type === 'success'
+            ? 'bg-emerald-950/80 border border-emerald-500/50 text-emerald-300'
+            : 'bg-red-950/80 border border-red-500/50 text-red-300'
+            }`}
         >
           {statusMsg.type === 'success' ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
           {statusMsg.text}
@@ -175,14 +206,14 @@ export default function AdminScoringConsole() {
             {/* Live Score Strip */}
             <div className="p-4 bg-gray-900/90 rounded-xl border border-gray-800 flex justify-between items-center">
               <div>
-                <span className="text-xs text-emerald-400 font-bold uppercase">Innings {currentInnings.inningsNumber || 1}</span>
+                <span className="text-xs text-emerald-400 font-bold uppercase">Innings {innings.inningsNumber || 1}</span>
                 <div className="text-2xl font-black text-white font-mono">
-                  {currentInnings.totalRuns || 0}/{currentInnings.wickets || 0}
-                  <span className="text-sm font-normal text-gray-400 ml-2">({currentInnings.overs || 0} Overs)</span>
+                  {score.runs || 0}/{score.wickets || 0}
+                  <span className="text-sm font-normal text-gray-400 ml-2">({score.overs || "0.0"} Overs)</span>
                 </div>
               </div>
               <div className="text-right text-xs font-mono">
-                <div className="text-gray-300">CRR: {currentInnings.currentRunRate || 0}</div>
+                <div className="text-gray-300"></div>
               </div>
             </div>
 
@@ -195,13 +226,12 @@ export default function AdminScoringConsole() {
                     key={r}
                     type="button"
                     onClick={() => setBatRuns(r)}
-                    className={`py-3 rounded-xl font-mono font-black text-base border transition-all ${
-                      batRuns === r
-                        ? r === 4 || r === 6
-                          ? 'bg-amber-500 border-amber-400 text-black shadow-lg scale-105'
-                          : 'bg-emerald-600 border-emerald-400 text-white shadow-lg scale-105'
-                        : 'bg-gray-900 border-gray-800 text-gray-300 hover:border-gray-700'
-                    }`}
+                    className={`py-3 rounded-xl font-mono font-black text-base border transition-all ${batRuns === r
+                      ? r === 4 || r === 6
+                        ? 'bg-amber-500 border-amber-400 text-black shadow-lg scale-105'
+                        : 'bg-emerald-600 border-emerald-400 text-white shadow-lg scale-105'
+                      : 'bg-gray-900 border-gray-800 text-gray-300 hover:border-gray-700'
+                      }`}
                   >
                     {r}
                   </button>

@@ -1,119 +1,142 @@
 import prisma from "../config/db.js";
 
-/*
-|--------------------------------------------------------------------------
-| Create Tournament
-|--------------------------------------------------------------------------
-*/
-
-export async function createTournament(data) {
-
-    return prisma.tournament.create({
-
-        data
-
-    });
-
+/**
+ * Creates a new tournament record.
+ */
+export async function createTournament(data, db = prisma) {
+  return db.tournament.create({
+    data
+  });
 }
 
-/*
-|--------------------------------------------------------------------------
-| Get All Tournaments
-|--------------------------------------------------------------------------
-*/
+/**
+ * Retrieves tournaments with search, filtering, and pagination.
+ */
+export async function getAllTournaments(params = {}, db = prisma) {
+  const { page = 1, limit = 10, search, status, format } = params;
+  const skip = (page - 1) * limit;
 
-export async function getAllTournaments() {
+  const where = {};
 
-    return prisma.tournament.findMany({
+  if (search) {
+    where.name = {
+      contains: search,
+      mode: "insensitive"
+    };
+  }
 
-        orderBy: {
+  if (status) {
+    where.status = status;
+  }
 
-            startDate: "desc"
+  if (format) {
+    where.format = format;
+  }
 
+  const [tournaments, total] = await Promise.all([
+    db.tournament.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: {
+        startDate: "desc"
+      },
+      include: {
+        _count: {
+          select: {
+            registeredTeams: true,
+            matches: true
+          }
         }
+      }
+    }),
+    db.tournament.count({ where })
+  ]);
 
-    });
-
+  return {
+    tournaments,
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit)
+    }
+  };
 }
 
-/*
-|--------------------------------------------------------------------------
-| Get Tournament By ID
-|--------------------------------------------------------------------------
-*/
-
-export async function getTournamentById(id) {
-
-    return prisma.tournament.findUnique({
-
-        where: {
-
-            id
-
+/**
+ * Retrieves a tournament by ID with relation summary counts.
+ */
+export async function getTournamentById(id, db = prisma) {
+  return db.tournament.findUnique({
+    where: { id },
+    include: {
+      _count: {
+        select: {
+          registeredTeams: true,
+          matches: true
         }
-
-    });
-
-}
-
-/*
-|--------------------------------------------------------------------------
-| Update Tournament
-|--------------------------------------------------------------------------
-*/
-
-export async function updateTournament(id, data) {
-
-    return prisma.tournament.update({
-
-        where: {
-
-            id
-
+      },
+      registeredTeams: {
+        include: {
+          team: {
+            select: {
+              id: true,
+              name: true,
+              shortName: true,
+              logoUrl: true
+            }
+          }
+        }
+      },
+      matches: {
+        select: {
+          id: true,
+          matchDate: true,
+          status: true,
+          venue: true,
+          result: true,
+          teamA: { select: { id: true, name: true, shortName: true } },
+          teamB: { select: { id: true, name: true, shortName: true } }
         },
-
-        data
-
-    });
-
+        orderBy: {
+          matchDate: "asc"
+        }
+      }
+    }
+  });
 }
 
-/*
-|--------------------------------------------------------------------------
-| Delete Tournament
-|--------------------------------------------------------------------------
-*/
-
-export async function deleteTournament(id) {
-
-    return prisma.tournament.delete({
-
-        where: {
-
-            id
-
-        }
-
-    });
-
+/**
+ * Updates a tournament record by ID.
+ */
+export async function updateTournament(id, data, db = prisma) {
+  return db.tournament.update({
+    where: { id },
+    data
+  });
 }
 
-/*
-|--------------------------------------------------------------------------
-| Find Tournament By Name
-|--------------------------------------------------------------------------
-*/
+/**
+ * Deletes a tournament record by ID.
+ */
+export async function deleteTournament(id, db = prisma) {
+  return db.tournament.delete({
+    where: { id }
+  });
+}
 
-export async function findTournamentByName(name) {
-
-    return prisma.tournament.findUnique({
-
-        where: {
-
-            name
-
-        }
-
-    });
-
+/**
+ * Finds a tournament by name (case-insensitive).
+ */
+export async function findTournamentByName(name, db = prisma) {
+  if (!name) return null;
+  return db.tournament.findFirst({
+    where: {
+      name: {
+        equals: name.trim(),
+        mode: "insensitive"
+      }
+    }
+  });
 }

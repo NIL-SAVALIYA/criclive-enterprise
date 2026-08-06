@@ -1,28 +1,59 @@
 import { Router } from "express";
-
 import {
-    create,
-    getAll,
-    getOne,
-    update,
-    remove
+  create,
+  getAll,
+  getOne,
+  update,
+  remove
 } from "../controllers/player.controller.js";
-
 import { authenticate } from "../middleware/auth.middleware.js";
 import { authorize } from "../middleware/authorize.middleware.js";
+import { Roles } from "../constants/roles.js";
 
 const router = Router();
 
-// ADMIN and ORGANIZER can manage players
+/*
+|--------------------------------------------------------------------------
+| Player Routes (RBAC Protected)
+|--------------------------------------------------------------------------
+*/
 
-router.post("/", authenticate, authorize("ADMIN", "ORGANIZER"), create);
+// Create Player (ADMIN, ORGANIZER, TOURNAMENT_ADMIN, TEAM_MANAGER)
+router.post(
+  "/",
+  authenticate,
+  authorize(Roles.ADMIN, Roles.ORGANIZER, Roles.TOURNAMENT_ADMIN, Roles.TEAM_MANAGER),
+  create
+);
 
-router.get("/", authenticate, getAll);
+// Get All Players (Authenticated read-only)
+router.get(
+  "/",
+  authenticate,
+  getAll
+);
 
-router.get("/:id", authenticate, getOne);
+// Get Player By ID (Authenticated read-only)
+router.get(
+  "/:id",
+  authenticate,
+  getOne
+);
 
-router.put("/:id", authenticate, authorize("ADMIN", "ORGANIZER"), update);
+// Update Player (ADMIN, ORGANIZER, TOURNAMENT_ADMIN, TEAM_MANAGER)
+router.put(
+  "/:id",
+  authenticate,
+  authorize(Roles.ADMIN, Roles.ORGANIZER, Roles.TOURNAMENT_ADMIN, Roles.TEAM_MANAGER),
+  update
+);
 
-router.delete("/:id", authenticate, authorize("ADMIN"), remove);
+// Delete Player (ADMIN only)
+router.delete(
+  "/:id",
+  authenticate,
+  authorize(Roles.ADMIN),
+  remove
+);
 
 export default router;

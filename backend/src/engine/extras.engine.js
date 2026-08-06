@@ -19,19 +19,9 @@
 |--------------------------------------------------------------------------
 */
 
-export const EXTRA_TYPES = {
+import { ExtraType } from "../constants/cricket.constants.js";
 
-    NONE: "NONE",
-
-    WIDE: "WIDE",
-
-    NO_BALL: "NO_BALL",
-
-    BYE: "BYE",
-
-    LEG_BYE: "LEG_BYE"
-
-};
+export const EXTRA_TYPES = ExtraType;
 
 /*
 |--------------------------------------------------------------------------
@@ -81,13 +71,9 @@ export function calculateExtraRuns({
             return 0;
 
         case EXTRA_TYPES.WIDE:
-
         case EXTRA_TYPES.NO_BALL:
-
         case EXTRA_TYPES.BYE:
-
         case EXTRA_TYPES.LEG_BYE:
-
             return extraRuns;
 
         default:

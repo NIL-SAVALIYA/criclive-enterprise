@@ -111,10 +111,10 @@ export async function getPlayerStatisticsService(playerId) {
 
 export async function getPlayerCareerRecordsService(playerId) {
     const formats = ["LEAGUE", "KNOCKOUT", "ROUND_ROBIN", "HYBRID"];
-    let overall = null;
+    let overall;
     try {
         overall = await getPlayerStatisticsService(playerId);
-    } catch (err) {
+    } catch {
         // Player not found
         return {
             overall: null,

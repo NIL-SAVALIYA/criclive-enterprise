@@ -12,7 +12,9 @@
 |--------------------------------------------------------------------------
 */
 
-export const BALLS_PER_OVER = 6;
+import { BALLS_PER_OVER } from "../constants/cricket.constants.js";
+
+export { BALLS_PER_OVER };
 
 /*
 |--------------------------------------------------------------------------

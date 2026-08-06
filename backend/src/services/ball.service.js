@@ -12,9 +12,8 @@ import prisma from "../config/db.js";
 /*                               Repositories                                 */
 /* -------------------------------------------------------------------------- */
 
-import { createBall, 
-     updateBall,
-    getBallsByInnings,
+import {
+    createBall,
     getBallById
 } from "../repositories/ball.repository.js";
 
@@ -44,8 +43,6 @@ import {
     createFallOfWicket
 } from "../repositories/fallOfWicket.repository.js";
 
-import { ExtraType } from "@prisma/client";
-
 
 /* -------------------------------------------------------------------------- */
 /*                                 Engines                                    */
@@ -53,7 +50,7 @@ import { ExtraType } from "@prisma/client";
 
 import { buildBallData } from "../engine/score.engine.js";
 import { buildExtrasSummary } from "../engine/extras.engine.js";
-import { buildOverSummary,calculateCurrentOverRuns } from "../engine/over.engine.js";
+import { buildOverSummary } from "../engine/over.engine.js";
 import { buildStrikeSummary } from "../engine/strike.engine.js";
 import { buildBattingSummary } from "../engine/batting.engine.js";
 import { buildBowlingSummary } from "../engine/bowling.engine.js";
@@ -70,51 +67,34 @@ import { emitLiveScore, emitCommentary, emitScorecardRefresh } from "../socket/s
 /*                              Ball Service                                  */
 /* -------------------------------------------------------------------------- */
 
+import { createDeliveryContext } from "../engine/delivery.context.js";
+
 export async function createBallService(data) {
 
-    return prisma.$transaction(async (tx) => {
+    const deliveryCtx = createDeliveryContext(data);
 
-        /* ------------------------------------------------------------------ */
-        /*                           Validate Input                           */
-        /* ------------------------------------------------------------------ */
+    const result = await prisma.$transaction(async (tx) => {
 
         const {
-
             inningsId,
             batsmanId,
             nonStrikerId,
             bowlerId,
-
-            batRuns = 0,
-            extraRuns = 0,
-            extraType = ExtraType.NONE,
-
-            isWicket = false,
-            wicketType = null,
-            dismissedPlayerId = null,
-            newBatsmanId = null,
-            fielderId = null,
-
-            commentary = "",
-            shotZone = null,
-            shotX = null,
-            shotY = null,
-            pitchLength = null,
-            pitchLine = null
-
-        } = data;
-
-        if (!inningsId)
-            throw new Error("Innings ID is required.");
-
-        if (!batsmanId)
-            throw new Error("Batsman ID is required.");
-
-        if (!nonStrikerId)
-            throw new Error("Non-striker ID is required.");
-
-        if (!bowlerId)
-            throw new Error("Bowler ID is required.");
+            batRuns,
+            extraRuns,
+            extraType,
+            isWicket,
+            wicketType,
+            dismissedPlayerId,
+            newBatsmanId,
+            fielderId,
+            commentary,
+            shotZone,
+            shotX,
+            shotY,
+            pitchLength,
+            pitchLine
+        } = deliveryCtx;
 
         /* ------------------------------------------------------------------ */
         /*                         Load Match State                           */
@@ -220,12 +200,12 @@ export async function createBallService(data) {
 
             totalDeliveries: innings.totalBalls
 
-        }); 
+        });
 
         console.log("BALL OBJECT");
         console.dir(ball, { depth: null });
 
-        const savedBall = await createBall( ball,tx);
+        const savedBall = await createBall(ball, tx);
 
         /* ------------------------------------------------------------------ */
         /*                         Engine Calculations                        */
@@ -241,19 +221,13 @@ export async function createBallService(data) {
 
         });
 
-        const inningsBalls =
-        await getBallsByInnings(
-            innings.id,
-            tx
-        );
-        const currentOverRuns =
-            calculateCurrentOverRuns(
-                inningsBalls,
-                ball.over
-            );
-            console.log("currentOverRuns:", currentOverRuns);
-            console.log("legalBalls:", innings.legalBalls);
-            console.log("ball.over:", ball.over);
+        const currentOverBalls = await tx.ball.findMany({
+            where: { inningsId: innings.id, over: ball.over }
+        });
+        const currentOverRuns = currentOverBalls.reduce((sum, b) => sum + b.totalRuns, 0);
+        console.log("currentOverRuns:", currentOverRuns);
+        console.log("legalBalls:", innings.legalBalls);
+        console.log("ball.over:", ball.over);
 
         const over = buildOverSummary({
 
@@ -264,10 +238,16 @@ export async function createBallService(data) {
             totalDeliveries:
                 innings.totalBalls + 1,
 
-            overRuns:  currentOverRuns
+            overRuns: currentOverRuns
 
         });
-
+        console.log("===== STRIKE INPUT =====");
+        console.log({
+            batsmanId,
+            nonStrikerId,
+            totalRuns: ball.totalRuns,
+            overCompleted: over.completed
+        });
         const strike = buildStrikeSummary({
 
             strikerId: batsmanId,
@@ -279,6 +259,8 @@ export async function createBallService(data) {
             overCompleted: over.completed
 
         });
+        console.log("===== STRIKE OUTPUT =====");
+        console.log(strike);
 
         const battingSummary =
             buildBattingSummary({
@@ -306,7 +288,7 @@ export async function createBallService(data) {
                 fielderId: ball.fielderId
 
             });
-        
+
 
 
 
@@ -325,7 +307,7 @@ export async function createBallService(data) {
                     bowling.wickets +
                     (
                         ball.isWicket &&
-                        ball.wicketType !== "RUN_OUT"
+                            ball.wicketType !== "RUN_OUT"
                             ? 1
                             : 0
                     ),
@@ -333,12 +315,12 @@ export async function createBallService(data) {
                 maidens:
                     bowling.maidens +
                     (
-                    over.completed &&
-                    over.maiden
-                        ? 1
-                        : 0
+                        over.completed &&
+                            over.maiden
+                            ? 1
+                            : 0
                     ),
- 
+
                 wides:
                     bowling.wides +
                     (
@@ -489,11 +471,19 @@ export async function createBallService(data) {
                 balls: partnershipSummary.balls,
                 fours: partnershipSummary.fours,
                 sixes: partnershipSummary.sixes,
-                isActive: partnershipSummary.isActive
+                isActive: partnershipSummary.isActive,
+
+                strikerId: strike.strikerId,
+                nonStrikerId: strike.nonStrikerId
             },
             tx
         );
+        const updatedPartnership = await tx.partnership.findUnique({
+            where: { id: partnership.id }
+        });
 
+        console.log("===== PARTNERSHIP AFTER UPDATE =====");
+        console.log(updatedPartnership);
         /* ------------------------------------------------------------------ */
         /*                         Handle Wicket                              */
         /* ------------------------------------------------------------------ */
@@ -518,6 +508,12 @@ export async function createBallService(data) {
                 partnership.id,
                 tx
             );
+            const updatedPartnership = await tx.partnership.findUnique({
+                where: { id: partnership.id }
+            });
+
+            console.log("===== PARTNERSHIP AFTER UPDATE =====");
+            console.log(updatedPartnership);
 
             if (dismissedPlayerId && dismissedPlayerId !== nonStrikerId) {
 
@@ -555,13 +551,13 @@ export async function createBallService(data) {
 
         }
 
-        await evaluateMatchResult( innings.id,tx);
+        await evaluateMatchResult(innings.id, tx);
 
         /* ------------------------------------------------------------------ */
         /*                           Save Ball                                */
         /* ------------------------------------------------------------------ */
 
-        
+
 
         /* ------------------------------------------------------------------ */
         /*                           Build Response                           */

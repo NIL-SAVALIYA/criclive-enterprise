@@ -236,6 +236,7 @@ export default function AdminDashboard() {
                     <th className="p-3">Venue</th>
                     <th className="p-3">Status</th>
                     <th className="p-3">Date</th>
+                    <th className="p-3 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800">
@@ -251,6 +252,24 @@ export default function AdminDashboard() {
                         </span>
                       </td>
                       <td className="p-3 text-gray-400">{new Date(m.matchDate).toLocaleDateString()}</td>
+                      <td className="p-3 text-right">
+                        {m.status === 'UPCOMING' && (
+                          <Link 
+                            to={`/admin/match-control/${m.id}`}
+                            className="px-3 py-1 bg-blue-600/20 text-blue-400 hover:bg-blue-600/40 border border-blue-500/30 rounded text-xs font-bold transition-all"
+                          >
+                            Set up Match
+                          </Link>
+                        )}
+                        {m.status === 'LIVE' && (
+                          <Link 
+                            to={`/admin/scorer`}
+                            className="px-3 py-1 bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 border border-emerald-500/30 rounded text-xs font-bold transition-all"
+                          >
+                            Score Match
+                          </Link>
+                        )}
+                      </td>
                     </tr>
                   ))}
                 </tbody>

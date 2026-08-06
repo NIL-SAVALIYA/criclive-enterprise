@@ -1,22 +1,32 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-
+  "description": "CRICLIVE Enterprise Backend API & Real-time Scoring Service",
+  "main": "src/server.js",
+  "type": "module",
   "scripts": {
     "dev": "nodemon src/server.js",
     "start": "node src/server.js",
+    "build": "prisma generate",
     "test": "node src/tests/api.test.js",
+    "lint": "eslint src/",
+    "health": "node -e \"import('http').then(h => h.get('http://localhost:5000/health', r => process.exit(r.statusCode === 200 ? 0 : 1)))\"",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
+    "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
     "prisma:seed": "node prisma/seed.js"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": [
+    "cricket",
+    "scoring",
+    "saas",
+    "express",
+    "prisma",
+    "socket.io"
+  ],
+  "author": "CRICLIVE Team",
   "license": "ISC",
-  "type": "module",
   "dependencies": {
     "@prisma/client": "^6.19.3",
     "bcrypt": "^6.0.0",
@@ -36,7 +46,11 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@eslint/json": "^2.0.1",
     "@types/node": "^26.1.1",
+    "eslint": "^10.8.0",
+    "globals": "^17.9.0",
     "nodemon": "^3.1.14"
   }
 }
