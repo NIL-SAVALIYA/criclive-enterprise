@@ -12,7 +12,7 @@ import {
 
 import {
     getTournamentTeams
-} from "../repositories/tournament-Team.repository.js";
+} from "../repositories/tournament-team.repository.js";
 
 import {
     buildPointsTableSummary,
@@ -64,101 +64,101 @@ export async function updatePointsTableService(
     tournamentId,
     teamId,
     summary,
-    db=prisma
+    db = prisma
 ) {
-    
 
-        const record =
-            await getPointsTableByTeam(
-                tournamentId,
-                teamId,
-                db
-            );
 
-        if (!record) {
-            throw new Error("Points table entry not found.");
-        }
-
-        const updated =
-            buildPointsTableSummary({
-
-                team: record.team,
-
-                played:
-                    record.played + 1,
-
-                won:
-                    record.won + (summary.won ? 1 : 0),
-
-                lost:
-                    record.lost + (summary.lost ? 1 : 0),
-
-                tied:
-                    record.tied + (summary.tied ? 1 : 0),
-
-                noResult:
-                    record.noResult +
-                    (summary.noResult ? 1 : 0),
-
-                runsScored:
-                    record.runsScored +
-                    summary.runsScored,
-
-                ballsFaced:
-                    record.ballsFaced +
-                    summary.ballsFaced,
-
-                runsConceded:
-                    record.runsConceded +
-                    summary.runsConceded,
-
-                ballsBowled:
-                    record.ballsBowled +
-                    summary.ballsBowled
-
-            });
-
-        await updatePointsTableByTeam(
+    const record =
+        await getPointsTableByTeam(
             tournamentId,
             teamId,
-            {
-                played: updated.played,
-                won: updated.won,
-                lost: updated.lost,
-                tied: updated.tied,
-                noResult: updated.noResult,
-                points: updated.points,
-                runsScored: updated.runsScored,
-                ballsFaced: updated.ballsFaced,
-                runsConceded: updated.runsConceded,
-                ballsBowled: updated.ballsBowled,
-                netRunRate: updated.netRunRate
-            },
             db
         );
 
-        const standings =
-            await getPointsTableByTournament(
-                tournamentId,
-                db
-            );
+    if (!record) {
+        throw new Error("Points table entry not found.");
+    }
 
-        const sorted =
-            sortStandings(standings);
+    const updated =
+        buildPointsTableSummary({
 
-        const positioned =
-            assignPositions(sorted);
+            team: record.team,
 
-        await updatePositions(
-            positioned,
+            played:
+                record.played + 1,
+
+            won:
+                record.won + (summary.won ? 1 : 0),
+
+            lost:
+                record.lost + (summary.lost ? 1 : 0),
+
+            tied:
+                record.tied + (summary.tied ? 1 : 0),
+
+            noResult:
+                record.noResult +
+                (summary.noResult ? 1 : 0),
+
+            runsScored:
+                record.runsScored +
+                summary.runsScored,
+
+            ballsFaced:
+                record.ballsFaced +
+                summary.ballsFaced,
+
+            runsConceded:
+                record.runsConceded +
+                summary.runsConceded,
+
+            ballsBowled:
+                record.ballsBowled +
+                summary.ballsBowled
+
+        });
+
+    await updatePointsTableByTeam(
+        tournamentId,
+        teamId,
+        {
+            played: updated.played,
+            won: updated.won,
+            lost: updated.lost,
+            tied: updated.tied,
+            noResult: updated.noResult,
+            points: updated.points,
+            runsScored: updated.runsScored,
+            ballsFaced: updated.ballsFaced,
+            runsConceded: updated.runsConceded,
+            ballsBowled: updated.ballsBowled,
+            netRunRate: updated.netRunRate
+        },
+        db
+    );
+
+    const standings =
+        await getPointsTableByTournament(
+            tournamentId,
             db
         );
 
-        return positioned;
-    
+    const sorted =
+        sortStandings(standings);
+
+    const positioned =
+        assignPositions(sorted);
+
+    await updatePositions(
+        positioned,
+        db
+    );
+
+    return positioned;
+
 }
 
-export async function getPointsTableService( tournamentId) {
+export async function getPointsTableService(tournamentId) {
     const standings =
         await getPointsTableByTournament(
             tournamentId
