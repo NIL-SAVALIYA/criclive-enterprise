@@ -29,14 +29,12 @@ router.post(
 // Get All Players (Authenticated read-only)
 router.get(
   "/",
-  authenticate,
   getAll
 );
 
 // Get Player By ID (Authenticated read-only)
 router.get(
   "/:id",
-  authenticate,
   getOne
 );
 
