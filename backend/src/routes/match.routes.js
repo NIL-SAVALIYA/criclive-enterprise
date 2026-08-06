@@ -29,7 +29,6 @@ router.post(
 // Get All Matches (Authenticated read-only)
 router.get(
   "/",
-  authenticate,
   getAll
 );
 
