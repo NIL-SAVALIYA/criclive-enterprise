@@ -64,9 +64,17 @@ export const createPlayerSchema = z.object({
 export const updatePlayerSchema = createPlayerSchema.partial();
 
 export const playerQuerySchema = z.object({
-  page: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 1)),
-  limit: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 10)),
+  page: z.string().optional().transform((val) =>
+    val ? parseInt(val, 10) : undefined
+  ),
+
+  limit: z.string().optional().transform((val) =>
+    val ? parseInt(val, 10) : undefined
+  ),
+
   search: z.string().optional(),
+
   teamId: z.string().optional(),
+
   playerType: PlayerTypeEnum.optional()
 });
