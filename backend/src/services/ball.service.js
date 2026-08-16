@@ -73,7 +73,8 @@ export async function createBallService(data) {
 
     const deliveryCtx = createDeliveryContext(data);
 
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(
+    async (tx) => {
 
         const {
             inningsId,
@@ -596,8 +597,12 @@ export async function createBallService(data) {
             ball: finalBall
 
         };
-
-    });
+    },
+    {
+        maxWait: 10000,
+        timeout: 15000
+    }
+);
 
     if (result && result.ball) {
         const matchId = result.ball.innings?.matchId;
@@ -616,3 +621,5 @@ export async function createBallService(data) {
 
     return result;
 }
+
+
