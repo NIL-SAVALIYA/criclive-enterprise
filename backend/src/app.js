@@ -104,6 +104,17 @@ app.use("/api/v1/matches", analyticsRoutes);
 app.use("/api/v1/records", recordsRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
 
+// 404 Not Found Catch-All Handler
+app.use((req, res) => {
+  res.status(404).json({
+    success: false,
+    message: `Cannot ${req.method} ${req.originalUrl}`,
+    error: "Resource Not Found",
+    documentation: "/api-docs",
+    healthCheck: "/health"
+  });
+});
+
 // Global Error Handler
 app.use((err, req, res, next) => {
   void next;

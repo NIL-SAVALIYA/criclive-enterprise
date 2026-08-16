@@ -26,7 +26,7 @@ router.post(
   create
 );
 
-// Get All Matches (Authenticated read-only)
+// Get All Matches (Public read-only)
 router.get(
   "/",
   getAll

@@ -174,6 +174,17 @@ export async function deletePlayingXIByMatch(matchId, db = prisma) {
     });
 }
 
+export async function deletePlayingXIByTeam(matchId, teamId, db = prisma) {
+
+    return await db.playingXI.deleteMany({
+
+        where: {
+            matchId,
+            teamId
+        }
+    });
+}
+
 export async function existsPlayingXIPlayer( matchId, playerId,db = prisma) {
 
     const player = await db.playingXI.findFirst({

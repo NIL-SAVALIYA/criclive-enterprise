@@ -16,8 +16,8 @@ async function runApiVerificationTests() {
     { name: "Notifications Feed", url: `${baseUrl}/api/v1/notifications`, expectedStatus: 200 },
     { name: "Match Analytics", url: `${baseUrl}/api/v1/matches/dummy-id/analytics`, expectedStatus: 200 },
     { name: "Player Career Records", url: `${baseUrl}/api/v1/players/dummy-id/career-records`, expectedStatus: 200 },
-    { name: "Protected Tournaments (Unauthenticated Check)", url: `${baseUrl}/api/v1/tournaments`, expectedStatus: 401 },
-    { name: "Protected Teams (Unauthenticated Check)", url: `${baseUrl}/api/v1/teams`, expectedStatus: 401 },
+    { name: "Public Tournaments", url: `${baseUrl}/api/v1/tournaments`, expectedStatus: 200 },
+    { name: "Public Teams", url: `${baseUrl}/api/v1/teams`, expectedStatus: 200 },
     { name: "Swagger Docs UI", url: `${baseUrl}/api-docs/`, expectedStatus: 200 }
   ];
 

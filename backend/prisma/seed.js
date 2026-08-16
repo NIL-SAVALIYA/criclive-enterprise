@@ -121,44 +121,44 @@ async function main() {
     console.log("✅ Teams registered in tournament.");
 
     // ==========================
-    // Seed First Match
-    // ==========================
+// Seed First Match
+// ==========================
 
-    const thunderStrikers = await prisma.team.findFirst({
-        where: {
-            shortName: "TS"
-        }
-    });
+const thunderStrikers = await prisma.team.findFirst({
+  where: {
+    shortName: "TS"
+  }
+});
 
-    const phoenixWarriors = await prisma.team.findFirst({
-        where: {
-            shortName: "PW"
-        }
-    });
+const phoenixWarriors = await prisma.team.findFirst({
+  where: {
+    shortName: "PW"
+  }
+});
 
-    await prisma.match.upsert({
-        where: {
-            id: "11111111-1111-1111-1111-111111111111"
-        },
-        update: {},
-        create: {
-            id: "11111111-1111-1111-1111-111111111111",
+await prisma.match.upsert({
+  where: {
+    id: "11111111-1111-1111-1111-111111111111"
+  },
+  update: {},
+  create: {
+    id: "11111111-1111-1111-1111-111111111111",
 
-            tournamentId: tournamentRecord.id,
+    tournamentId: tournamentRecord.id,
 
-            teamAId: thunderStrikers.id,
+    teamAId: thunderStrikers.id,
 
-            teamBId: phoenixWarriors.id,
+    teamBId: phoenixWarriors.id,
 
-            venue: "Narendra Modi Stadium",
+    venue: "Narendra Modi Stadium",
 
-            matchDate: new Date("2026-08-10T19:30:00"),
+    matchDate: new Date("2026-08-10T19:30:00"),
 
-            status: "UPCOMING"
-        }
-    });
+    status: "UPCOMING"
+  }
+});
 
-    console.log("✅ First match seeded.");
+console.log("✅ First match seeded.");
 }
 
 main()

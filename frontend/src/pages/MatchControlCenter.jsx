@@ -35,16 +35,35 @@ export default function MatchControlCenter() {
   async function fetchData() {
     setLoading(true);
     try {
-      const [matchRes, playersRes] = await Promise.all([
+      const [matchRes, playersRes, playingXIRes] = await Promise.all([
         api.get(`/matches/${matchId}`),
-        api.get('/players')
+        api.get('/players'),
+        api.get(`/matches/${matchId}/playing-xi`).catch(() => ({ data: { data: null } }))
       ]);
-      setMatch(matchRes.data.data);
+      const matchData = matchRes.data.data;
+      setMatch(matchData);
       setPlayers(playersRes.data.data);
 
-      if (matchRes.data.data.tossWinnerId) {
-        setTossWinnerId(matchRes.data.data.tossWinnerId);
-        setTossDecision(matchRes.data.data.tossDecision || 'BAT');
+      if (matchData.tossWinnerId) {
+        setTossWinnerId(matchData.tossWinnerId);
+        setTossDecision(matchData.tossDecision || 'BAT');
+      }
+
+      const xiData = playingXIRes?.data?.data;
+      if (xiData) {
+        // Restore Team A XI if saved
+        const teamAPlayersList = xiData.teamA?.players || (Array.isArray(xiData.playingXI) ? xiData.playingXI.filter(p => p.teamId === matchData.teamAId) : []);
+        if (teamAPlayersList && teamAPlayersList.length > 0) {
+          const sortedTeamA = [...teamAPlayersList].sort((a, b) => a.battingOrder - b.battingOrder);
+          setTeamAXI(sortedTeamA.map(p => p.playerId));
+        }
+
+        // Restore Team B XI if saved
+        const teamBPlayersList = xiData.teamB?.players || (Array.isArray(xiData.playingXI) ? xiData.playingXI.filter(p => p.teamId === matchData.teamBId) : []);
+        if (teamBPlayersList && teamBPlayersList.length > 0) {
+          const sortedTeamB = [...teamBPlayersList].sort((a, b) => a.battingOrder - b.battingOrder);
+          setTeamBXI(sortedTeamB.map(p => p.playerId));
+        }
       }
     } catch (err) {
       console.error(err);
@@ -103,7 +122,7 @@ export default function MatchControlCenter() {
         });
       }
 
-      // 2. Save Playing XI for Team A & Team B separately (11 players per team, exactly 1 captain)
+      // 2. Save/Update Playing XI for Team A & Team B separately (11 players per team, exactly 1 captain)
       const formatXI = (xi) => xi.map((playerId, i) => ({
         playerId,
         battingOrder: i + 1,
@@ -111,27 +130,15 @@ export default function MatchControlCenter() {
         isWicketKeeper: i === 1
       }));
 
-      try {
-        await api.post(`/matches/${matchId}/playing-xi`, {
-          teamId: match.teamAId,
-          players: formatXI(teamAXI)
-        });
-      } catch (err) {
-        if (!err.response?.data?.message?.includes('already exists')) {
-          throw err;
-        }
-      }
+      await api.put(`/matches/${matchId}/playing-xi`, {
+        teamId: match.teamAId,
+        players: formatXI(teamAXI)
+      });
 
-      try {
-        await api.post(`/matches/${matchId}/playing-xi`, {
-          teamId: match.teamBId,
-          players: formatXI(teamBXI)
-        });
-      } catch (err) {
-        if (!err.response?.data?.message?.includes('already exists')) {
-          throw err;
-        }
-      }
+      await api.put(`/matches/${matchId}/playing-xi`, {
+        teamId: match.teamBId,
+        players: formatXI(teamBXI)
+      });
 
       // 3. Start Match
       await api.post(`/matches/${matchId}/start`, {
