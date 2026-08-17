@@ -64,8 +64,37 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const hasRole = (...roles) => {
+    if (!user || !user.role) return false;
+    const flatRoles = roles.flat(Infinity).map((r) => (typeof r === 'string' ? r.toUpperCase().trim() : r));
+    if (flatRoles.length === 0) return true;
+    const userRole = typeof user.role === 'string' ? user.role.toUpperCase().trim() : user.role;
+    return flatRoles.includes(userRole);
+  };
+
+  const isAdmin = user?.role === 'ADMIN';
+  const isOrganizer = user?.role === 'ORGANIZER';
+  const isViewer = user?.role === 'VIEWER';
+  const isScorer = user?.role === 'SCORER';
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, hasRole, refreshUserProfile, setUser }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        token,
+        loading,
+        login,
+        register,
+        logout,
+        hasRole,
+        isAdmin,
+        isOrganizer,
+        isViewer,
+        isScorer,
+        refreshUserProfile,
+        setUser
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
