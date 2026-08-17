@@ -1,16 +1,18 @@
 import {
     getInningsById,
-    completeInnings,
-    createInnings
+    completeInnings
 } from "../repositories/innings.repository.js";
 
 import {
-    getMatchById,
-    updateMatch
+    getMatchById
 } from "../repositories/match.repository.js";
 
-export async function endInnings(inningsId) {
+import {
+    startSecondInnings,
+    evaluateMatchResult
+} from "../engine/matchResult.engine.js";
 
+export async function endInnings(inningsId) {
     const innings = await getInningsById(inningsId);
 
     if (!innings) {
@@ -26,35 +28,18 @@ export async function endInnings(inningsId) {
     const match = await getMatchById(innings.matchId);
 
     if (innings.inningsNumber === 1) {
-
-        await createInnings({
-
-            matchId: innings.matchId,
-
-            inningsNumber: 2,
-
-            battingTeamId: innings.bowlingTeamId,
-
-            bowlingTeamId: innings.battingTeamId,
-
-            status: "LIVE"
-
-        });
+        const secondInnings = await startSecondInnings(match.id, innings);
 
         return {
-            message: "First innings completed. Second innings started."
+            message: "First innings completed. Second innings started.",
+            secondInningsId: secondInnings.id
         };
     }
 
-    await updateMatch(match.id, {
-
-        status: "COMPLETED",
-
-        completedAt: new Date()
-
-    });
+    const matchResult = await evaluateMatchResult(innings.id);
 
     return {
-        message: "Match completed successfully."
+        message: "Match completed successfully.",
+        result: matchResult
     };
 }

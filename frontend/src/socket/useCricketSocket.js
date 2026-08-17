@@ -13,9 +13,12 @@ export function useCricketSocket(matchId = null, tournamentId = null) {
 
   useEffect(() => {
     if (!socket) {
-      const serverUrl = window.location.hostname === 'localhost' 
-        ? 'http://localhost:5000' 
-        : `http://${window.location.hostname}:5000`;
+
+      const serverUrl =
+        import.meta.env.VITE_SOCKET_URL ||
+        (window.location.hostname === 'localhost'
+          ? 'http://localhost:5000'
+          : `http://${window.location.hostname}:5000`);
 
       socket = io(serverUrl, {
         transports: ['websocket', 'polling'],

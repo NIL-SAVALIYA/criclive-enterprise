@@ -43,17 +43,15 @@ export function calculateBalls({
 
     currentBalls,
 
-    isLegalDelivery,
-
     extraType
 
 }) {
 
+    // Wides, Byes and Leg Byes do not count as batsman balls faced
     if (
-
-        !isLegalDelivery &&
-        extraType === "WIDE"
-
+        extraType === "WIDE" ||
+        extraType === "BYE" ||
+        extraType === "LEG_BYE"
     ) {
 
         return currentBalls;

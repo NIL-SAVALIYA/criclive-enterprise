@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import api from '../api/client';
 import WagonWheelSVG from '../components/WagonWheelSVG';
 import PitchMapCanvas from '../components/PitchMapCanvas';
-import { Play, Settings, Shield, Target, PieChart, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Play, Settings, Target, PieChart, CheckCircle2, AlertCircle, User, Activity, Loader2 } from 'lucide-react';
 
 export default function AdminScoringConsole() {
   const [searchParams] = useSearchParams();
@@ -12,8 +12,14 @@ export default function AdminScoringConsole() {
   const [matches, setMatches] = useState([]);
   const [selectedMatchId, setSelectedMatchId] = useState('');
   const [matchDetails, setMatchDetails] = useState(null);
+  const [scorecardDetails, setScorecardDetails] = useState(null);
   const [loading, setLoading] = useState(false);
   const [statusMsg, setStatusMsg] = useState(null);
+
+  // Active Players Override State
+  const [activeStrikerId, setActiveStrikerId] = useState('');
+  const [activeNonStrikerId, setActiveNonStrikerId] = useState('');
+  const [activeBowlerId, setActiveBowlerId] = useState('');
 
   // Ball Form State
   const [batRuns, setBatRuns] = useState(0);
@@ -21,6 +27,9 @@ export default function AdminScoringConsole() {
   const [extraType, setExtraType] = useState('NONE');
   const [isWicket, setIsWicket] = useState(false);
   const [wicketType, setWicketType] = useState('BOWLED');
+  const [dismissedPlayerId, setDismissedPlayerId] = useState('');
+  const [newBatsmanId, setNewBatsmanId] = useState('');
+  const [fielderId, setFielderId] = useState('');
   const [commentary, setCommentary] = useState('');
   const [shotZone, setShotZone] = useState('Mid Wicket');
   const [shotX, setShotX] = useState(0);
@@ -36,23 +45,10 @@ export default function AdminScoringConsole() {
         setMatches(list);
 
         if (list.length > 0) {
-          // Priority 1: Match ID from URL parameter
           let targetMatch = urlMatchId ? list.find(m => m.id === urlMatchId) : null;
-
-          // Priority 2: First LIVE match
-          if (!targetMatch) {
-            targetMatch = list.find(m => m.status === 'LIVE');
-          }
-
-          // Priority 3: First UPCOMING match
-          if (!targetMatch) {
-            targetMatch = list.find(m => m.status === 'UPCOMING');
-          }
-
-          // Priority 4: First match in returned list
-          if (!targetMatch) {
-            targetMatch = list[0];
-          }
+          if (!targetMatch) targetMatch = list.find(m => m.status === 'LIVE');
+          if (!targetMatch) targetMatch = list.find(m => m.status === 'UPCOMING');
+          if (!targetMatch) targetMatch = list[0];
 
           if (targetMatch) {
             setSelectedMatchId(targetMatch.id);
@@ -67,17 +63,35 @@ export default function AdminScoringConsole() {
 
   useEffect(() => {
     if (selectedMatchId) {
-      loadMatchDetails(selectedMatchId);
+      loadMatchData(selectedMatchId);
     }
   }, [selectedMatchId]);
 
-  async function loadMatchDetails(mId) {
+  async function loadMatchData(mId) {
     try {
-      const res = await api.get(`/matches/${mId}/live`);
-      console.log("LIVE MATCH DATA:", res.data.data);
-      setMatchDetails(res.data.data);
+      const [liveRes, cardRes] = await Promise.all([
+        api.get(`/matches/${mId}/live`).catch(() => ({ data: { data: null } })),
+        api.get(`/matches/${mId}/scorecard`).catch(() => ({ data: { data: null } }))
+      ]);
+
+      const live = liveRes.data.data;
+      const card = cardRes.data.data;
+
+      setMatchDetails(live);
+      setScorecardDetails(card);
+
+      if (live?.currentBatters?.striker?.id) {
+        setActiveStrikerId(live.currentBatters.striker.id);
+        setDismissedPlayerId(live.currentBatters.striker.id);
+      }
+      if (live?.currentBatters?.nonStriker?.id) {
+        setActiveNonStrikerId(live.currentBatters.nonStriker.id);
+      }
+      if (live?.currentBowling?.id) {
+        setActiveBowlerId(live.currentBowling.id);
+      }
     } catch (err) {
-      console.error('Failed to load match live status:', err);
+      console.error('Failed to load match details:', err);
     }
   }
 
@@ -93,7 +107,10 @@ export default function AdminScoringConsole() {
   };
 
   async function handleRecordBall(e) {
-    e.preventDefault();
+    if (e) e.preventDefault();
+
+    if (loading) return; // Prevent double submission
+
     if (!matchDetails || !matchDetails.innings) {
       setStatusMsg({
         type: 'error',
@@ -103,15 +120,12 @@ export default function AdminScoringConsole() {
     }
 
     const inningsId = matchDetails.innings.id;
-
-    const strikerId = matchDetails.currentBatters?.striker?.id;
-
-    const nonStrikerId = matchDetails.currentBatters?.nonStriker?.id;
-
-    const bowlerId = matchDetails.currentBowling?.id;
+    const strikerId = activeStrikerId || matchDetails.currentBatters?.striker?.id;
+    const nonStrikerId = activeNonStrikerId || matchDetails.currentBatters?.nonStriker?.id;
+    const bowlerId = activeBowlerId || matchDetails.currentBowling?.id;
 
     if (!strikerId || !bowlerId) {
-      setStatusMsg({ type: 'error', text: 'Please ensure Striker and Bowler are assigned in Playing XI.' });
+      setStatusMsg({ type: 'error', text: 'Please ensure Striker and Bowler are selected.' });
       return;
     }
 
@@ -129,7 +143,10 @@ export default function AdminScoringConsole() {
         extraType,
         isWicket,
         wicketType: isWicket ? wicketType : null,
-        commentary: commentary || `${batRuns} runs scored to ${shotZone}`,
+        dismissedPlayerId: isWicket ? (dismissedPlayerId || strikerId) : null,
+        newBatsmanId: isWicket ? (newBatsmanId || null) : null,
+        fielderId: (isWicket && fielderId) ? fielderId : null,
+        commentary: commentary || `${batRuns} run${batRuns === 1 ? '' : 's'} scored to ${shotZone}`,
         shotZone,
         shotX,
         shotY,
@@ -137,18 +154,23 @@ export default function AdminScoringConsole() {
         pitchLine
       };
 
-      await api.post(`/innings/${inningsId}/balls`, payload);
-      setStatusMsg({ type: 'success', text: `Ball recorded successfully! (${batRuns} runs to ${shotZone})` });
+      const res = await api.post(`/innings/${inningsId}/balls`, payload);
+      setStatusMsg({
+        type: 'success',
+        text: `Ball recorded successfully! (${batRuns} runs to ${shotZone}${isWicket ? ' - WICKET!' : ''})`
+      });
 
       // Reset Form Defaults
       setBatRuns(0);
       setExtraRuns(0);
       setExtraType('NONE');
       setIsWicket(false);
+      setNewBatsmanId('');
+      setFielderId('');
       setCommentary('');
 
-      // Refresh Live Match Details
-      loadMatchDetails(selectedMatchId);
+      // Refresh Live State
+      await loadMatchData(selectedMatchId);
     } catch (err) {
       console.error('Failed to record ball:', err);
       setStatusMsg({ type: 'error', text: err.response?.data?.message || 'Error recording ball' });
@@ -159,6 +181,9 @@ export default function AdminScoringConsole() {
 
   const innings = matchDetails?.innings || {};
   const score = matchDetails?.score || {};
+  const availableBatters = scorecardDetails?.batting || [];
+  const availableBowlers = scorecardDetails?.bowling || [];
+
   return (
     <div className="space-y-8 pb-12">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -175,7 +200,7 @@ export default function AdminScoringConsole() {
           <select
             value={selectedMatchId}
             onChange={(e) => setSelectedMatchId(e.target.value)}
-            className="bg-gray-900 border border-gray-700 text-white rounded-lg p-2 text-xs font-semibold"
+            className="bg-gray-900 border border-gray-700 text-white rounded-lg p-2 text-xs font-semibold focus:border-emerald-500"
           >
             {matches.map((m) => (
               <option key={m.id} value={m.id}>
@@ -206,14 +231,94 @@ export default function AdminScoringConsole() {
             {/* Live Score Strip */}
             <div className="p-4 bg-gray-900/90 rounded-xl border border-gray-800 flex justify-between items-center">
               <div>
-                <span className="text-xs text-emerald-400 font-bold uppercase">Innings {innings.inningsNumber || 1}</span>
-                <div className="text-2xl font-black text-white font-mono">
+                <span className="text-xs text-emerald-400 font-bold uppercase flex items-center gap-1">
+                  <Activity className="w-3.5 h-3.5" /> Innings {innings.inningsNumber || 1} • {innings.battingTeam?.name || 'Batting'}
+                </span>
+                <div className="text-2xl font-black text-white font-mono mt-1">
                   {score.runs || 0}/{score.wickets || 0}
                   <span className="text-sm font-normal text-gray-400 ml-2">({score.overs || "0.0"} Overs)</span>
                 </div>
               </div>
               <div className="text-right text-xs font-mono">
-                <div className="text-gray-300"></div>
+                <div className="text-gray-300 font-bold">CRR: {score.currentRunRate || '0.00'}</div>
+                {score.target && (
+                  <div className="text-amber-400 font-bold">Target: {score.target} (RRR: {score.requiredRunRate || '0.00'})</div>
+                )}
+              </div>
+            </div>
+
+            {/* Active Players Selector Strip */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-gray-950/60 rounded-xl border border-gray-800">
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-emerald-400 mb-1 flex items-center gap-1">
+                  <User className="w-3 h-3" /> Striker (*)
+                </label>
+                <select
+                  value={activeStrikerId}
+                  onChange={(e) => {
+                    setActiveStrikerId(e.target.value);
+                    setDismissedPlayerId(e.target.value);
+                  }}
+                  className="w-full bg-gray-900 border border-gray-700 text-white rounded p-1.5 text-xs font-semibold"
+                >
+                  {availableBatters.length > 0 ? (
+                    availableBatters.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name} ({b.runs}r, {b.balls}b) {b.isOut ? '[OUT]' : ''}
+                      </option>
+                    ))
+                  ) : (
+                    <option value={matchDetails?.currentBatters?.striker?.id || ''}>
+                      {matchDetails?.currentBatters?.striker?.name || 'Striker'}
+                    </option>
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1 flex items-center gap-1">
+                  <User className="w-3 h-3" /> Non-Striker
+                </label>
+                <select
+                  value={activeNonStrikerId}
+                  onChange={(e) => setActiveNonStrikerId(e.target.value)}
+                  className="w-full bg-gray-900 border border-gray-700 text-white rounded p-1.5 text-xs font-semibold"
+                >
+                  {availableBatters.length > 0 ? (
+                    availableBatters.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name} ({b.runs}r, {b.balls}b) {b.isOut ? '[OUT]' : ''}
+                      </option>
+                    ))
+                  ) : (
+                    <option value={matchDetails?.currentBatters?.nonStriker?.id || ''}>
+                      {matchDetails?.currentBatters?.nonStriker?.name || 'Non-Striker'}
+                    </option>
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-amber-400 mb-1 flex items-center gap-1">
+                  <Activity className="w-3 h-3" /> Bowler (*)
+                </label>
+                <select
+                  value={activeBowlerId}
+                  onChange={(e) => setActiveBowlerId(e.target.value)}
+                  className="w-full bg-gray-900 border border-gray-700 text-white rounded p-1.5 text-xs font-semibold"
+                >
+                  {availableBowlers.length > 0 ? (
+                    availableBowlers.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name} ({b.overs} ov, {b.wickets}w, {b.runs}r)
+                      </option>
+                    ))
+                  ) : (
+                    <option value={matchDetails?.currentBowling?.id || ''}>
+                      {matchDetails?.currentBowling?.name || 'Bowler'}
+                    </option>
+                  )}
+                </select>
               </div>
             </div>
 
@@ -245,7 +350,13 @@ export default function AdminScoringConsole() {
                 <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-2">Extra Type</label>
                 <select
                   value={extraType}
-                  onChange={(e) => setExtraType(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setExtraType(val);
+                    if (val === 'WIDE' || val === 'NO_BALL') {
+                      if (extraRuns === 0) setExtraRuns(1);
+                    }
+                  }}
                   className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2.5 text-xs font-semibold"
                 >
                   <option value="NONE">NONE (Legal Delivery)</option>
@@ -268,7 +379,7 @@ export default function AdminScoringConsole() {
               </div>
             </div>
 
-            {/* Wicket Toggle */}
+            {/* Wicket Toggle & Details */}
             <div className="p-4 bg-red-950/20 rounded-xl border border-red-500/30 space-y-3">
               <label className="flex items-center gap-2 cursor-pointer">
                 <input
@@ -281,20 +392,50 @@ export default function AdminScoringConsole() {
               </label>
 
               {isWicket && (
-                <div>
-                  <label className="block text-xs font-bold text-gray-300 mb-1">Dismissal Type</label>
-                  <select
-                    value={wicketType}
-                    onChange={(e) => setWicketType(e.target.value)}
-                    className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2 text-xs font-semibold"
-                  >
-                    <option value="BOWLED">BOWLED</option>
-                    <option value="CAUGHT">CAUGHT</option>
-                    <option value="LBW">LBW</option>
-                    <option value="RUN_OUT">RUN OUT</option>
-                    <option value="STUMPED">STUMPED</option>
-                    <option value="HIT_WICKET">HIT WICKET</option>
-                  </select>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-300 mb-1">Dismissal Type</label>
+                    <select
+                      value={wicketType}
+                      onChange={(e) => setWicketType(e.target.value)}
+                      className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2 text-xs font-semibold"
+                    >
+                      <option value="BOWLED">BOWLED</option>
+                      <option value="CAUGHT">CAUGHT</option>
+                      <option value="LBW">LBW</option>
+                      <option value="RUN_OUT">RUN OUT</option>
+                      <option value="STUMPED">STUMPED</option>
+                      <option value="HIT_WICKET">HIT WICKET</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-300 mb-1">Dismissed Player</label>
+                    <select
+                      value={dismissedPlayerId}
+                      onChange={(e) => setDismissedPlayerId(e.target.value)}
+                      className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2 text-xs font-semibold"
+                    >
+                      <option value={activeStrikerId}>Striker</option>
+                      {activeNonStrikerId && <option value={activeNonStrikerId}>Non-Striker</option>}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-gray-300 mb-1">Next Batsman</label>
+                    <select
+                      value={newBatsmanId}
+                      onChange={(e) => setNewBatsmanId(e.target.value)}
+                      className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2 text-xs font-semibold"
+                    >
+                      <option value="">Auto Select Next in XI</option>
+                      {availableBatters
+                        .filter(b => !b.isOut && b.id !== activeStrikerId && b.id !== activeNonStrikerId)
+                        .map(b => (
+                          <option key={b.id} value={b.id}>{b.name}</option>
+                        ))}
+                    </select>
+                  </div>
                 </div>
               )}
             </div>
@@ -315,9 +456,20 @@ export default function AdminScoringConsole() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm uppercase tracking-wider shadow-lg glow-emerald transition-all flex justify-center items-center gap-2"
+              className={`w-full py-4 rounded-xl text-white font-extrabold text-sm uppercase tracking-wider shadow-lg transition-all flex justify-center items-center gap-2 ${loading
+                ? 'bg-gray-700 cursor-not-allowed opacity-70'
+                : 'bg-emerald-600 hover:bg-emerald-500 glow-emerald'
+                }`}
             >
-              <Play className="w-4 h-4 fill-white" /> Submit & Broadcast Ball Delivery
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" /> Recording Ball...
+                </>
+              ) : (
+                <>
+                  <Play className="w-4 h-4 fill-white" /> Submit & Broadcast Ball Delivery
+                </>
+              )}
             </button>
           </form>
         </div>

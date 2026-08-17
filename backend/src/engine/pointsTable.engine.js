@@ -12,14 +12,17 @@ export function calculateNetRunRate({
     runsConceded = 0,
     ballsBowled = 0
 }) {
-    if (ballsFaced === 0 || ballsBowled === 0) {
+    if (ballsFaced === 0 && ballsBowled === 0) {
         return 0;
     }
 
-    const oversFaced = ballsFaced / 6;
-    const oversBowled = ballsBowled / 6;
+    const oversFaced = ballsFaced > 0 ? (ballsFaced / 6) : 0;
+    const oversBowled = ballsBowled > 0 ? (ballsBowled / 6) : 0;
 
-    const nrr = (runsScored / oversFaced) - (runsConceded / oversBowled);
+    const forRate = oversFaced > 0 ? (runsScored / oversFaced) : 0;
+    const againstRate = oversBowled > 0 ? (runsConceded / oversBowled) : 0;
+
+    const nrr = forRate - againstRate;
 
     return Number(nrr.toFixed(3));
 }

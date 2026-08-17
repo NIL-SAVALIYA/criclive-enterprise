@@ -57,7 +57,7 @@ export const createBallSchema = z.object({
     commentary: z.string().trim().max(500).default("")
 }).superRefine((data, ctx) => {
 
-    if ( data.extraRuns > 0 && data.extraType === ExtraType.NONE) {
+    if (data.extraRuns > 0 && data.extraType === ExtraType.NONE) {
         ctx.addIssue({
             code: "custom",
             path: ["extraType"],
@@ -69,31 +69,7 @@ export const createBallSchema = z.object({
         ctx.addIssue({
             code: "custom",
             path: ["wicketType"],
-            message: "wicketType is required."
-        });
-    }
-
-    if (
-        data.isWicket &&
-        !["RETIRED_OUT", "TIMED_OUT"].includes(data.wicketType) &&
-        !data.dismissedPlayerId
-    ) {
-        ctx.addIssue({
-            code: "custom",
-            path: ["dismissedPlayerId"],
-            message: "dismissedPlayerId is required."
-        });
-    }
-
-    if (
-        data.isWicket &&
-        !["RETIRED_OUT", "TIMED_OUT"].includes(data.wicketType) &&
-        !data.newBatsmanId
-    ) {
-        ctx.addIssue({
-            code: "custom",
-            path: ["newBatsmanId"],
-            message: "newBatsmanId is required."
+            message: "wicketType is required when isWicket is true."
         });
     }
 });

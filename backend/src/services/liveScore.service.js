@@ -1,10 +1,9 @@
 import { getMatchById } from "../repositories/match.repository.js";
-import { getLiveInnings } from "../repositories/innings.repository.js";
+import { getLiveInnings, getInningsByMatch } from "../repositories/innings.repository.js";
 import { getCurrentBatsmen } from "../repositories/battingScorecard.repository.js";
-import { getBowlingScorecardsByInnings, getCurrentBowler } from "../repositories/bowlingScorecard.repository.js";
+import { getCurrentBowler } from "../repositories/bowlingScorecard.repository.js";
 import { getActivePartnership } from "../repositories/partnership.repository.js";
 import { getRecentBalls } from "../repositories/ball.repository.js";
-import { getInningsByMatch } from "../repositories/innings.repository.js";
 
 function calculateCurrentRunRate(runs, legalBalls) {
     if (!legalBalls) return 0;
@@ -34,31 +33,64 @@ function formatOvers(legalBalls) {
 }
 
 export async function getLiveScoreService(matchId) {
-
     const match = await getMatchById(matchId);
 
     if (!match) {
         throw new Error("Match not found.");
     }
 
-    const innings = await getLiveInnings(matchId);
+    let innings = await getLiveInnings(matchId);
+    const inningsList = await getInningsByMatch(matchId);
 
+    // If no LIVE innings found
     if (!innings) {
-        throw new Error("No live innings found.");
+        if (match.status === "UPCOMING" || inningsList.length === 0) {
+            return {
+                match: {
+                    id: match.id,
+                    venue: match.venue,
+                    matchDate: match.matchDate,
+                    status: match.status,
+                    teamA: match.teamA,
+                    teamB: match.teamB,
+                    tossWinner: match.tossWinner
+                },
+                innings: null,
+                score: {
+                    runs: 0,
+                    wickets: 0,
+                    overs: "0.0",
+                    legalBalls: 0,
+                    totalBalls: 0,
+                    currentRunRate: 0,
+                    requiredRunRate: null,
+                    target: null
+                },
+                currentBatters: {
+                    striker: null,
+                    nonStriker: null
+                },
+                currentBowling: null,
+                recentBalls: [],
+                lastSixBalls: [],
+                matchStatus: match.status === "UPCOMING" ? "Upcoming" : "Not Started"
+            };
+        }
+
+        // Use latest completed innings (e.g. 2nd innings or 1st innings)
+        innings = inningsList[inningsList.length - 1];
     }
 
     const [
-        bowlingScorecard,
         currentBatsmen,
         currentBowler,
         partnership,
         recentBalls
     ] = await Promise.all([
-        getBowlingScorecardsByInnings(innings.id),
         getCurrentBatsmen(innings.id),
         getCurrentBowler(innings.id),
         getActivePartnership(innings.id),
-        getRecentBalls(innings.id)
+        getRecentBalls(innings.id, 12)
     ]);
 
     const currentRunRate = calculateCurrentRunRate(
@@ -67,19 +99,12 @@ export async function getLiveScoreService(matchId) {
     );
 
     let target = null;
-
     let requiredRunRate = null;
 
     if (innings.inningsNumber === 2) {
-
-        const inningsList = await getInningsByMatch(matchId);
-
-        const firstInnings = inningsList.find(
-            innings => innings.inningsNumber === 1
-        );
+        const firstInnings = inningsList.find((i) => i.inningsNumber === 1);
         if (firstInnings) {
             target = firstInnings.totalRuns + 1;
-
             requiredRunRate = calculateRequiredRunRate(
                 target,
                 innings.totalRuns,
@@ -87,6 +112,7 @@ export async function getLiveScoreService(matchId) {
             );
         }
     }
+
     const score = {
         runs: innings.totalRuns,
         wickets: innings.wickets,
@@ -98,22 +124,12 @@ export async function getLiveScoreService(matchId) {
         target
     };
 
-    console.log("===== BOWLING SCORECARD DB =====");
-
-    bowlingScorecard.forEach(bowler => {
-        console.log({
-            name: `${bowler.bowler.firstName} ${bowler.bowler.lastName}`,
-            overs: bowler.overs,
-            balls: bowler.balls
-        });
-    });
-
     const striker = partnership
-        ? (currentBatsmen.find(b => b.player.id === partnership.strikerId || b.playerId === partnership.strikerId) ?? currentBatsmen[0] ?? null)
+        ? (currentBatsmen.find((b) => b.player.id === partnership.strikerId || b.playerId === partnership.strikerId) ?? currentBatsmen[0] ?? null)
         : (currentBatsmen[0] ?? null);
 
     const nonStriker = partnership
-        ? (currentBatsmen.find(b => b.player.id === partnership.nonStrikerId || b.playerId === partnership.nonStrikerId) ?? currentBatsmen[1] ?? null)
+        ? (currentBatsmen.find((b) => b.player.id === partnership.nonStrikerId || b.playerId === partnership.nonStrikerId) ?? currentBatsmen[1] ?? null)
         : (currentBatsmen[1] ?? null);
 
     const currentBatters = {
@@ -128,7 +144,6 @@ export async function getLiveScoreService(matchId) {
                 strikeRate: striker.strikeRate
             }
             : null,
-
         nonStriker: nonStriker
             ? {
                 id: nonStriker.player.id,
@@ -154,23 +169,20 @@ export async function getLiveScoreService(matchId) {
         }
         : null;
 
-    const lastSixBalls = [...recentBalls]
-        .reverse()
-        .map(ball => ({
-            over: `${ball.over}.${ball.ball}`,
-            batsman: `${ball.batsman.firstName} ${ball.batsman.lastName}`,
-            bowler: `${ball.bowler.firstName} ${ball.bowler.lastName}`,
-            batRuns: ball.batRuns,
-            extraRuns: ball.extraRuns,
-            totalRuns: ball.totalRuns,
-            extraType: ball.extraType,
-            isWicket: ball.isWicket,
-            wicketType: ball.wicketType,
-            commentary: ball.commentary
-        }));
+    const formattedRecentBalls = [...recentBalls].map((ball) => ({
+        over: `${ball.over}.${ball.ball}`,
+        batsman: `${ball.batsman?.firstName || ""} ${ball.batsman?.lastName || ""}`.trim(),
+        bowler: `${ball.bowler?.firstName || ""} ${ball.bowler?.lastName || ""}`.trim(),
+        batRuns: ball.batRuns,
+        extraRuns: ball.extraRuns,
+        totalRuns: ball.totalRuns,
+        extraType: ball.extraType,
+        isWicket: ball.isWicket,
+        wicketType: ball.wicketType,
+        commentary: ball.commentary
+    }));
 
     let matchStatus;
-
     if (match.status === "COMPLETED") {
         matchStatus = "Completed";
     } else if (innings.inningsNumber === 1) {
@@ -189,9 +201,11 @@ export async function getLiveScoreService(matchId) {
             status: match.status,
             teamA: match.teamA,
             teamB: match.teamB,
-            tossWinner: match.tossWinner
+            tossWinner: match.tossWinner,
+            winnerTeam: match.winnerTeam,
+            result: match.result,
+            winningMargin: match.winningMargin
         },
-
         innings: {
             id: innings.id,
             inningsNumber: innings.inningsNumber,
@@ -199,16 +213,17 @@ export async function getLiveScoreService(matchId) {
             bowlingTeam: innings.bowlingTeam,
             status: innings.status
         },
-
         score,
-
         currentBatters,
-
         currentBowling,
-
-
-        lastSixBalls,
-
+        partnership: partnership ? {
+            runs: partnership.runs,
+            balls: partnership.balls,
+            fours: partnership.fours,
+            sixes: partnership.sixes
+        } : null,
+        recentBalls: formattedRecentBalls,
+        lastSixBalls: formattedRecentBalls.slice(0, 6),
         matchStatus
     };
 }

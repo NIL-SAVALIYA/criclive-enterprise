@@ -71,6 +71,7 @@ export function createDeliveryContext(data) {
     isWicket: Boolean(data.isWicket),
     wicketType: data.isWicket ? data.wicketType : null,
     dismissedPlayerId: data.isWicket ? (data.dismissedPlayerId || strikerId) : null,
+    newBatsmanId: data.newBatsmanId || null,
     fielderId: data.fielderId || null,
     commentary: data.commentary || "",
     shotZone: data.shotZone || null,

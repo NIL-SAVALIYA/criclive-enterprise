@@ -74,9 +74,15 @@ export function calculateRunsConceded({
 
     currentRuns,
 
-    totalRuns
+    totalRuns,
+
+    extraType
 
 }) {
+
+    if (extraType === "BYE" || extraType === "LEG_BYE") {
+        return currentRuns;
+    }
 
     return currentRuns + totalRuns;
 
@@ -255,49 +261,24 @@ export function calculateMaidens({
 */
 
 export function buildBowlingSummary({
-
     legalBalls,
-
     runs,
-
     wickets,
-
     maidens,
-
     wides,
-
     noBalls
-
 }) {
-
     return {
-
-        overs: Math.floor(legalBalls / 6), 
-
-        balls:
-
-            legalBalls,
-
+        overs: calculateOvers(legalBalls),
+        balls: legalBalls,
         runs,
-
         wickets,
-
         maidens,
-
         wides,
-
         noBalls,
-
-        economy:
-
-            calculateEconomy({
-
-                runs,
-
-                legalBalls
-
-            })
-
+        economy: calculateEconomy({
+            runs,
+            legalBalls
+        })
     };
-
 }

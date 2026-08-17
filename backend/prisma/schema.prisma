@@ -108,6 +108,7 @@ model Innings {
 
   @@index([matchId])
   @@index([status])
+  @@index([matchId, status])
 }
 
 model Ball {
@@ -178,6 +179,7 @@ model Ball {
   @@index([inningsId])
   @@index([deliveryNumber])
   @@index([inningsId, deliveryNumber])
+  @@index([inningsId, over])
 }
 
 model Player {
@@ -352,6 +354,7 @@ model BattingScorecard {
 
   @@index([inningsId])
   @@index([playerId])
+  @@index([inningsId, playerId])
 }
 
 model BowlingScorecard {
@@ -387,6 +390,7 @@ model BowlingScorecard {
 
   @@index([inningsId])
   @@index([bowlerId])
+  @@index([inningsId, bowlerId])
 }
 
 model PlayingXI {
@@ -478,6 +482,7 @@ model Partnership {
   nonStriker Player @relation("PartnershipNonStriker", fields: [nonStrikerId], references: [id])
 
   @@index([inningsId])
+  @@index([inningsId, isActive])
 }
 
 model PointsTable {
