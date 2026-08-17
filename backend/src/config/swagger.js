@@ -13,7 +13,7 @@ const swaggerDefinition = {
   },
   servers: [
     {
-      url: "http://localhost:5000",
+      url: "https://criclive-enterprise-api.onrender.com",
       description: "Local Development Server"
     }
   ],
