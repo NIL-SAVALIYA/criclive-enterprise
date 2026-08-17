@@ -57,6 +57,7 @@ import { buildPartnershipSummary } from "../engine/partnership.engine.js";
 import { buildInningsSummary } from "../engine/innings.engine.js";
 import { buildWicketSummary } from "../engine/wicket.engine.js";
 import { evaluateMatchResult } from "../engine/matchResult.engine.js";
+import { isNextDeliveryFreeHit } from "../engine/freeHit.engine.js";
 
 import { emitLiveScore, emitCommentary, emitScorecardRefresh } from "../socket/socket.server.js";
 import { createDeliveryContext } from "../engine/delivery.context.js";
@@ -205,8 +206,8 @@ export async function createBallService(data) {
                 runs: bowling.runs + bowlerRunsConceded,
                 wickets: bowling.wickets + (ball.isWicket && ball.wicketType !== "RUN_OUT" ? 1 : 0),
                 maidens: bowling.maidens + (over.completed && over.maiden ? 1 : 0),
-                wides: bowling.wides + (ball.extraType === "WIDE" ? ball.extraRuns : 0),
-                noBalls: bowling.noBalls + (ball.extraType === "NO_BALL" ? ball.extraRuns : 0)
+                wides: bowling.wides + (ball.extraType === "WIDE" ? (ball.extraRuns || 1) : 0),
+                noBalls: bowling.noBalls + (ball.extraType === "NO_BALL" ? 1 : 0)
             });
 
             const partnershipSummary = buildPartnershipSummary({
@@ -386,6 +387,23 @@ export async function createBallService(data) {
                 matchResult = await evaluateMatchResult(innings.id, tx);
             }
 
+            let freeHitNextDelivery;
+            if (ball.extraType === "NO_BALL") {
+                freeHitNextDelivery = true;
+            } else if (ball.isLegalDelivery) {
+                freeHitNextDelivery = false;
+            } else {
+                const precedingBalls = await tx.ball.findMany({
+                    where: {
+                        inningsId: innings.id,
+                        id: { not: savedBall.id }
+                    },
+                    orderBy: { deliveryNumber: "desc" },
+                    take: 10
+                });
+                freeHitNextDelivery = isNextDeliveryFreeHit([savedBall, ...precedingBalls]);
+            }
+
             /* ------------------------------------------------------------------ */
             /*                           Build Response                           */
             /* ------------------------------------------------------------------ */
@@ -394,7 +412,13 @@ export async function createBallService(data) {
                 message: "Ball recorded successfully.",
                 matchResult,
                 liveScore: {
-                    innings: inningsSummary,
+                    innings: {
+                        ...inningsSummary,
+                        isFreeHit: freeHitNextDelivery,
+                        freeHitNextDelivery
+                    },
+                    isFreeHit: freeHitNextDelivery,
+                    freeHitNextDelivery,
                     batting: battingSummary,
                     bowling: {
                         ...bowlingSummary,
@@ -410,8 +434,8 @@ export async function createBallService(data) {
             };
         },
         {
-            maxWait: 15000,
-            timeout: 30000
+            maxWait: 30000,
+            timeout: 60000
         }
     );
 

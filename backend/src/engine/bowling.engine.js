@@ -165,27 +165,13 @@ export function calculateWides({
 */
 
 export function calculateNoBalls({
-
     currentNoBalls,
-
-    extraType,
-
-    extraRuns
-
+    extraType
 }) {
-
-    if (
-
-        extraType !== "NO_BALL"
-
-    ) {
-
+    if (extraType !== "NO_BALL") {
         return currentNoBalls;
-
     }
-
-    return currentNoBalls + extraRuns;
-
+    return currentNoBalls + 1;
 }
 
 /*

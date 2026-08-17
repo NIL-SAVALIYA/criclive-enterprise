@@ -279,7 +279,7 @@ export default function AdminDashboard() {
                     <th className="p-3">Venue</th>
                     <th className="p-3">Status</th>
                     <th className="p-3">Date</th>
-                    <th className="p-3 text-right">Action</th>
+                    <th className="p-3 text-right min-w-[130px]">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800">
@@ -295,11 +295,11 @@ export default function AdminDashboard() {
                         </span>
                       </td>
                       <td className="p-3 text-gray-400">{new Date(m.matchDate).toLocaleDateString()}</td>
-                      <td className="p-3 text-right">
+                      <td className="p-3 text-right whitespace-nowrap">
                         {m.status === 'UPCOMING' && (
                           <Link 
                             to={`/admin/match-control/${m.id}`}
-                            className="px-3 py-1 bg-blue-600/20 text-blue-400 hover:bg-blue-600/40 border border-blue-500/30 rounded text-xs font-bold transition-all"
+                            className="inline-flex items-center justify-center min-w-[105px] px-3 py-1.5 bg-blue-600/20 text-blue-400 hover:bg-blue-600/40 border border-blue-500/30 rounded-lg text-xs font-bold transition-all shadow-sm"
                           >
                             Set up Match
                           </Link>
@@ -307,9 +307,17 @@ export default function AdminDashboard() {
                         {m.status === 'LIVE' && (
                           <Link 
                             to={`/admin/scorer`}
-                            className="px-3 py-1 bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 border border-emerald-500/30 rounded text-xs font-bold transition-all"
+                            className="inline-flex items-center justify-center min-w-[105px] px-3 py-1.5 bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 border border-emerald-500/30 rounded-lg text-xs font-bold transition-all shadow-sm"
                           >
                             Score Match
+                          </Link>
+                        )}
+                        {m.status === 'COMPLETED' && (
+                          <Link 
+                            to={`/matches/${m.id}`}
+                            className="inline-flex items-center justify-center min-w-[105px] px-3 py-1.5 bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700 rounded-lg text-xs font-semibold transition-all"
+                          >
+                            View Scorecard
                           </Link>
                         )}
                       </td>
@@ -342,7 +350,7 @@ export default function AdminDashboard() {
                       <th className="p-3">Organization</th>
                       <th className="p-3">City / Phone</th>
                       <th className="p-3">Status</th>
-                      <th className="p-3 text-right">Review Action</th>
+                      <th className="p-3 text-right min-w-[180px]">Review Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-800">
@@ -377,9 +385,9 @@ export default function AdminDashboard() {
                             {app.status}
                           </span>
                         </td>
-                        <td className="p-3 text-right">
+                        <td className="p-3 text-right whitespace-nowrap">
                           {app.status === 'PENDING' ? (
-                            <div className="flex items-center justify-end gap-2">
+                            <div className="flex items-center justify-end gap-2 font-sans">
                               {rejectingAppId === app.id ? (
                                 <div className="flex items-center gap-1.5 font-sans">
                                   <input
@@ -387,18 +395,18 @@ export default function AdminDashboard() {
                                     placeholder="Rejection reason..."
                                     value={rejectionReason}
                                     onChange={(e) => setRejectionReason(e.target.value)}
-                                    className="bg-gray-900 border border-gray-700 text-white rounded px-2 py-1 text-xs w-36"
+                                    className="bg-gray-900 border border-gray-700 text-white rounded-lg px-2.5 py-1 text-xs w-36 focus:border-red-500 focus:outline-none"
                                   />
                                   <button
                                     onClick={() => handleReviewApplication(app.id, 'REJECTED', rejectionReason)}
                                     disabled={!rejectionReason.trim() || appActionLoading === app.id}
-                                    className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs font-bold"
+                                    className="px-3 py-1 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold transition-all shrink-0"
                                   >
                                     Confirm
                                   </button>
                                   <button
                                     onClick={() => setRejectingAppId(null)}
-                                    className="px-2 py-1 bg-gray-800 text-gray-400 rounded text-xs"
+                                    className="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-gray-400 rounded-lg text-xs transition-all shrink-0"
                                   >
                                     Cancel
                                   </button>
@@ -408,7 +416,7 @@ export default function AdminDashboard() {
                                   <button
                                     onClick={() => handleReviewApplication(app.id, 'APPROVED')}
                                     disabled={appActionLoading === app.id}
-                                    className="px-3 py-1 bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 border border-emerald-500/30 rounded text-xs font-bold transition-all"
+                                    className="inline-flex items-center justify-center min-w-[80px] px-3.5 py-1.5 bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 border border-emerald-500/30 rounded-lg text-xs font-bold transition-all shadow-sm"
                                   >
                                     {appActionLoading === app.id ? '...' : 'Approve'}
                                   </button>
@@ -418,7 +426,7 @@ export default function AdminDashboard() {
                                       setRejectionReason('');
                                     }}
                                     disabled={appActionLoading === app.id}
-                                    className="px-2.5 py-1 bg-red-600/20 text-red-400 hover:bg-red-600/40 border border-red-500/30 rounded text-xs font-bold transition-all"
+                                    className="inline-flex items-center justify-center min-w-[75px] px-3 py-1.5 bg-red-600/20 text-red-400 hover:bg-red-600/40 border border-red-500/30 rounded-lg text-xs font-bold transition-all shadow-sm"
                                   >
                                     Reject
                                   </button>
@@ -428,24 +436,24 @@ export default function AdminDashboard() {
                           ) : app.status === 'APPROVED' ? (
                             <div className="flex items-center justify-end gap-2 font-sans">
                               {rejectingAppId === app.userId ? (
-                                <div className="flex items-center gap-1.5">
+                                <div className="flex items-center gap-1.5 font-sans">
                                   <input
                                     type="text"
                                     placeholder="Suspension reason..."
                                     value={rejectionReason}
                                     onChange={(e) => setRejectionReason(e.target.value)}
-                                    className="bg-gray-900 border border-gray-700 text-white rounded px-2 py-1 text-xs w-36"
+                                    className="bg-gray-900 border border-gray-700 text-white rounded-lg px-2.5 py-1 text-xs w-36 focus:border-red-500 focus:outline-none"
                                   />
                                   <button
                                     onClick={() => handleSuspendOrganizer(app.userId, rejectionReason)}
                                     disabled={!rejectionReason.trim() || appActionLoading === app.userId}
-                                    className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs font-bold"
+                                    className="px-3 py-1 bg-red-600 hover:bg-red-500 text-white rounded-lg text-xs font-bold transition-all shrink-0"
                                   >
                                     Suspend
                                   </button>
                                   <button
                                     onClick={() => setRejectingAppId(null)}
-                                    className="px-2 py-1 bg-gray-800 text-gray-400 rounded text-xs"
+                                    className="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-gray-400 rounded-lg text-xs transition-all shrink-0"
                                   >
                                     Cancel
                                   </button>
@@ -457,14 +465,14 @@ export default function AdminDashboard() {
                                     setRejectionReason('');
                                   }}
                                   disabled={appActionLoading === app.userId}
-                                  className="px-2.5 py-1 bg-amber-600/20 text-amber-400 hover:bg-amber-600/40 border border-amber-500/30 rounded text-xs font-bold transition-all"
+                                  className="inline-flex items-center justify-center min-w-[115px] px-3.5 py-1.5 bg-amber-600/20 text-amber-400 hover:bg-amber-600/40 border border-amber-500/30 rounded-lg text-xs font-bold transition-all shadow-sm"
                                 >
                                   Suspend Access
                                 </button>
                               )}
                             </div>
                           ) : (
-                            <span className="text-[11px] text-gray-500 font-sans">
+                            <span className="inline-block text-[11px] text-gray-500 font-sans italic px-2 py-1">
                               Suspended / Inactive
                             </span>
                           )}

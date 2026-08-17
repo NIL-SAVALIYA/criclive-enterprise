@@ -6,6 +6,8 @@ import { calculatePoints, calculateNetRunRate } from "../engine/pointsTable.engi
 import { createBallService } from "../services/ball.service.js";
 import { getLiveScoreService } from "../services/liveScore.service.js";
 import { getScorecardService } from "../services/scorecard.service.js";
+import { isNextDeliveryFreeHit } from "../engine/freeHit.engine.js";
+import { resolveBattingStatus, filterDeliveredBowlers } from "../engine/scorecardStatus.engine.js";
 
 async function runScoringLifecycleTests() {
   console.log("🏏 ===================================================");
@@ -113,7 +115,137 @@ async function runScoringLifecycleTests() {
     assert(nrr === 1.0, `NRR calculation is +1.000 (got ${nrr})`);
   }
 
-  console.log("\n🧪 5. End-to-End Database Match & Ball Scoring Lifecycle");
+  console.log("\n🧪 5. Free-Hit & No-Ball Cricket Engine Specifications");
+  {
+    // Rule 1: Normal delivery does not create Free Hit
+    const normalBall = isNextDeliveryFreeHit([{ isLegalDelivery: true, extraType: "NONE" }]);
+    assert(normalBall === false, "Normal legal delivery does not create free hit");
+
+    // Rule 2: No-ball delivery creates Free Hit for next delivery
+    const noBallDelivery = isNextDeliveryFreeHit([{ isLegalDelivery: false, extraType: "NO_BALL" }]);
+    assert(noBallDelivery === true, "No-ball delivery creates free hit for next delivery");
+
+    // Rule 3: Next legal delivery consumes Free Hit
+    const freeHitConsumed = isNextDeliveryFreeHit([
+      { isLegalDelivery: true, extraType: "NONE" },
+      { isLegalDelivery: false, extraType: "NO_BALL" }
+    ]);
+    assert(freeHitConsumed === false, "Subsequent legal delivery consumes free hit");
+
+    // Rule 4: Consecutive no-balls keep Free Hit active
+    const consecutiveNoBalls = isNextDeliveryFreeHit([
+      { isLegalDelivery: false, extraType: "NO_BALL" },
+      { isLegalDelivery: false, extraType: "NO_BALL" }
+    ]);
+    assert(consecutiveNoBalls === true, "Consecutive no-balls keep free hit active");
+
+    // Rule 5: Wide on free hit does not consume Free Hit (remains active)
+    const wideOnFreeHit = isNextDeliveryFreeHit([
+      { isLegalDelivery: false, extraType: "WIDE" },
+      { isLegalDelivery: false, extraType: "NO_BALL" }
+    ]);
+    assert(wideOnFreeHit === true, "Wide on free hit keeps free hit active for subsequent delivery");
+
+    // Rule 6: Wide on normal delivery does not create Free Hit
+    const wideOnNormal = isNextDeliveryFreeHit([
+      { isLegalDelivery: false, extraType: "WIDE" },
+      { isLegalDelivery: true, extraType: "NONE" }
+    ]);
+    assert(wideOnNormal === false, "Wide on normal delivery does not create free hit");
+  }
+
+  console.log("\n🧪 6. Batting Scorecard Status & Bowling Scorecard Visibility Rules");
+  {
+    // Rule 1: New innings opener 1 and 2 are NOT_OUT, remaining players are YET_TO_BAT
+    const opener1Status = resolveBattingStatus({
+      player: { id: "p1", battingPosition: 1, balls: 0, runs: 0, isOut: false },
+      isInitialLiveInnings: true
+    });
+    assert(opener1Status.status === "NOT_OUT" && opener1Status.statusText === "not out", "New innings opener 1 is NOT_OUT ('not out')");
+
+    const opener2Status = resolveBattingStatus({
+      player: { id: "p2", battingPosition: 2, balls: 0, runs: 0, isOut: false },
+      isInitialLiveInnings: true
+    });
+    assert(opener2Status.status === "NOT_OUT" && opener2Status.statusText === "not out", "New innings opener 2 is NOT_OUT ('not out')");
+
+    const unusedPlayerStatus = resolveBattingStatus({
+      player: { id: "p3", battingPosition: 3, balls: 0, runs: 0, isOut: false },
+      isInitialLiveInnings: true
+    });
+    assert(unusedPlayerStatus.status === "YET_TO_BAT" && unusedPlayerStatus.statusText === "Yet to bat", "New innings player 3 is YET_TO_BAT ('Yet to bat')");
+
+    // Rule 2: Batter who scored runs is NOT_OUT
+    const runScorerStatus = resolveBattingStatus({
+      player: { id: "p1", battingPosition: 1, balls: 10, runs: 15, isOut: false },
+      participatedPlayerIds: new Set(["p1"])
+    });
+    assert(runScorerStatus.status === "NOT_OUT", "Batter with runs and balls is NOT_OUT");
+
+    // Rule 3: Batter with 0 runs who is current active striker is NOT_OUT
+    const activeStrikerStatus = resolveBattingStatus({
+      player: { id: "p4", battingPosition: 4, balls: 0, runs: 0, isOut: false },
+      activeStrikerId: "p4"
+    });
+    assert(activeStrikerStatus.status === "NOT_OUT", "Batter with 0 runs/balls as active striker is NOT_OUT");
+
+    // Rule 4: Batter with 0 balls who is current active non-striker is NOT_OUT
+    const activeNonStrikerStatus = resolveBattingStatus({
+      player: { id: "p5", battingPosition: 5, balls: 0, runs: 0, isOut: false },
+      activeNonStrikerId: "p5"
+    });
+    assert(activeNonStrikerStatus.status === "NOT_OUT", "Batter with 0 balls as active non-striker is NOT_OUT");
+
+    // Rule 5: Dismissed batter shows DISMISSED with dismissal text
+    const dismissedStatus = resolveBattingStatus({
+      player: {
+        id: "p1",
+        battingPosition: 1,
+        balls: 8,
+        runs: 6,
+        isOut: true,
+        dismissalType: "BOWLED",
+        bowler: { firstName: "Jasprit", lastName: "Bumrah" }
+      }
+    });
+    assert(dismissedStatus.status === "DISMISSED" && dismissedStatus.statusText === "b Jasprit Bumrah", "Dismissed batter shows DISMISSED ('b Jasprit Bumrah')");
+
+    // Rule 6: Player who never entered innings remains YET_TO_BAT
+    const neverEnteredStatus = resolveBattingStatus({
+      player: { id: "p6", battingPosition: 6, balls: 0, runs: 0, isOut: false },
+      participatedPlayerIds: new Set(["p1", "p2", "p4", "p5"])
+    });
+    assert(neverEnteredStatus.status === "YET_TO_BAT", "Player who never entered remains YET_TO_BAT");
+
+    // Rule 7: Player who previously entered (faced balls) but scored 0 runs is NOT_OUT
+    const zeroRunParticipantStatus = resolveBattingStatus({
+      player: { id: "p2", battingPosition: 2, balls: 3, runs: 0, isOut: false },
+      participatedPlayerIds: new Set(["p1", "p2"])
+    });
+    assert(zeroRunParticipantStatus.status === "NOT_OUT", "Player who faced balls but has 0 runs is NOT_OUT");
+
+    // Rule 8: Bowling filter - No balls bowled returns empty list
+    const emptyBowling = filterDeliveredBowlers([
+      { bowlerId: "b1", balls: 0, runs: 0, wickets: 0, wides: 0, noBalls: 0 },
+      { bowlerId: "b2", balls: 0, runs: 0, wickets: 0, wides: 0, noBalls: 0 }
+    ], []);
+    assert(emptyBowling.length === 0, "Bowling filter returns 0 bowlers when no balls have been bowled");
+
+    // Rule 9: Bowling filter - Only bowlers who delivered appear
+    const activeBowling = filterDeliveredBowlers([
+      { bowlerId: "b1", balls: 6, runs: 4, wickets: 1, wides: 0, noBalls: 0 },
+      { bowlerId: "b2", balls: 0, runs: 0, wickets: 0, wides: 0, noBalls: 0 }
+    ], [{ bowlerId: "b1" }]);
+    assert(activeBowling.length === 1 && activeBowling[0].bowlerId === "b1", "Bowling filter includes only bowlers who delivered at least 1 ball");
+
+    // Rule 10: Bowler with 0 runs conceded but 1 ball delivered still appears
+    const maidenBallBowler = filterDeliveredBowlers([
+      { bowlerId: "b3", balls: 1, runs: 0, wickets: 0, wides: 0, noBalls: 0 }
+    ], [{ bowlerId: "b3" }]);
+    assert(maidenBallBowler.length === 1, "Bowler with 0 runs but 1 ball delivered appears in scorecard");
+  }
+
+  console.log("\n🧪 7. End-to-End Database Match & Ball Scoring Lifecycle");
   try {
     // Warmup / connect with retry
     let connected = false;
@@ -294,14 +426,69 @@ async function runScoringLifecycleTests() {
     });
     assert(ball4Res.liveScore.innings.wickets === 1, "Ball 4 (Wicket): Innings wickets count is 1");
 
+    // 🧪 6. Free Hit & No-Ball Rules Verification
+    // Ball 5: Bowler delivers NO-BALL (+1 run, Free-Hit triggered for next delivery)
+    const ball5Res = await createBallService({
+      inningsId: innings1.id,
+      batsmanId: playerA3.id,
+      nonStrikerId: playerA1.id,
+      bowlerId: playerB1.id,
+      batRuns: 0,
+      extraRuns: 1,
+      extraType: "NO_BALL"
+    });
+    assert(ball5Res.liveScore.freeHitNextDelivery === true, "Ball 5 (No-Ball): Free Hit is active for next delivery");
+    assert(ball5Res.liveScore.bowling.noBalls === 1, "Ball 5 (No-Ball): Bowler noBalls count incremented to 1");
+
+    // Ball 6: Second consecutive NO-BALL (Free-Hit remains active, Bowler noBalls becomes 2)
+    const ball6Res = await createBallService({
+      inningsId: innings1.id,
+      batsmanId: playerA3.id,
+      nonStrikerId: playerA1.id,
+      bowlerId: playerB1.id,
+      batRuns: 0,
+      extraRuns: 1,
+      extraType: "NO_BALL"
+    });
+    assert(ball6Res.liveScore.freeHitNextDelivery === true, "Ball 6 (Consecutive No-Ball): Free Hit remains active for next delivery");
+    assert(ball6Res.liveScore.bowling.noBalls === 2, "Ball 6 (Consecutive No-Ball): Bowler noBalls count incremented to 2");
+
+    // Ball 7: Free-Hit delivery with 4 normal runs (Free-Hit consumed, delivery is legal, extraType is NONE)
+    const ball7Res = await createBallService({
+      inningsId: innings1.id,
+      batsmanId: playerA3.id,
+      nonStrikerId: playerA1.id,
+      bowlerId: playerB1.id,
+      batRuns: 4,
+      extraRuns: 0,
+      extraType: "NONE"
+    });
+    assert(ball7Res.liveScore.freeHitNextDelivery === false, "Ball 7 (Free-Hit Consumed): Free Hit state deactivated after legal ball");
+    assert(ball7Res.liveScore.batting.runs === 4, "Ball 7 (Free-Hit Delivery): 4 runs credited to batsman");
+    assert(ball7Res.liveScore.bowling.noBalls === 2, "Ball 7 (Legal Delivery): Bowler noBalls count remained 2");
+
     // Test LiveScore and Scorecard API services
     const liveScoreData = await getLiveScoreService(match.id);
-    assert(liveScoreData.score.runs === 6, `Live score API returns correct total runs (6)`);
+    assert(liveScoreData.score.runs === 12, `Live score API returns correct total runs (12)`);
+    assert(liveScoreData.isFreeHit === false, "Live score API confirms free hit is not active after consumption");
+    assert(liveScoreData.currentBowling.noBalls === 2, "Live score API confirms bowler noBalls count is 2");
     assert(liveScoreData.matchStatus === "First Innings", "Live score API returns 'First Innings'");
 
     const scorecardData = await getScorecardService(match.id);
     assert(scorecardData.batting.length === 3, "Scorecard API returns batting scorecard entries");
-    assert(scorecardData.bowling.length === 2, "Scorecard API returns bowling scorecard entries");
+    
+    const rohitCard = scorecardData.batting.find(b => b.id === playerA1.id);
+    const kohliCard = scorecardData.batting.find(b => b.id === playerA2.id);
+    const suryaCard = scorecardData.batting.find(b => b.id === playerA3.id);
+
+    assert(rohitCard?.status === "NOT_OUT" && rohitCard?.statusText === "not out", "Rohit is NOT_OUT ('not out') in scorecard");
+    assert(kohliCard?.status === "DISMISSED", "Kohli is DISMISSED in scorecard");
+    assert(suryaCard?.status === "NOT_OUT" && suryaCard?.statusText === "not out", "Suryakumar is NOT_OUT ('not out') in scorecard");
+
+    assert(scorecardData.bowling.length === 1, "Scorecard API returns ONLY delivered bowlers (1 bowler who actually bowled)");
+    assert(scorecardData.allBowlers.length === 2, "Scorecard API returns all team bowlers in allBowlers");
+    const bumrahScorecard = scorecardData.bowling.find(b => b.id === playerB1.id);
+    assert(bumrahScorecard?.noBalls === 2, "Scorecard API returns bowler noBalls count of 2");
 
     // Clean up test data
     await prisma.ball.deleteMany({ where: { inningsId: innings1.id } });

@@ -72,6 +72,11 @@ export default function LiveMatchCenter() {
               <span className={`w-2.5 h-2.5 rounded-full ${match.status === 'LIVE' ? 'bg-emerald-500 animate-pulse' : 'bg-blue-500'}`}></span>
               <span className="font-extrabold text-emerald-400 uppercase tracking-widest">{match.status || 'LIVE'}</span>
               <span>• {match.venue}</span>
+              {Boolean(live?.isFreeHit || live?.freeHitNextDelivery || score?.isFreeHit || score?.freeHitNextDelivery) && (
+                <span className="font-mono text-[10px] font-bold text-white bg-emerald-600 border border-emerald-400 px-2.5 py-0.5 rounded-full shadow-lg glow-emerald animate-pulse ml-2">
+                  🟢 FREE HIT NEXT
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <span className="font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-500/30 px-2.5 py-0.5 rounded-full text-[10px]">
@@ -173,7 +178,7 @@ export default function LiveMatchCenter() {
                 </span>
               </div>
               <div className="flex justify-between font-mono text-gray-400 text-[11px]">
-                <span>{currentBowler.wickets || 0}/{currentBowler.runs || 0} ({currentBowler.overs || '0.0'} ov)</span>
+                <span>{currentBowler.wickets || 0}/{currentBowler.runs || 0} ({currentBowler.overs || '0.0'} ov • {currentBowler.noBalls || 0} NB)</span>
                 <span>Econ: {currentBowler.economy || 0}</span>
               </div>
             </div>
@@ -234,7 +239,9 @@ export default function LiveMatchCenter() {
                   {(scorecardData?.batting || socketScorecard?.batting || []).map((b, idx) => (
                     <tr key={b.id || idx} className="hover:bg-gray-800/40">
                       <td className="p-3 font-bold text-white font-sans">{b.name || `${b.player?.firstName} ${b.player?.lastName}`}</td>
-                      <td className="p-3 text-gray-400 font-sans">{b.isOut ? `b ${b.dismissalType || 'out'}` : 'not out'}</td>
+                      <td className={`p-3 font-sans ${b.status === 'YET_TO_BAT' || b.statusText === 'Yet to bat' ? 'text-gray-500 italic' : 'text-gray-300'}`}>
+                        {b.statusText || (b.isOut ? `b ${b.dismissalType || 'out'}` : (b.hasBatted || b.status === 'NOT_OUT' ? 'not out' : 'Yet to bat'))}
+                      </td>
                       <td className="p-3 font-bold text-emerald-400">{b.runs}</td>
                       <td className="p-3 text-gray-300">{b.balls}</td>
                       <td className="p-3 text-amber-400">{b.fours}</td>
@@ -259,20 +266,32 @@ export default function LiveMatchCenter() {
                     <th className="p-3">M</th>
                     <th className="p-3">R</th>
                     <th className="p-3">W</th>
+                    <th className="p-3">NB</th>
+                    <th className="p-3">WD</th>
                     <th className="p-3">Econ</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-800 font-mono">
-                  {(scorecardData?.bowling || socketScorecard?.bowling || []).map((bw, idx) => (
-                    <tr key={bw.id || idx} className="hover:bg-gray-800/40">
-                      <td className="p-3 font-bold text-white font-sans">{bw.name || `${bw.bowler?.firstName} ${bw.bowler?.lastName}`}</td>
-                      <td className="p-3 text-gray-300">{bw.overs}</td>
-                      <td className="p-3 text-gray-300">{bw.maidens}</td>
-                      <td className="p-3 text-gray-300">{bw.runs}</td>
-                      <td className="p-3 font-bold text-purple-400">{bw.wickets}</td>
-                      <td className="p-3 text-blue-400">{bw.economy}</td>
+                  {(scorecardData?.bowling || socketScorecard?.bowling || []).length === 0 ? (
+                    <tr>
+                      <td colSpan="8" className="p-4 text-center text-gray-500 font-sans italic">
+                        No bowlers have bowled yet in this innings
+                      </td>
                     </tr>
-                  ))}
+                  ) : (
+                    (scorecardData?.bowling || socketScorecard?.bowling || []).map((bw, idx) => (
+                      <tr key={bw.id || idx} className="hover:bg-gray-800/40">
+                        <td className="p-3 font-bold text-white font-sans">{bw.name || `${bw.bowler?.firstName} ${bw.bowler?.lastName}`}</td>
+                        <td className="p-3 text-gray-300">{bw.overs}</td>
+                        <td className="p-3 text-gray-300">{bw.maidens}</td>
+                        <td className="p-3 text-gray-300">{bw.runs}</td>
+                        <td className="p-3 font-bold text-purple-400">{bw.wickets}</td>
+                        <td className="p-3 text-amber-400 font-bold">{bw.noBalls ?? 0}</td>
+                        <td className="p-3 text-gray-300">{bw.wides ?? 0}</td>
+                        <td className="p-3 text-blue-400">{bw.economy}</td>
+                      </tr>
+                    ))
+                  )}
                 </tbody>
               </table>
             </div>

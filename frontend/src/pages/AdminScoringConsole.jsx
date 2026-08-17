@@ -141,6 +141,7 @@ export default function AdminScoringConsole() {
         batRuns: Number(batRuns),
         extraRuns: Number(extraRuns),
         extraType,
+        isFreeHit: Boolean(isFreeHit),
         isWicket,
         wicketType: isWicket ? wicketType : null,
         dismissedPlayerId: isWicket ? (dismissedPlayerId || strikerId) : null,
@@ -182,7 +183,15 @@ export default function AdminScoringConsole() {
   const innings = matchDetails?.innings || {};
   const score = matchDetails?.score || {};
   const availableBatters = scorecardDetails?.batting || [];
-  const availableBowlers = scorecardDetails?.bowling || [];
+  const availableBowlers = scorecardDetails?.allBowlers || scorecardDetails?.bowling || [];
+
+  const isFreeHit = Boolean(
+    matchDetails?.score?.isFreeHit ||
+    matchDetails?.isFreeHit ||
+    matchDetails?.score?.freeHitNextDelivery ||
+    matchDetails?.freeHitNextDelivery ||
+    (matchDetails?.recentBalls && matchDetails.recentBalls.length > 0 && matchDetails.recentBalls[0]?.extraType === 'NO_BALL')
+  );
 
   return (
     <div className="space-y-8 pb-12">
@@ -229,7 +238,7 @@ export default function AdminScoringConsole() {
         <div className="lg:col-span-2 space-y-6">
           <form onSubmit={handleRecordBall} className="glass-panel p-6 rounded-2xl border border-gray-800 space-y-6">
             {/* Live Score Strip */}
-            <div className="p-4 bg-gray-900/90 rounded-xl border border-gray-800 flex justify-between items-center">
+            <div className="p-4 bg-gray-900/90 rounded-xl border border-gray-800 flex flex-col sm:flex-row justify-between sm:items-center gap-3">
               <div>
                 <span className="text-xs text-emerald-400 font-bold uppercase flex items-center gap-1">
                   <Activity className="w-3.5 h-3.5" /> Innings {innings.inningsNumber || 1} • {innings.battingTeam?.name || 'Batting'}
@@ -239,13 +248,33 @@ export default function AdminScoringConsole() {
                   <span className="text-sm font-normal text-gray-400 ml-2">({score.overs || "0.0"} Overs)</span>
                 </div>
               </div>
-              <div className="text-right text-xs font-mono">
+              <div className="text-left sm:text-right text-xs font-mono">
                 <div className="text-gray-300 font-bold">CRR: {score.currentRunRate || '0.00'}</div>
                 {score.target && (
                   <div className="text-amber-400 font-bold">Target: {score.target} (RRR: {score.requiredRunRate || '0.00'})</div>
                 )}
+                {matchDetails?.currentBowling && (
+                  <div className="text-gray-400 text-[11px] mt-0.5">
+                    Bowler: <span className="text-white font-bold">{matchDetails.currentBowling.name}</span> ({matchDetails.currentBowling.overs || '0.0'} Ov | {matchDetails.currentBowling.wickets || 0} W | {matchDetails.currentBowling.runs || 0} R | {matchDetails.currentBowling.noBalls || 0} NB)
+                  </div>
+                )}
               </div>
             </div>
+
+            {/* FREE HIT Alert Banner */}
+            {isFreeHit && (
+              <div className="p-3.5 bg-gradient-to-r from-emerald-950/90 via-emerald-900/60 to-emerald-950/90 border-2 border-emerald-500/80 rounded-xl text-emerald-300 flex items-center justify-between shadow-lg glow-emerald animate-pulse">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping"></span>
+                  <span className="font-extrabold text-xs tracking-wider uppercase text-white flex items-center gap-1.5">
+                    🟢 FREE HIT — Next delivery
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono font-bold bg-emerald-900/90 text-emerald-200 px-2.5 py-0.5 rounded-full border border-emerald-400/40 uppercase">
+                  Free Hit Active
+                </span>
+              </div>
+            )}
 
             {/* Active Players Selector Strip */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-gray-950/60 rounded-xl border border-gray-800">
@@ -310,12 +339,12 @@ export default function AdminScoringConsole() {
                   {availableBowlers.length > 0 ? (
                     availableBowlers.map((b) => (
                       <option key={b.id} value={b.id}>
-                        {b.name} ({b.overs} ov, {b.wickets}w, {b.runs}r)
+                        {b.name} ({b.overs} ov, {b.wickets}w, {b.runs}r, {b.noBalls || 0}NB)
                       </option>
                     ))
                   ) : (
                     <option value={matchDetails?.currentBowling?.id || ''}>
-                      {matchDetails?.currentBowling?.name || 'Bowler'}
+                      {matchDetails?.currentBowling?.name || 'Bowler'} {matchDetails?.currentBowling ? `(${matchDetails.currentBowling.overs || '0.0'} ov, ${matchDetails.currentBowling.wickets || 0}w, ${matchDetails.currentBowling.runs || 0}r, ${matchDetails.currentBowling.noBalls || 0}NB)` : ''}
                     </option>
                   )}
                 </select>
@@ -347,7 +376,14 @@ export default function AdminScoringConsole() {
             {/* Extras Selection */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-2">Extra Type</label>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider">Extra Type</label>
+                  {isFreeHit && (
+                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-500/40">
+                      FREE HIT ACTIVE
+                    </span>
+                  )}
+                </div>
                 <select
                   value={extraType}
                   onChange={(e) => {
@@ -357,8 +393,15 @@ export default function AdminScoringConsole() {
                       if (extraRuns === 0) setExtraRuns(1);
                     }
                   }}
-                  className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2.5 text-xs font-semibold"
+                  className={`w-full bg-gray-900 border text-white rounded-lg p-2.5 text-xs font-semibold ${
+                    isFreeHit ? 'border-emerald-500/70 ring-1 ring-emerald-500/30' : 'border-gray-700'
+                  }`}
                 >
+                  {isFreeHit && (
+                    <option disabled value="" className="text-emerald-400 font-bold bg-gray-950">
+                      ── FREE HIT — NEXT DELIVERY ──
+                    </option>
+                  )}
                   <option value="NONE">NONE (Legal Delivery)</option>
                   <option value="WIDE">WIDE</option>
                   <option value="NO_BALL">NO BALL</option>

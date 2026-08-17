@@ -4,6 +4,7 @@ import { getCurrentBatsmen } from "../repositories/battingScorecard.repository.j
 import { getCurrentBowler } from "../repositories/bowlingScorecard.repository.js";
 import { getActivePartnership } from "../repositories/partnership.repository.js";
 import { getRecentBalls } from "../repositories/ball.repository.js";
+import { isNextDeliveryFreeHit } from "../engine/freeHit.engine.js";
 
 function calculateCurrentRunRate(runs, legalBalls) {
     if (!legalBalls) return 0;
@@ -64,8 +65,12 @@ export async function getLiveScoreService(matchId) {
                     totalBalls: 0,
                     currentRunRate: 0,
                     requiredRunRate: null,
-                    target: null
+                    target: null,
+                    isFreeHit: false,
+                    freeHitNextDelivery: false
                 },
+                isFreeHit: false,
+                freeHitNextDelivery: false,
                 currentBatters: {
                     striker: null,
                     nonStriker: null
@@ -113,6 +118,8 @@ export async function getLiveScoreService(matchId) {
         }
     }
 
+    const freeHitNextDelivery = isNextDeliveryFreeHit(recentBalls);
+
     const score = {
         runs: innings.totalRuns,
         wickets: innings.wickets,
@@ -121,7 +128,9 @@ export async function getLiveScoreService(matchId) {
         totalBalls: innings.totalBalls,
         currentRunRate,
         requiredRunRate,
-        target
+        target,
+        isFreeHit: freeHitNextDelivery,
+        freeHitNextDelivery
     };
 
     const striker = partnership
@@ -165,7 +174,9 @@ export async function getLiveScoreService(matchId) {
             maidens: currentBowler.maidens,
             runs: currentBowler.runs,
             wickets: currentBowler.wickets,
-            economy: currentBowler.economy
+            economy: currentBowler.economy,
+            wides: currentBowler.wides || 0,
+            noBalls: currentBowler.noBalls || 0
         }
         : null;
 
@@ -211,9 +222,13 @@ export async function getLiveScoreService(matchId) {
             inningsNumber: innings.inningsNumber,
             battingTeam: innings.battingTeam,
             bowlingTeam: innings.bowlingTeam,
-            status: innings.status
+            status: innings.status,
+            isFreeHit: freeHitNextDelivery,
+            freeHitNextDelivery
         },
         score,
+        isFreeHit: freeHitNextDelivery,
+        freeHitNextDelivery,
         currentBatters,
         currentBowling,
         partnership: partnership ? {
