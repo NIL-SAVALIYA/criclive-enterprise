@@ -8,6 +8,7 @@ import {
 } from "../repositories/match.repository.js";
 import { getTeamById } from "../repositories/team.repository.js";
 import { getTournamentById } from "../repositories/tournament.repository.js";
+import { recordAuditLog } from "../utils/auditLogger.js";
 import { Roles } from "../constants/roles.js";
 
 const ALLOWED_TRANSITIONS = {
@@ -64,6 +65,28 @@ export async function createMatchService(matchData, user = null) {
     throw error;
   }
 
+  if (matchData.scorerId) {
+    const scorerUser = await prisma.user.findUnique({
+      where: { id: matchData.scorerId },
+      include: { role: true }
+    });
+    if (!scorerUser) {
+      const error = new Error("Selected scorer user not found.");
+      error.statusCode = 404;
+      throw error;
+    }
+    if (!scorerUser.isActive) {
+      const error = new Error("Cannot assign inactive or suspended user as match scorer.");
+      error.statusCode = 400;
+      throw error;
+    }
+    if (scorerUser.role?.name !== Roles.SCORER && scorerUser.role?.name !== Roles.ADMIN) {
+      const error = new Error("Selected user must have the SCORER role.");
+      error.statusCode = 400;
+      throw error;
+    }
+  }
+
   const payload = {
     ...matchData,
     matchDate: new Date(matchData.matchDate)
@@ -72,6 +95,21 @@ export async function createMatchService(matchData, user = null) {
   return prisma.$transaction(
     async (tx) => {
       const match = await createMatch(payload, tx);
+
+      await recordAuditLog({
+        userId: user ? user.userId : null,
+        action: "MATCH_CREATED",
+        entityType: "MATCH",
+        entityId: match.id,
+        metadata: {
+          tournamentId: match.tournamentId,
+          teamAId: match.teamAId,
+          teamBId: match.teamBId,
+          venue: match.venue
+        },
+        db: tx
+      });
+
       console.log(`[MATCH EVENT] Match Created | ID: ${match.id} | ${teamA.name} vs ${teamB.name} | Venue: ${match.venue}`);
       return match;
     },
@@ -100,7 +138,7 @@ export async function getMatchByIdService(id) {
 }
 
 /**
- * Updates a match with ownership, status transition and team/toss guards.
+ * Updates a match with ownership, status transition, scorer validation, and rescheduling guards.
  */
 export async function updateMatchService(id, matchData, user = null) {
   const match = await getMatchById(id);
@@ -144,6 +182,54 @@ export async function updateMatchService(id, matchData, user = null) {
     }
   }
 
+  // Scorer assignment validation
+  let scorerAction = null;
+  if ("scorerId" in matchData && matchData.scorerId !== match.scorerId) {
+    if (matchData.scorerId) {
+      const scorerUser = await prisma.user.findUnique({
+        where: { id: matchData.scorerId },
+        include: { role: true }
+      });
+
+      if (!scorerUser) {
+        const error = new Error("Selected scorer user not found.");
+        error.statusCode = 404;
+        throw error;
+      }
+
+      if (!scorerUser.isActive) {
+        const error = new Error("Cannot assign inactive or suspended user as match scorer.");
+        error.statusCode = 400;
+        throw error;
+      }
+
+      if (scorerUser.role?.name !== Roles.SCORER && scorerUser.role?.name !== Roles.ADMIN) {
+        const error = new Error("Selected user must have the SCORER role.");
+        error.statusCode = 400;
+        throw error;
+      }
+
+      scorerAction = match.scorerId ? "MATCH_SCORER_CHANGED" : "MATCH_SCORER_ASSIGNED";
+    } else {
+      scorerAction = "MATCH_SCORER_REMOVED";
+    }
+  }
+
+  // Rescheduling guards for LIVE and COMPLETED matches
+  let isRescheduled = false;
+  if (matchData.matchDate || matchData.venue) {
+    const newDate = matchData.matchDate ? new Date(matchData.matchDate).getTime() : null;
+    const oldDate = new Date(match.matchDate).getTime();
+    if ((newDate && newDate !== oldDate) || (matchData.venue && matchData.venue !== match.venue)) {
+      if (match.status === "LIVE" || match.status === "COMPLETED") {
+        const error = new Error(`Cannot reschedule a ${match.status.toLowerCase()} match.`);
+        error.statusCode = 400;
+        throw error;
+      }
+      isRescheduled = true;
+    }
+  }
+
   const payload = {
     ...matchData,
     ...(matchData.matchDate && { matchDate: new Date(matchData.matchDate) })
@@ -152,6 +238,48 @@ export async function updateMatchService(id, matchData, user = null) {
   return prisma.$transaction(
     async (tx) => {
       const updated = await updateMatch(id, payload, tx);
+
+      if (scorerAction) {
+        await recordAuditLog({
+          userId: user ? user.userId : null,
+          action: scorerAction,
+          entityType: "MATCH",
+          entityId: id,
+          metadata: {
+            matchId: id,
+            previousScorerId: match.scorerId,
+            newScorerId: updated.scorerId
+          },
+          db: tx
+        });
+
+        if (updated.scorerId) {
+          await tx.notification.create({
+            data: {
+              type: "SCORER_ASSIGNMENT",
+              title: "Match Scorer Assignment",
+              message: `You have been assigned to score ${match.teamA?.name || "Team A"} vs ${match.teamB?.name || "Team B"}.`,
+              matchId: id
+            }
+          });
+        }
+      }
+
+      if (isRescheduled) {
+        await recordAuditLog({
+          userId: user ? user.userId : null,
+          action: "MATCH_RESCHEDULED",
+          entityType: "MATCH",
+          entityId: id,
+          metadata: {
+            matchId: id,
+            newDate: updated.matchDate,
+            newVenue: updated.venue
+          },
+          db: tx
+        });
+      }
+
       console.log(`[MATCH EVENT] Match Updated | ID: ${updated.id} | Status: ${updated.status}`);
       return updated;
     },

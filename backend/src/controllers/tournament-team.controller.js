@@ -18,28 +18,22 @@ import {
 */
 
 export async function register(req, res) {
-
     try {
-
         const data = registerTeamSchema.parse(req.body);
-
-        const registration = await registerTeamService(data);
+        const registration = await registerTeamService(data, req.user);
 
         return res.status(201).json({
             success: true,
             message: "Team registered successfully.",
             data: registration
         });
-
     } catch (error) {
-
-        return res.status(400).json({
+        const statusCode = error.statusCode || 400;
+        return res.status(statusCode).json({
             success: false,
             message: error.message
         });
-
     }
-
 }
 
 /*
@@ -49,26 +43,20 @@ export async function register(req, res) {
 */
 
 export async function getAll(req, res) {
-
     try {
-
-        const registrations =
-            await getAllRegisteredTeamsService();
+        const registrations = await getAllRegisteredTeamsService();
 
         return res.status(200).json({
             success: true,
             data: registrations
         });
-
     } catch (error) {
-
-        return res.status(500).json({
+        const statusCode = error.statusCode || 500;
+        return res.status(statusCode).json({
             success: false,
             message: error.message
         });
-
     }
-
 }
 
 /*
@@ -78,26 +66,20 @@ export async function getAll(req, res) {
 */
 
 export async function getOne(req, res) {
-
     try {
-
-        const registration =
-            await getRegistrationByIdService(req.params.id);
+        const registration = await getRegistrationByIdService(req.params.id);
 
         return res.status(200).json({
             success: true,
             data: registration
         });
-
     } catch (error) {
-
-        return res.status(404).json({
+        const statusCode = error.statusCode || 404;
+        return res.status(statusCode).json({
             success: false,
             message: error.message
         });
-
     }
-
 }
 
 /*
@@ -107,25 +89,20 @@ export async function getOne(req, res) {
 */
 
 export async function remove(req, res) {
-
     try {
-
-        await deleteRegistrationService(req.params.id);
+        await deleteRegistrationService(req.params.id, req.user);
 
         return res.status(200).json({
             success: true,
             message: "Team removed from tournament successfully."
         });
-
     } catch (error) {
-
-        return res.status(400).json({
+        const statusCode = error.statusCode || 400;
+        return res.status(statusCode).json({
             success: false,
             message: error.message
         });
-
     }
-
 }
 
 /*

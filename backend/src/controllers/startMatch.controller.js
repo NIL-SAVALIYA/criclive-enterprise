@@ -5,16 +5,16 @@ export async function startMatchController(req, res) {
         const { matchId } = req.params;
         const { strikerId, nonStrikerId, bowlerId } = req.body;
 
-        const match = await startMatch(matchId, strikerId, nonStrikerId, bowlerId);
+        const match = await startMatch(matchId, strikerId, nonStrikerId, bowlerId, req.user);
 
         return res.status(200).json({
             success: true,
             message: "Match started successfully",
             data: match
         });
-
     } catch (error) {
-        return res.status(400).json({
+        const statusCode = error.statusCode || 400;
+        return res.status(statusCode).json({
             success: false,
             message: error.message
         });

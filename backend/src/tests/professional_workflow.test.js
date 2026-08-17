@@ -54,8 +54,14 @@ async function runProfessionalWorkflowTests() {
     const adminRole = await prisma.role.findUnique({ where: { name: "ADMIN" } });
     const viewerRole = await prisma.role.findUnique({ where: { name: "VIEWER" } });
     const organizerRole = await prisma.role.findUnique({ where: { name: "ORGANIZER" } });
+    let scorerRole = await prisma.role.findUnique({ where: { name: "SCORER" } });
+    if (!scorerRole) {
+      scorerRole = await prisma.role.create({
+        data: { name: "SCORER", description: "Scorer role" }
+      });
+    }
 
-    assert(adminRole && viewerRole && organizerRole, "Core Roles (ADMIN, VIEWER, ORGANIZER) exist in database");
+    assert(adminRole && viewerRole && organizerRole && scorerRole, "Core Roles (ADMIN, VIEWER, ORGANIZER, SCORER) exist in database");
 
     // Setup Admin
     const adminEmail = `admin_suite_${timestamp}@criclive.com`;
@@ -397,7 +403,7 @@ async function runProfessionalWorkflowTests() {
         lastName: "Scorer",
         email: scorerEmail,
         password: passwordHash,
-        roleId: viewerRole.id
+        roleId: scorerRole.id
       }
     });
     const scorerLoginRes = await fetch(`${baseUrl}/auth/login`, {
@@ -500,7 +506,7 @@ async function runProfessionalWorkflowTests() {
         lastName: "User",
         email: unassignedEmail,
         password: passwordHash,
-        roleId: viewerRole.id
+        roleId: scorerRole.id
       }
     });
     const unassignedLoginRes = await fetch(`${baseUrl}/auth/login`, {

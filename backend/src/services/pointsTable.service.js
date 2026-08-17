@@ -66,17 +66,31 @@ export async function updatePointsTableService(
     summary,
     db = prisma
 ) {
-
-
-    const record =
-        await getPointsTableByTeam(
-            tournamentId,
-            teamId,
-            db
-        );
+    let record = await getPointsTableByTeam(
+        tournamentId,
+        teamId,
+        db
+    );
 
     if (!record) {
-        throw new Error("Points table entry not found.");
+        record = await db.pointsTable.create({
+            data: {
+                tournamentId,
+                teamId,
+                played: 0,
+                won: 0,
+                lost: 0,
+                tied: 0,
+                noResult: 0,
+                points: 0,
+                netRunRate: 0,
+                runsScored: 0,
+                ballsFaced: 0,
+                runsConceded: 0,
+                ballsBowled: 0
+            },
+            include: { team: true }
+        });
     }
 
     const updated =

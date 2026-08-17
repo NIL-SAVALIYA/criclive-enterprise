@@ -8,7 +8,8 @@ import {
   getAllTournamentsService,
   getTournamentByIdService,
   updateTournamentService,
-  deleteTournamentService
+  deleteTournamentService,
+  getTournamentDashboardService
 } from "../services/tournament.service.js";
 import { ZodError } from "zod";
 
@@ -125,6 +126,23 @@ export async function remove(req, res) {
     return res.status(statusCode).json({
       success: false,
       message: error.message || "Failed to delete tournament."
+    });
+  }
+}
+
+export async function getDashboard(req, res) {
+  try {
+    const dashboardData = await getTournamentDashboardService(req.params.id, req.user);
+
+    return res.status(200).json({
+      success: true,
+      data: dashboardData
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 400;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Failed to fetch tournament dashboard."
     });
   }
 }

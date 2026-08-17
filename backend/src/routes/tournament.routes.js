@@ -4,7 +4,8 @@ import {
   getAll,
   getOne,
   update,
-  remove
+  remove,
+  getDashboard
 } from "../controllers/tournament.controller.js";
 import { authenticate } from "../middleware/auth.middleware.js";
 import { authorize } from "../middleware/authorize.middleware.js";
@@ -17,6 +18,14 @@ const router = Router();
 | Tournament Routes (RBAC Protected)
 |--------------------------------------------------------------------------
 */
+
+// Get Tournament Dashboard Bundle (ADMIN, ORGANIZER, TOURNAMENT_ADMIN)
+router.get(
+  "/:id/dashboard",
+  authenticate,
+  authorize(Roles.ADMIN, Roles.ORGANIZER, Roles.TOURNAMENT_ADMIN),
+  getDashboard
+);
 
 // Create Tournament (ADMIN, ORGANIZER, TOURNAMENT_ADMIN)
 router.post(

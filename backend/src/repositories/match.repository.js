@@ -48,11 +48,12 @@ export async function getAllMatches(params = {}, db = prisma) {
         matchDate: "asc"
       },
       include: {
-        tournament: { select: { id: true, name: true, format: true } },
+        tournament: { select: { id: true, name: true, format: true, organizerId: true } },
         teamA: { select: { id: true, name: true, shortName: true, logoUrl: true } },
         teamB: { select: { id: true, name: true, shortName: true, logoUrl: true } },
         tossWinner: { select: { id: true, name: true, shortName: true } },
         winnerTeam: { select: { id: true, name: true, shortName: true } },
+        scorer: { select: { id: true, firstName: true, lastName: true, email: true } },
         _count: {
           select: {
             innings: true,
@@ -87,6 +88,7 @@ export async function getMatchById(id, db = prisma) {
       teamB: { select: { id: true, name: true, shortName: true, logoUrl: true } },
       tossWinner: { select: { id: true, name: true, shortName: true } },
       winnerTeam: { select: { id: true, name: true, shortName: true } },
+      scorer: { select: { id: true, firstName: true, lastName: true, email: true } },
       innings: {
         select: {
           id: true,
@@ -120,7 +122,8 @@ export async function updateMatch(id, data, db = prisma) {
     include: {
       teamA: { select: { id: true, name: true, shortName: true, logoUrl: true } },
       teamB: { select: { id: true, name: true, shortName: true, logoUrl: true } },
-      tossWinner: { select: { id: true, name: true, shortName: true } }
+      tossWinner: { select: { id: true, name: true, shortName: true } },
+      scorer: { select: { id: true, firstName: true, lastName: true, email: true } }
     }
   });
 }
@@ -141,9 +144,11 @@ export async function getLiveMatches(db = prisma) {
   return db.match.findMany({
     where: { status: "LIVE" },
     include: {
+      tournament: { select: { id: true, name: true, format: true, organizerId: true } },
       teamA: { select: { id: true, name: true, shortName: true, logoUrl: true } },
       teamB: { select: { id: true, name: true, shortName: true, logoUrl: true } },
-      tossWinner: { select: { id: true, name: true, shortName: true } }
+      tossWinner: { select: { id: true, name: true, shortName: true } },
+      scorer: { select: { id: true, firstName: true, lastName: true, email: true } }
     },
     orderBy: { matchDate: "asc" }
   });
@@ -156,9 +161,11 @@ export async function getUpcomingMatches(db = prisma) {
   return db.match.findMany({
     where: { status: "UPCOMING" },
     include: {
+      tournament: { select: { id: true, name: true, format: true, organizerId: true } },
       teamA: { select: { id: true, name: true, shortName: true, logoUrl: true } },
       teamB: { select: { id: true, name: true, shortName: true, logoUrl: true } },
-      tossWinner: { select: { id: true, name: true, shortName: true } }
+      tossWinner: { select: { id: true, name: true, shortName: true } },
+      scorer: { select: { id: true, firstName: true, lastName: true, email: true } }
     },
     orderBy: { matchDate: "asc" }
   });
@@ -171,10 +178,12 @@ export async function getCompletedMatches(db = prisma) {
   return db.match.findMany({
     where: { status: "COMPLETED" },
     include: {
+      tournament: { select: { id: true, name: true, format: true, organizerId: true } },
       teamA: { select: { id: true, name: true, shortName: true, logoUrl: true } },
       teamB: { select: { id: true, name: true, shortName: true, logoUrl: true } },
       tossWinner: { select: { id: true, name: true, shortName: true } },
-      winnerTeam: { select: { id: true, name: true, shortName: true } }
+      winnerTeam: { select: { id: true, name: true, shortName: true } },
+      scorer: { select: { id: true, firstName: true, lastName: true, email: true } }
     },
     orderBy: { completedAt: "desc" }
   });
@@ -187,9 +196,12 @@ export async function getMatchesByTournament(tournamentId, db = prisma) {
   return db.match.findMany({
     where: { tournamentId },
     include: {
-      teamA: { select: { id: true, name: true, shortName: true } },
-      teamB: { select: { id: true, name: true, shortName: true } },
-      tossWinner: { select: { id: true, name: true, shortName: true } }
+      tournament: { select: { id: true, name: true, format: true, organizerId: true } },
+      teamA: { select: { id: true, name: true, shortName: true, logoUrl: true } },
+      teamB: { select: { id: true, name: true, shortName: true, logoUrl: true } },
+      tossWinner: { select: { id: true, name: true, shortName: true } },
+      winnerTeam: { select: { id: true, name: true, shortName: true } },
+      scorer: { select: { id: true, firstName: true, lastName: true, email: true } }
     },
     orderBy: { matchDate: "asc" }
   });

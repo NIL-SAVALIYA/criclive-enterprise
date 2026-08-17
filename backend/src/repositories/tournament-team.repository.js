@@ -123,23 +123,30 @@ export async function deleteRegistration(id) {
 */
 
 export async function getTournamentTeams(tournamentId) {
-
     return prisma.tournamentTeam.findMany({
-
         where: {
-
             tournamentId
-
         },
-
         include: {
-
-            team: true
-
+            team: {
+                include: {
+                    players: true,
+                    manager: {
+                        select: {
+                            id: true,
+                            firstName: true,
+                            lastName: true,
+                            email: true,
+                            phone: true
+                        }
+                    }
+                }
+            }
+        },
+        orderBy: {
+            createdAt: "asc"
         }
-
     });
-
 }
 
 /*

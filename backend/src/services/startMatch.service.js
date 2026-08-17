@@ -1,21 +1,55 @@
 import prisma from "../config/db.js";
+import { recordAuditLog } from "../utils/auditLogger.js";
+import { Roles } from "../constants/roles.js";
 
-export async function startMatch(matchId, strikerId, nonStrikerId, bowlerId) {
+export async function startMatch(matchId, strikerId, nonStrikerId, bowlerId, user = null) {
     return await prisma.$transaction(async (tx) => {
         const match = await tx.match.findUnique({
-            where: { id: matchId }
+            where: { id: matchId },
+            include: {
+                tournament: true,
+                teamA: true,
+                teamB: true
+            }
         });
 
         if (!match) {
-            throw new Error("Match not found");
+            const error = new Error("Match not found");
+            error.statusCode = 404;
+            throw error;
+        }
+
+        // Authorization check for non-ADMIN users
+        if (user && user.role !== Roles.ADMIN) {
+            if (user.role === Roles.ORGANIZER) {
+                if (match.tournament?.organizerId && match.tournament.organizerId !== user.userId) {
+                    const error = new Error("Access denied. You can only start matches in tournaments you organize.");
+                    error.statusCode = 403;
+                    throw error;
+                }
+            } else if (user.role === Roles.SCORER) {
+                if (match.scorerId && match.scorerId !== user.userId) {
+                    const error = new Error("Access denied. You are not assigned to score this match.");
+                    error.statusCode = 403;
+                    throw error;
+                }
+            } else {
+                const error = new Error("Access denied. Only authorized staff can start matches.");
+                error.statusCode = 403;
+                throw error;
+            }
         }
 
         if (match.status !== "UPCOMING") {
-            throw new Error("Match has already started or completed");
+            const error = new Error("Match has already started or completed");
+            error.statusCode = 400;
+            throw error;
         }
 
         if (!match.tossWinnerId || !match.tossDecision) {
-            throw new Error("Toss has not been recorded");
+            const error = new Error("Toss has not been recorded");
+            error.statusCode = 400;
+            throw error;
         }
 
         const playingXI = await tx.playingXI.findMany({
@@ -26,7 +60,9 @@ export async function startMatch(matchId, strikerId, nonStrikerId, bowlerId) {
         const teamBPlayers = playingXI.filter(p => p.teamId === match.teamBId);
 
         if (teamAPlayers.length !== 11 || teamBPlayers.length !== 11) {
-            throw new Error("Both teams must have exactly 11 players");
+            const error = new Error("Both teams must have exactly 11 players in Playing XI");
+            error.statusCode = 400;
+            throw error;
         }
 
         let battingTeamId;
@@ -45,13 +81,19 @@ export async function startMatch(matchId, strikerId, nonStrikerId, bowlerId) {
         const bowlingPlayers = playingXI.filter(p => p.teamId === bowlingTeamId);
 
         if (!battingPlayers.some(p => p.playerId === strikerId)) {
-            throw new Error("Striker is not in the batting team's Playing XI");
+            const error = new Error("Striker is not in the batting team's Playing XI");
+            error.statusCode = 400;
+            throw error;
         }
         if (!battingPlayers.some(p => p.playerId === nonStrikerId)) {
-            throw new Error("Non-Striker is not in the batting team's Playing XI");
+            const error = new Error("Non-Striker is not in the batting team's Playing XI");
+            error.statusCode = 400;
+            throw error;
         }
         if (!bowlingPlayers.some(p => p.playerId === bowlerId)) {
-            throw new Error("Bowler is not in the bowling team's Playing XI");
+            const error = new Error("Bowler is not in the bowling team's Playing XI");
+            error.statusCode = 400;
+            throw error;
         }
 
         // 1. Update Match status
@@ -72,7 +114,6 @@ export async function startMatch(matchId, strikerId, nonStrikerId, bowlerId) {
         });
 
         // 3. Create Batting Scorecards
-        // Sort batting players by original battingOrder to assign 3-11 positions to non-openers
         const otherBatters = battingPlayers
             .filter(p => p.playerId !== strikerId && p.playerId !== nonStrikerId)
             .sort((a, b) => a.battingOrder - b.battingOrder);
@@ -101,14 +142,14 @@ export async function startMatch(matchId, strikerId, nonStrikerId, bowlerId) {
             data: bowlingScorecardsData
         });
 
-        // Dummy update the opening bowler to ensure they have the latest updatedAt timestamp
+        // Update the opening bowler to ensure they have the latest updatedAt timestamp
         const openingBowlerScorecard = await tx.bowlingScorecard.findFirst({
             where: { inningsId: innings.id, bowlerId }
         });
         if (openingBowlerScorecard) {
             await tx.bowlingScorecard.update({
                 where: { id: openingBowlerScorecard.id },
-                data: { updatedAt: new Date() } // Forces an update
+                data: { updatedAt: new Date() }
             });
         }
 
@@ -122,16 +163,35 @@ export async function startMatch(matchId, strikerId, nonStrikerId, bowlerId) {
             }
         });
 
+        // 6. Record Audit Log
+        await recordAuditLog({
+            userId: user ? user.userId : null,
+            action: "MATCH_STARTED",
+            entityType: "MATCH",
+            entityId: matchId,
+            metadata: {
+                matchId,
+                tournamentId: match.tournamentId,
+                teamAId: match.teamAId,
+                teamBId: match.teamBId,
+                strikerId,
+                nonStrikerId,
+                bowlerId
+            },
+            db: tx
+        });
+
         // 7. Create Notification (Timeline Event)
         await tx.notification.create({
             data: {
                 type: "MATCH_EVENT",
                 title: "Match Started",
-                message: "The match has started. 1st Innings underway.",
+                message: `Match started: ${match.teamA.name} vs ${match.teamB.name}. 1st Innings underway.`,
                 matchId
             }
         });
 
+        console.log(`[MATCH EVENT] Match Started | ID: ${matchId} | ${match.teamA.name} vs ${match.teamB.name}`);
         return updatedMatch;
-    });
+    }, { maxWait: 15000, timeout: 30000 });
 }

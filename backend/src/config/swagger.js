@@ -220,6 +220,15 @@ const swaggerDefinition = {
         responses: { 201: { description: "Tournament created" }, 400: { description: "Validation error" } }
       }
     },
+    "/api/v1/tournaments/{id}/dashboard": {
+      get: {
+        tags: ["Tournaments"],
+        summary: "Get comprehensive tournament operational dashboard bundle",
+        security: [{ bearerAuth: [] }],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: { 200: { description: "Complete tournament dashboard with teams, matches, staff, and standings" } }
+      }
+    },
     "/api/v1/tournaments/{id}": {
       get: {
         tags: ["Tournaments"],

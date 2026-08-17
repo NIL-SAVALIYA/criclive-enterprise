@@ -91,8 +91,10 @@ export default function Fixtures() {
     const tour = m.tournament?.name?.toLowerCase() || '';
 
     const matchesSearch = teamA.includes(q) || teamB.includes(q) || venue.includes(q) || tour.includes(q);
-    const matchesTab = activeTab === 'ALL' || m.status === activeTab;
-    const matchesTournament = tournamentFilter === 'ALL' || m.tournamentId === tournamentFilter;
+    const matchesTournament =
+      tournamentFilter === 'ALL' ||
+      m.tournamentId === tournamentFilter ||
+      m.tournament?.id === tournamentFilter;
 
     return matchesSearch && matchesTab && matchesTournament;
   });
