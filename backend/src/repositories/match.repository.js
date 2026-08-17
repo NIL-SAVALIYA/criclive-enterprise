@@ -82,7 +82,7 @@ export async function getMatchById(id, db = prisma) {
   return db.match.findUnique({
     where: { id },
     include: {
-      tournament: { select: { id: true, name: true, format: true, status: true } },
+      tournament: { select: { id: true, name: true, format: true, status: true, organizerId: true } },
       teamA: { select: { id: true, name: true, shortName: true, logoUrl: true } },
       teamB: { select: { id: true, name: true, shortName: true, logoUrl: true } },
       tossWinner: { select: { id: true, name: true, shortName: true } },

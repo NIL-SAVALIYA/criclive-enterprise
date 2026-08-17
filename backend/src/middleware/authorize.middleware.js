@@ -1,23 +1,37 @@
+import prisma from "../config/db.js";
 import { Roles } from "../constants/roles.js";
 
 /**
  * Role-Based Access Control (RBAC) Middleware.
- * Evaluates whether the authenticated user has one of the required roles.
+ * Checks live user role from database for real-time suspension/promotion enforcement.
  * @param {...string} allowedRoles - List of permitted roles
  */
 export function authorize(...allowedRoles) {
-  return (req, res, next) => {
+  return async (req, res, next) => {
     try {
-      if (!req.user || (!req.user.role && !req.user.roleId)) {
+      if (!req.user || !req.user.userId) {
         return res.status(401).json({
           success: false,
           message: "Unauthorized. Authentication token is required."
         });
       }
 
-      const userRole = req.user.role || req.user.roleId;
+      let userRole = req.user.role;
 
-      // Allow SUPER_ADMIN or explicit matching roles
+      // Live role lookup from database to enforce instant suspension / role revocation
+      try {
+        const liveUser = await prisma.user.findUnique({
+          where: { id: req.user.userId },
+          include: { role: true }
+        });
+        if (liveUser?.role?.name) {
+          userRole = liveUser.role.name;
+          req.user.role = userRole;
+        }
+      } catch {
+        // Fallback to token role if transient db read fails
+      }
+
       const isAuthorized =
         userRole === Roles.SUPER_ADMIN ||
         allowedRoles.includes(userRole);

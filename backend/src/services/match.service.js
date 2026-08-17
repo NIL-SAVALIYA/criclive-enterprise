@@ -7,6 +7,8 @@ import {
   deleteMatch
 } from "../repositories/match.repository.js";
 import { getTeamById } from "../repositories/team.repository.js";
+import { getTournamentById } from "../repositories/tournament.repository.js";
+import { Roles } from "../constants/roles.js";
 
 const ALLOWED_TRANSITIONS = {
   UPCOMING: ["LIVE", "CANCELLED"],
@@ -18,11 +20,28 @@ const ALLOWED_TRANSITIONS = {
 /**
  * Creates a new match fixture with team existence and toss guards.
  */
-export async function createMatchService(matchData) {
+export async function createMatchService(matchData, user = null) {
   if (matchData.teamAId === matchData.teamBId) {
     const error = new Error("Team A and Team B cannot be the same.");
     error.statusCode = 400;
     throw error;
+  }
+
+  if (matchData.tournamentId) {
+    const tournament = await getTournamentById(matchData.tournamentId);
+    if (!tournament) {
+      const error = new Error("Tournament not found.");
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (user && user.role === Roles.ORGANIZER) {
+      if (tournament.organizerId && tournament.organizerId !== user.userId) {
+        const error = new Error("Access denied. You can only create matches for tournaments you organize.");
+        error.statusCode = 403;
+        throw error;
+      }
+    }
   }
 
   const teamA = await getTeamById(matchData.teamAId);
@@ -50,11 +69,14 @@ export async function createMatchService(matchData) {
     matchDate: new Date(matchData.matchDate)
   };
 
-  return prisma.$transaction(async (tx) => {
-    const match = await createMatch(payload, tx);
-    console.log(`[MATCH EVENT] Match Created | ID: ${match.id} | ${teamA.name} vs ${teamB.name} | Venue: ${match.venue}`);
-    return match;
-  });
+  return prisma.$transaction(
+    async (tx) => {
+      const match = await createMatch(payload, tx);
+      console.log(`[MATCH EVENT] Match Created | ID: ${match.id} | ${teamA.name} vs ${teamB.name} | Venue: ${match.venue}`);
+      return match;
+    },
+    { maxWait: 15000, timeout: 30000 }
+  );
 }
 
 /**
@@ -78,14 +100,23 @@ export async function getMatchByIdService(id) {
 }
 
 /**
- * Updates a match with status transition and team/toss guards.
+ * Updates a match with ownership, status transition and team/toss guards.
  */
-export async function updateMatchService(id, matchData) {
+export async function updateMatchService(id, matchData, user = null) {
   const match = await getMatchById(id);
   if (!match) {
     const error = new Error("Match not found.");
     error.statusCode = 404;
     throw error;
+  }
+
+  // Enforce tournament ownership
+  if (user && user.role === Roles.ORGANIZER) {
+    if (match.tournament && match.tournament.organizerId && match.tournament.organizerId !== user.userId) {
+      const error = new Error("Access denied. You can only modify matches in tournaments you organize.");
+      error.statusCode = 403;
+      throw error;
+    }
   }
 
   const teamAId = matchData.teamAId || match.teamAId;
@@ -118,22 +149,34 @@ export async function updateMatchService(id, matchData) {
     ...(matchData.matchDate && { matchDate: new Date(matchData.matchDate) })
   };
 
-  return prisma.$transaction(async (tx) => {
-    const updated = await updateMatch(id, payload, tx);
-    console.log(`[MATCH EVENT] Match Updated | ID: ${updated.id} | Status: ${updated.status}`);
-    return updated;
-  });
+  return prisma.$transaction(
+    async (tx) => {
+      const updated = await updateMatch(id, payload, tx);
+      console.log(`[MATCH EVENT] Match Updated | ID: ${updated.id} | Status: ${updated.status}`);
+      return updated;
+    },
+    { maxWait: 15000, timeout: 30000 }
+  );
 }
 
 /**
- * Deletes a match record.
+ * Deletes a match record with ownership protection.
  */
-export async function deleteMatchService(id) {
+export async function deleteMatchService(id, user = null) {
   const match = await getMatchById(id);
   if (!match) {
     const error = new Error("Match not found.");
     error.statusCode = 404;
     throw error;
+  }
+
+  // Enforce tournament ownership
+  if (user && user.role === Roles.ORGANIZER) {
+    if (match.tournament && match.tournament.organizerId && match.tournament.organizerId !== user.userId) {
+      const error = new Error("Access denied. You can only delete matches in tournaments you organize.");
+      error.statusCode = 403;
+      throw error;
+    }
   }
 
   if (match.status === "LIVE") {
@@ -149,11 +192,14 @@ export async function deleteMatchService(id) {
     throw error;
   }
 
-  return prisma.$transaction(async (tx) => {
-    const result = await deleteMatch(id, tx);
-    console.log(`[MATCH EVENT] Match Deleted | ID: ${id}`);
-    return result;
-  });
+  return prisma.$transaction(
+    async (tx) => {
+      const result = await deleteMatch(id, tx);
+      console.log(`[MATCH EVENT] Match Deleted | ID: ${id}`);
+      return result;
+    },
+    { maxWait: 15000, timeout: 30000 }
+  );
 }
 
 /*

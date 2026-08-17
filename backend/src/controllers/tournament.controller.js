@@ -22,7 +22,7 @@ function formatZodErrors(error) {
 export async function create(req, res) {
   try {
     const data = createTournamentSchema.parse(req.body);
-    const tournament = await createTournamentService(data);
+    const tournament = await createTournamentService(data, req.user);
 
     return res.status(201).json({
       success: true,
@@ -88,7 +88,7 @@ export async function getOne(req, res) {
 export async function update(req, res) {
   try {
     const data = updateTournamentSchema.parse(req.body);
-    const tournament = await updateTournamentService(req.params.id, data);
+    const tournament = await updateTournamentService(req.params.id, data, req.user);
 
     return res.status(200).json({
       success: true,
@@ -114,7 +114,7 @@ export async function update(req, res) {
 
 export async function remove(req, res) {
   try {
-    await deleteTournamentService(req.params.id);
+    await deleteTournamentService(req.params.id, req.user);
 
     return res.status(200).json({
       success: true,

@@ -22,7 +22,7 @@ function formatZodErrors(error) {
 export async function create(req, res) {
   try {
     const data = createMatchSchema.parse(req.body);
-    const match = await createMatchService(data);
+    const match = await createMatchService(data, req.user);
 
     return res.status(201).json({
       success: true,
@@ -87,7 +87,7 @@ export async function getOne(req, res) {
 export async function update(req, res) {
   try {
     const data = updateMatchSchema.parse(req.body);
-    const match = await updateMatchService(req.params.id, data);
+    const match = await updateMatchService(req.params.id, data, req.user);
 
     return res.status(200).json({
       success: true,
@@ -113,7 +113,7 @@ export async function update(req, res) {
 
 export async function remove(req, res) {
   try {
-    await deleteMatchService(req.params.id);
+    await deleteMatchService(req.params.id, req.user);
 
     return res.status(200).json({
       success: true,

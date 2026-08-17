@@ -7,6 +7,8 @@ import {
   deleteTournament,
   findTournamentByName
 } from "../repositories/tournament.repository.js";
+import { recordAuditLog } from "../utils/auditLogger.js";
+import { Roles } from "../constants/roles.js";
 
 const ALLOWED_TRANSITIONS = {
   UPCOMING: ["LIVE", "CANCELLED"],
@@ -16,9 +18,9 @@ const ALLOWED_TRANSITIONS = {
 };
 
 /**
- * Creates a new tournament with case-insensitive name validation.
+ * Creates a new tournament with case-insensitive name validation and organizer association.
  */
-export async function createTournamentService(tournamentData) {
+export async function createTournamentService(tournamentData, user = null) {
   const name = tournamentData.name.trim();
 
   const existingTournament = await findTournamentByName(name);
@@ -28,18 +30,35 @@ export async function createTournamentService(tournamentData) {
     throw error;
   }
 
-  return prisma.$transaction(async (tx) => {
-    const tournament = await createTournament(
-      {
-        ...tournamentData,
-        name
-      },
-      tx
-    );
+  // Always derive organizerId from the authenticated user. Never trust req.body.organizerId.
+  const organizerId = user ? user.userId : (tournamentData.organizerId || null);
 
-    console.log(`[TOURNAMENT EVENT] Tournament Created | ID: ${tournament.id} | Name: "${tournament.name}"`);
-    return tournament;
-  });
+  return prisma.$transaction(
+    async (tx) => {
+      const tournament = await createTournament(
+        {
+          ...tournamentData,
+          name,
+          organizerId
+        },
+        tx
+      );
+
+      // Audit log
+      await recordAuditLog({
+        userId: user ? user.userId : null,
+        action: "TOURNAMENT_CREATED",
+        entityType: "TOURNAMENT",
+        entityId: tournament.id,
+        metadata: { name: tournament.name, format: tournament.format, organizerId },
+        db: tx
+      });
+
+      console.log(`[TOURNAMENT EVENT] Tournament Created | ID: ${tournament.id} | Name: "${tournament.name}"`);
+      return tournament;
+    },
+    { maxWait: 15000, timeout: 30000 }
+  );
 }
 
 /**
@@ -47,7 +66,6 @@ export async function createTournamentService(tournamentData) {
  */
 export async function getAllTournamentsService(params = {}) {
   const result = await getAllTournaments(params);
-  // Maintain backward compatibility: if no pagination params were passed, or for array expectations, return result.tournaments or result object
   return result;
 }
 
@@ -65,9 +83,9 @@ export async function getTournamentByIdService(id) {
 }
 
 /**
- * Updates a tournament with status transition guards and name check.
+ * Updates a tournament with ownership verification, status transition guards and name check.
  */
-export async function updateTournamentService(id, tournamentData) {
+export async function updateTournamentService(id, tournamentData, user = null) {
   const tournament = await getTournamentById(id);
   if (!tournament) {
     const error = new Error("Tournament not found.");
@@ -75,10 +93,19 @@ export async function updateTournamentService(id, tournamentData) {
     throw error;
   }
 
+  // Ownership verification for ORGANIZER role
+  if (user && user.role === Roles.ORGANIZER) {
+    if (tournament.organizerId && tournament.organizerId !== user.userId) {
+      const error = new Error("Access denied. You can only modify tournaments created by your account.");
+      error.statusCode = 403;
+      throw error;
+    }
+  }
+
   // Name duplicate check if name is being changed
   if (tournamentData.name && tournamentData.name.trim().toLowerCase() !== tournament.name.toLowerCase()) {
     const existingName = await findTournamentByName(tournamentData.name.trim());
-    if (existingName) {
+    if (existingName && existingName.id !== id) {
       const error = new Error("Tournament name already exists.");
       error.statusCode = 409;
       throw error;
@@ -95,22 +122,44 @@ export async function updateTournamentService(id, tournamentData) {
     }
   }
 
-  return prisma.$transaction(async (tx) => {
-    const updated = await updateTournament(id, tournamentData, tx);
-    console.log(`[TOURNAMENT EVENT] Tournament Updated | ID: ${updated.id} | Status: ${updated.status}`);
-    return updated;
-  });
+  return prisma.$transaction(
+    async (tx) => {
+      const updated = await updateTournament(id, tournamentData, tx);
+
+      await recordAuditLog({
+        userId: user ? user.userId : null,
+        action: "TOURNAMENT_UPDATED",
+        entityType: "TOURNAMENT",
+        entityId: updated.id,
+        metadata: { status: updated.status, changes: tournamentData },
+        db: tx
+      });
+
+      console.log(`[TOURNAMENT EVENT] Tournament Updated | ID: ${updated.id} | Status: ${updated.status}`);
+      return updated;
+    },
+    { maxWait: 15000, timeout: 30000 }
+  );
 }
 
 /**
- * Deletes a tournament with delete-protection guards.
+ * Deletes a tournament with ownership verification and delete-protection guards.
  */
-export async function deleteTournamentService(id) {
+export async function deleteTournamentService(id, user = null) {
   const tournament = await getTournamentById(id);
   if (!tournament) {
     const error = new Error("Tournament not found.");
     error.statusCode = 404;
     throw error;
+  }
+
+  // Ownership verification for ORGANIZER role
+  if (user && user.role === Roles.ORGANIZER) {
+    if (tournament.organizerId && tournament.organizerId !== user.userId) {
+      const error = new Error("Access denied. You can only delete tournaments created by your account.");
+      error.statusCode = 403;
+      throw error;
+    }
   }
 
   if (tournament.status === "LIVE" || tournament.status === "COMPLETED") {
@@ -128,11 +177,24 @@ export async function deleteTournamentService(id) {
     throw error;
   }
 
-  return prisma.$transaction(async (tx) => {
-    const result = await deleteTournament(id, tx);
-    console.log(`[TOURNAMENT EVENT] Tournament Deleted | ID: ${id} | Name: "${tournament.name}"`);
-    return result;
-  });
+  return prisma.$transaction(
+    async (tx) => {
+      const result = await deleteTournament(id, tx);
+
+      await recordAuditLog({
+        userId: user ? user.userId : null,
+        action: "TOURNAMENT_DELETED",
+        entityType: "TOURNAMENT",
+        entityId: id,
+        metadata: { name: tournament.name },
+        db: tx
+      });
+
+      console.log(`[TOURNAMENT EVENT] Tournament Deleted | ID: ${id} | Name: "${tournament.name}"`);
+      return result;
+    },
+    { maxWait: 15000, timeout: 30000 }
+  );
 }
 
 /*

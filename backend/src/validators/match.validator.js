@@ -27,6 +27,8 @@ export const createMatchSchema = z.object({
 
   tossDecision: TossDecisionEnum.optional().nullable(),
 
+  scorerId: z.string().uuid("Scorer ID must be a valid UUID.").optional().nullable(),
+
   status: MatchStatusEnum.optional().default("UPCOMING")
 }).refine(
   (data) => data.teamAId !== data.teamBId,
@@ -50,6 +52,8 @@ export const updateMatchSchema = z.object({
   tossWinnerId: z.string().uuid().optional().nullable(),
 
   tossDecision: TossDecisionEnum.optional().nullable(),
+
+  scorerId: z.string().uuid().optional().nullable(),
 
   status: MatchStatusEnum.optional()
 });

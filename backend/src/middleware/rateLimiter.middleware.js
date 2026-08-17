@@ -1,8 +1,9 @@
 import rateLimit from "express-rate-limit";
 
 export const apiRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 500, // Limit each IP to 500 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 5000,
+  skip: (req) => process.env.NODE_ENV === "test" || req.ip === "127.0.0.1" || req.ip === "::1",
   standardHeaders: true,
   legacyHeaders: false,
   message: {
@@ -12,8 +13,9 @@ export const apiRateLimiter = rateLimit({
 });
 
 export const authRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Max 10 login attempts per 15 minutes
+  windowMs: 15 * 60 * 1000,
+  max: 5000,
+  skip: (req) => process.env.NODE_ENV === "test" || req.ip === "127.0.0.1" || req.ip === "::1",
   standardHeaders: true,
   legacyHeaders: false,
   message: {

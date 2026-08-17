@@ -28,8 +28,13 @@ model User {
   roleId          String
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
-  teams           Team[]
-  role            Role     @relation(fields: [roleId], references: [id])
+  teams                 Team[]
+  role                  Role                   @relation(fields: [roleId], references: [id])
+  organizedTournaments  Tournament[]           @relation("OrganizerTournaments")
+  assignedMatches       Match[]                @relation("AssignedMatches")
+  organizerApplications OrganizerApplication[] @relation("UserApplications")
+  reviewedApplications  OrganizerApplication[] @relation("ReviewedApplications")
+  auditLogs             AuditLog[]
 }
 
 model Team {
@@ -266,9 +271,13 @@ model Match {
 
   resultType MatchResultType?
 
+  scorerId String?
+
   innings Innings[]
 
   playingXI PlayingXI[]
+
+  scorer User? @relation("AssignedMatches", fields: [scorerId], references: [id])
 
   createdAt DateTime @default(now())
 
@@ -277,6 +286,7 @@ model Match {
   @@index([tournamentId])
   @@index([status])
   @@index([winnerTeamId])
+  @@index([scorerId])
 }
 
 model Tournament {
@@ -287,6 +297,7 @@ model Tournament {
   startDate   DateTime
   endDate     DateTime
   status      TournamentStatus @default(UPCOMING)
+  organizerId String?
 
   registeredTeams TournamentTeam[]
 
@@ -294,8 +305,12 @@ model Tournament {
 
   pointsTable PointsTable[]
 
+  organizer User? @relation("OrganizerTournaments", fields: [organizerId], references: [id])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([organizerId])
 }
 
 model TournamentTeam {
@@ -602,6 +617,50 @@ enum MatchResultType {
   WICKETS
   TIE
   NO_RESULT
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model OrganizerApplication {
+  id               String            @id @default(uuid())
+  userId           String
+  organizationName String
+  organizationType String?
+  phone            String?
+  city             String?
+  description      String?
+  status           ApplicationStatus @default(PENDING)
+  reviewedById     String?
+  reviewedAt       DateTime?
+  rejectionReason  String?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  user       User  @relation("UserApplications", fields: [userId], references: [id])
+  reviewedBy User? @relation("ReviewedApplications", fields: [reviewedById], references: [id])
+
+  @@index([userId])
+  @@index([status])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([entityType, entityId])
+  @@index([createdAt])
 }
 
 model Notification {

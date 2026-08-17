@@ -34,6 +34,7 @@ import endInningsRoutes from "./routes/endInnings.routes.js";
 import analyticsRoutes from "./routes/analytics.routes.js";
 import recordsRoutes from "./routes/records.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
+import organizerApplicationRoutes from "./routes/organizerApplication.routes.js";
 
 const app = express();
 
@@ -109,6 +110,7 @@ app.use("/api/v1/innings", endInningsRoutes);
 app.use("/api/v1/matches", analyticsRoutes);
 app.use("/api/v1/records", recordsRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
+app.use("/api/v1/organizer-applications", organizerApplicationRoutes);
 
 // 404 Not Found Catch-All Handler
 app.use((req, res) => {

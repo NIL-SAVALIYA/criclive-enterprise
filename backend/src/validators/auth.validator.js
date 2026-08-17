@@ -26,12 +26,14 @@ export const registerSchema = z.object({
     .regex(/[0-9]/, "Password must contain at least one number")
     .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character"),
 
-  role: z.enum([
-    Roles.ADMIN,
-    Roles.ORGANIZER,
-    Roles.TEAM_MANAGER,
-    Roles.VIEWER
-  ]).default(Roles.VIEWER)
+  role: z
+    .enum([Roles.VIEWER], {
+      errorMap: () => ({
+        message: "Public registration is restricted to the VIEWER role. Administrative and Organizer roles cannot be self-assigned."
+      })
+    })
+    .optional()
+    .default(Roles.VIEWER)
 });
 
 export const loginSchema = z.object({
