@@ -13,6 +13,7 @@ export default function AdminDashboard() {
   const [players, setPlayers] = useState([]);
   const [matches, setMatches] = useState([]);
   const [notifications, setNotifications] = useState([]);
+  const [organizerApplications, setOrganizerApplications] = useState([]);
   const [leaders, setLeaders] = useState(null);
 
   const [loading, setLoading] = useState(true);
@@ -20,6 +21,9 @@ export default function AdminDashboard() {
   const [newNoticeContent, setNewNoticeContent] = useState('');
   const [publishing, setPublishing] = useState(false);
   const [statusMsg, setStatusMsg] = useState(null);
+  const [appActionLoading, setAppActionLoading] = useState(null);
+  const [rejectingAppId, setRejectingAppId] = useState(null);
+  const [rejectionReason, setRejectionReason] = useState('');
 
   useEffect(() => {
     fetchDashboardData();
@@ -28,13 +32,14 @@ export default function AdminDashboard() {
   async function fetchDashboardData() {
     setLoading(true);
     try {
-      const [tRes, tmRes, pRes, mRes, nRes, lRes] = await Promise.all([
+      const [tRes, tmRes, pRes, mRes, nRes, lRes, appRes] = await Promise.all([
         api.get('/tournaments'),
         api.get('/teams'),
         api.get('/players'),
         api.get('/matches'),
         api.get('/notifications').catch(() => ({ data: { data: [] } })),
-        api.get('/records/caps-and-leaders').catch(() => ({ data: { data: null } }))
+        api.get('/records/caps-and-leaders').catch(() => ({ data: { data: null } })),
+        api.get('/organizer-applications').catch(() => ({ data: { data: [] } }))
       ]);
 
       setTournaments(tRes.data.data || []);
@@ -43,10 +48,48 @@ export default function AdminDashboard() {
       setMatches(mRes.data.data || []);
       setNotifications(nRes.data.data || []);
       setLeaders(lRes.data.data || null);
+      setOrganizerApplications(appRes.data.data || []);
     } catch (err) {
       console.error('Failed to load dashboard data:', err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleReviewApplication(appId, status, reason = null) {
+    setAppActionLoading(appId);
+    try {
+      await api.patch(`/organizer-applications/${appId}/status`, {
+        status,
+        rejectionReason: reason || undefined
+      });
+      setStatusMsg(`Application ${status.toLowerCase()} successfully!`);
+      setRejectingAppId(null);
+      setRejectionReason('');
+      fetchDashboardData();
+    } catch (err) {
+      console.error('Failed to review application:', err);
+      setStatusMsg(err.response?.data?.message || 'Failed to update application.');
+    } finally {
+      setAppActionLoading(null);
+    }
+  }
+
+  async function handleSuspendOrganizer(userId, reason) {
+    setAppActionLoading(userId);
+    try {
+      await api.post(`/organizer-applications/suspend/${userId}`, {
+        reason: reason || 'Administrative suspension'
+      });
+      setStatusMsg('Organizer privileges suspended successfully.');
+      setRejectingAppId(null);
+      setRejectionReason('');
+      fetchDashboardData();
+    } catch (err) {
+      console.error('Failed to suspend organizer:', err);
+      setStatusMsg(err.response?.data?.message || 'Failed to suspend organizer.');
+    } finally {
+      setAppActionLoading(null);
     }
   }
 
@@ -275,6 +318,163 @@ export default function AdminDashboard() {
                 </tbody>
               </table>
             </div>
+          </div>
+
+          {/* Organizer Applications Review Center */}
+          <div className="glass-panel p-5 rounded-2xl border border-gray-800 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-extrabold text-white flex items-center gap-2">
+                <Shield className="w-4 h-4 text-amber-400" /> Organizer Applications Review
+              </h3>
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                {organizerApplications.filter((a) => a.status === 'PENDING').length} Pending
+              </span>
+            </div>
+
+            {organizerApplications.length === 0 ? (
+              <p className="text-xs text-gray-400 p-2">No organizer applications submitted yet.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs font-mono">
+                  <thead className="bg-gray-900 text-gray-400 uppercase font-semibold">
+                    <tr>
+                      <th className="p-3">Applicant</th>
+                      <th className="p-3">Organization</th>
+                      <th className="p-3">City / Phone</th>
+                      <th className="p-3">Status</th>
+                      <th className="p-3 text-right">Review Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800">
+                    {organizerApplications.map((app) => (
+                      <tr key={app.id} className="hover:bg-gray-800/40">
+                        <td className="p-3 font-sans">
+                          <div className="font-bold text-white">
+                            {app.user?.firstName} {app.user?.lastName}
+                          </div>
+                          <div className="text-[11px] text-gray-400">{app.user?.email}</div>
+                        </td>
+                        <td className="p-3 text-gray-200 font-sans">
+                          <div className="font-semibold">{app.organizationName}</div>
+                          {app.organizationType && (
+                            <div className="text-[10px] text-gray-500">{app.organizationType}</div>
+                          )}
+                        </td>
+                        <td className="p-3 text-gray-400 font-sans">
+                          <div>{app.city || 'N/A'}</div>
+                          <div className="text-[11px]">{app.phone || 'N/A'}</div>
+                        </td>
+                        <td className="p-3">
+                          <span
+                            className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              app.status === 'APPROVED'
+                                ? 'bg-emerald-500/20 text-emerald-400'
+                                : app.status === 'PENDING'
+                                ? 'bg-amber-500/20 text-amber-400 animate-pulse'
+                                : 'bg-red-500/20 text-red-400'
+                            }`}
+                          >
+                            {app.status}
+                          </span>
+                        </td>
+                        <td className="p-3 text-right">
+                          {app.status === 'PENDING' ? (
+                            <div className="flex items-center justify-end gap-2">
+                              {rejectingAppId === app.id ? (
+                                <div className="flex items-center gap-1.5 font-sans">
+                                  <input
+                                    type="text"
+                                    placeholder="Rejection reason..."
+                                    value={rejectionReason}
+                                    onChange={(e) => setRejectionReason(e.target.value)}
+                                    className="bg-gray-900 border border-gray-700 text-white rounded px-2 py-1 text-xs w-36"
+                                  />
+                                  <button
+                                    onClick={() => handleReviewApplication(app.id, 'REJECTED', rejectionReason)}
+                                    disabled={!rejectionReason.trim() || appActionLoading === app.id}
+                                    className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs font-bold"
+                                  >
+                                    Confirm
+                                  </button>
+                                  <button
+                                    onClick={() => setRejectingAppId(null)}
+                                    className="px-2 py-1 bg-gray-800 text-gray-400 rounded text-xs"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <>
+                                  <button
+                                    onClick={() => handleReviewApplication(app.id, 'APPROVED')}
+                                    disabled={appActionLoading === app.id}
+                                    className="px-3 py-1 bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/40 border border-emerald-500/30 rounded text-xs font-bold transition-all"
+                                  >
+                                    {appActionLoading === app.id ? '...' : 'Approve'}
+                                  </button>
+                                  <button
+                                    onClick={() => {
+                                      setRejectingAppId(app.id);
+                                      setRejectionReason('');
+                                    }}
+                                    disabled={appActionLoading === app.id}
+                                    className="px-2.5 py-1 bg-red-600/20 text-red-400 hover:bg-red-600/40 border border-red-500/30 rounded text-xs font-bold transition-all"
+                                  >
+                                    Reject
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          ) : app.status === 'APPROVED' ? (
+                            <div className="flex items-center justify-end gap-2 font-sans">
+                              {rejectingAppId === app.userId ? (
+                                <div className="flex items-center gap-1.5">
+                                  <input
+                                    type="text"
+                                    placeholder="Suspension reason..."
+                                    value={rejectionReason}
+                                    onChange={(e) => setRejectionReason(e.target.value)}
+                                    className="bg-gray-900 border border-gray-700 text-white rounded px-2 py-1 text-xs w-36"
+                                  />
+                                  <button
+                                    onClick={() => handleSuspendOrganizer(app.userId, rejectionReason)}
+                                    disabled={!rejectionReason.trim() || appActionLoading === app.userId}
+                                    className="px-2 py-1 bg-red-600 hover:bg-red-500 text-white rounded text-xs font-bold"
+                                  >
+                                    Suspend
+                                  </button>
+                                  <button
+                                    onClick={() => setRejectingAppId(null)}
+                                    className="px-2 py-1 bg-gray-800 text-gray-400 rounded text-xs"
+                                  >
+                                    Cancel
+                                  </button>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => {
+                                    setRejectingAppId(app.userId);
+                                    setRejectionReason('');
+                                  }}
+                                  disabled={appActionLoading === app.userId}
+                                  className="px-2.5 py-1 bg-amber-600/20 text-amber-400 hover:bg-amber-600/40 border border-amber-500/30 rounded text-xs font-bold transition-all"
+                                >
+                                  Suspend Access
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-gray-500 font-sans">
+                              Suspended / Inactive
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
 

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Trophy, Users, BarChart3, Radio, Settings, LogIn, LogOut, User, Calendar } from 'lucide-react';
+import { Trophy, Users, BarChart3, Radio, Settings, LogIn, LogOut, User, Calendar, Award } from 'lucide-react';
 
 export default function Navbar() {
   const location = useLocation();
@@ -14,6 +14,7 @@ export default function Navbar() {
     { name: 'Tournaments', path: '/tournaments', icon: Trophy, roles: [] },
     { name: 'Teams', path: '/teams', icon: Users, roles: [] },
     { name: 'Players', path: '/players', icon: User, roles: [] },
+    { name: 'Become Organizer', path: '/apply-organizer', icon: Award, roles: ['VIEWER'] },
     { name: 'Admin Scorer Console', path: '/admin/scorer', icon: Settings, roles: ['ADMIN', 'SCORER'] },
     { name: 'Admin Dashboard', path: '/admin/dashboard', icon: BarChart3, roles: ['ADMIN'] }
   ];

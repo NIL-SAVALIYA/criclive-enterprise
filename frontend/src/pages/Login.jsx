@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Lock, Mail, LogIn, AlertCircle } from 'lucide-react';
+import { Lock, Mail, LogIn, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState(null);
+  const [successMsg, setSuccessMsg] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
   const { login } = useAuth();
@@ -14,6 +15,15 @@ export default function Login() {
   const location = useLocation();
 
   const from = location.state?.from?.pathname || '/';
+
+  useEffect(() => {
+    if (location.state?.email) {
+      setEmail(location.state.email);
+    }
+    if (location.state?.message) {
+      setSuccessMsg(location.state.message);
+    }
+  }, [location.state]);
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -29,7 +39,15 @@ export default function Login() {
       }
     } catch (err) {
       console.error('Login error:', err);
-      setError(err.response?.data?.message || 'Invalid Email or password.');
+      let errMsg = 'Invalid email or password.';
+      if (err.response?.data?.errors && Array.isArray(err.response.data.errors)) {
+        errMsg = err.response.data.errors.map(e => e.message).join(' ');
+      } else if (err.response?.data?.message) {
+        errMsg = err.response.data.message;
+      } else if (err.message && !err.response) {
+        errMsg = 'Unable to connect to server. Please check your internet connection.';
+      }
+      setError(errMsg);
     } finally {
       setSubmitting(false);
     }
@@ -46,6 +64,13 @@ export default function Login() {
           <p className="text-xs text-gray-400">Enter your credentials to access scorer console & admin panel</p>
         </div>
 
+        {successMsg && (
+          <div className="p-3 bg-emerald-950/80 border border-emerald-500/50 rounded-xl text-xs font-bold text-emerald-300 flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+            {successMsg}
+          </div>
+        )}
+
         {error && (
           <div className="p-3 bg-red-950/80 border border-red-500/50 rounded-xl text-xs font-bold text-red-300 flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
@@ -61,9 +86,12 @@ export default function Login() {
               <input
                 type="email"
                 required
-                placeholder="admin@cricket.com"
+                placeholder="user@criclive.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setError(null);
+                }}
                 className="w-full bg-gray-900 border border-gray-700 text-white rounded-xl pl-9 pr-3 py-2.5 text-xs font-semibold focus:border-emerald-500 focus:outline-none"
               />
             </div>
@@ -78,7 +106,10 @@ export default function Login() {
                 required
                 placeholder="••••••••"
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setError(null);
+                }}
                 className="w-full bg-gray-900 border border-gray-700 text-white rounded-xl pl-9 pr-3 py-2.5 text-xs font-semibold focus:border-emerald-500 focus:outline-none"
               />
             </div>
@@ -87,12 +118,29 @@ export default function Login() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs uppercase tracking-wider shadow-lg glow-emerald transition-all flex justify-center items-center gap-2 mt-2"
+            className={`w-full py-3 rounded-xl text-white font-extrabold text-xs uppercase tracking-wider shadow-lg transition-all flex justify-center items-center gap-2 mt-2 ${
+              submitting
+                ? 'bg-gray-700 cursor-not-allowed opacity-75'
+                : 'bg-emerald-600 hover:bg-emerald-500 glow-emerald'
+            }`}
           >
             <LogIn className="w-4 h-4" /> {submitting ? 'Signing In...' : 'Sign In'}
           </button>
         </form>
+
+        <div className="text-center pt-2 border-t border-gray-800/80">
+          <p className="text-xs text-gray-400">
+            Don't have an account?{' '}
+            <Link
+              to="/signup"
+              className="text-emerald-400 hover:text-emerald-300 font-bold hover:underline ml-1"
+            >
+              Create Account
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );
 }
+

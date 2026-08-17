@@ -5,10 +5,12 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import Login from './pages/Login';
+import Signup from './pages/Signup';
 import LiveMatchCenter from './pages/LiveMatchCenter';
 import Tournaments from './pages/Tournaments';
 import TeamsAndPlayers from './pages/TeamsAndPlayers';
 import Players from './pages/Players';
+import BecomeOrganizer from './pages/BecomeOrganizer';
 import AdminScoringConsole from './pages/AdminScoringConsole';
 import AdminDashboard from './pages/AdminDashboard';
 import MatchControlCenter from './pages/MatchControlCenter';
@@ -25,11 +27,20 @@ export default function App() {
               {/* Public Viewer Routes */}
               <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<Signup />} />
               <Route path="/fixtures" element={<Fixtures />} />
               <Route path="/matches/:matchId" element={<LiveMatchCenter />} />
               <Route path="/tournaments" element={<Tournaments />} />
               <Route path="/teams" element={<TeamsAndPlayers />} />
               <Route path="/players" element={<Players />} />
+              <Route
+                path="/apply-organizer"
+                element={
+                  <ProtectedRoute>
+                    <BecomeOrganizer />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* Protected Scorer Console (ADMIN or SCORER role) */}
               <Route

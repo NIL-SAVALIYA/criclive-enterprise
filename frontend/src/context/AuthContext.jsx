@@ -34,20 +34,38 @@ export function AuthProvider({ children }) {
     return userData;
   };
 
+  const register = async (userData) => {
+    const payload = {
+      firstName: userData.firstName?.trim(),
+      lastName: userData.lastName?.trim(),
+      email: userData.email?.trim().toLowerCase(),
+      password: userData.password,
+      role: 'VIEWER'
+    };
+    const res = await api.post('/auth/register', payload);
+    return res.data;
+  };
+
   const logout = () => {
     localStorage.removeItem('token');
     setToken(null);
     setUser(null);
   };
 
-  const hasRole = (allowedRoles = []) => {
-    if (!user) return false;
-    if (allowedRoles.length === 0) return true;
-    return allowedRoles.includes(user.role);
+  const refreshUserProfile = async () => {
+    if (token) {
+      try {
+        const res = await api.get('/auth/profile');
+        setUser(res.data.data);
+        return res.data.data;
+      } catch (err) {
+        console.error('Failed to refresh user profile:', err);
+      }
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, logout, hasRole }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, logout, hasRole, refreshUserProfile, setUser }}>
       {children}
     </AuthContext.Provider>
   );
