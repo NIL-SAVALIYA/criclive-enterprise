@@ -15,6 +15,7 @@ import AdminScoringConsole from './pages/AdminScoringConsole';
 import AdminDashboard from './pages/AdminDashboard';
 import MatchControlCenter from './pages/MatchControlCenter';
 import Fixtures from './pages/Fixtures';
+import DedicatedScorerConsole from './pages/DedicatedScorerConsole';
 
 export default function App() {
   return (
@@ -33,6 +34,10 @@ export default function App() {
               <Route path="/tournaments" element={<Tournaments />} />
               <Route path="/teams" element={<TeamsAndPlayers />} />
               <Route path="/players" element={<Players />} />
+
+              {/* Dedicated Guest Match Scorer Console (Token Authenticated) */}
+              <Route path="/score/:token" element={<DedicatedScorerConsole />} />
+              <Route path="/score-match/:token" element={<DedicatedScorerConsole />} />
               <Route
                 path="/apply-organizer"
                 element={

@@ -7,6 +7,7 @@ import {
     deletePlayingXIByTeam
 } from "../repositories/playingXI.repository.js";
 import { getMatchById } from "../repositories/match.repository.js";
+import { Roles } from "../constants/roles.js";
 
 export async function getPlayingXIService(matchId) {
     const match = await getMatchById(matchId);
@@ -66,7 +67,8 @@ export async function getPlayingXIService(matchId) {
 export async function createPlayingXIService(
     matchId,
     teamId,
-    players
+    players,
+    user = null
 ) {
     const match = await getMatchById(matchId);
 
@@ -75,6 +77,33 @@ export async function createPlayingXIService(
         error.status = 404;
         error.statusCode = 404;
         throw error;
+    }
+
+    // Role-based scope verification
+    if (user && user.role !== Roles.ADMIN && user.role !== Roles.SUPER_ADMIN) {
+        if (user.role === Roles.TEAM_MANAGER) {
+            const team = await prisma.team.findUnique({ where: { id: teamId } });
+            if (!team || team.managerId !== user.userId) {
+                const error = new Error("Access denied. You can only submit Playing XI for your assigned team.");
+                error.status = 403;
+                error.statusCode = 403;
+                throw error;
+            }
+        } else if (user.role === Roles.ORGANIZER) {
+            if (match.tournament?.organizerId && match.tournament.organizerId !== user.userId) {
+                const error = new Error("Access denied. You can only manage Playing XI for tournaments you organize.");
+                error.status = 403;
+                error.statusCode = 403;
+                throw error;
+            }
+        } else if (user.role === Roles.SCORER) {
+            if (match.scorerId && match.scorerId !== user.userId) {
+                const error = new Error("Access denied. You are not assigned to score this match.");
+                error.status = 403;
+                error.statusCode = 403;
+                throw error;
+            }
+        }
     }
 
     if (teamId !== match.teamAId && teamId !== match.teamBId) {
@@ -172,7 +201,8 @@ export async function createPlayingXIService(
 export async function updatePlayingXIService(
     matchId,
     teamId,
-    players
+    players,
+    user = null
 ) {
     const match = await getMatchById(matchId);
 
@@ -181,6 +211,33 @@ export async function updatePlayingXIService(
         error.status = 404;
         error.statusCode = 404;
         throw error;
+    }
+
+    // Role-based scope verification
+    if (user && user.role !== Roles.ADMIN && user.role !== Roles.SUPER_ADMIN) {
+        if (user.role === Roles.TEAM_MANAGER) {
+            const team = await prisma.team.findUnique({ where: { id: teamId } });
+            if (!team || team.managerId !== user.userId) {
+                const error = new Error("Access denied. You can only submit Playing XI for your assigned team.");
+                error.status = 403;
+                error.statusCode = 403;
+                throw error;
+            }
+        } else if (user.role === Roles.ORGANIZER) {
+            if (match.tournament?.organizerId && match.tournament.organizerId !== user.userId) {
+                const error = new Error("Access denied. You can only manage Playing XI for tournaments you organize.");
+                error.status = 403;
+                error.statusCode = 403;
+                throw error;
+            }
+        } else if (user.role === Roles.SCORER) {
+            if (match.scorerId && match.scorerId !== user.userId) {
+                const error = new Error("Access denied. You are not assigned to score this match.");
+                error.status = 403;
+                error.statusCode = 403;
+                throw error;
+            }
+        }
     }
 
     if (teamId !== match.teamAId && teamId !== match.teamBId) {

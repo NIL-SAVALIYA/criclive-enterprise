@@ -31,7 +31,8 @@ export async function createPlayingXIController(req, res) {
         const result = await createPlayingXIService(
             matchId,
             teamId,
-            players
+            players,
+            req.user
         );
 
         return res.status(201).json({
@@ -56,7 +57,8 @@ export async function updatePlayingXIController(req, res) {
         const result = await updatePlayingXIService(
             matchId,
             teamId,
-            players
+            players,
+            req.user
         );
 
         return res.status(200).json({

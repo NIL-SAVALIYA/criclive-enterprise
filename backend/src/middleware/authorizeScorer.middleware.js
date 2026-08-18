@@ -1,37 +1,37 @@
 import prisma from "../config/db.js";
 import { Roles } from "../constants/roles.js";
+import jwt from "jsonwebtoken";
+import env from "../config/env.js";
 
 /**
- * Middleware ensuring only ADMIN, Tournament ORGANIZER, or assigned Match SCORER
- * can perform scoring or match control operations.
+ * Dual-mode middleware for Match Scoring operations:
+ * Accepts EITHER:
+ * 1. Match-specific Scoring Access Token (via header 'x-scoring-token', query 'scoringToken'/'token', or body 'scoringToken')
+ * 2. Authenticated User JWT (ADMIN, tournament ORGANIZER, or assigned SCORER)
  */
 export async function authorizeScorer(req, res, next) {
   try {
-    const user = req.user;
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required."
-      });
-    }
+    const scoringToken =
+      req.headers["x-scoring-token"] ||
+      req.query.scoringToken ||
+      req.query.token ||
+      req.body?.scoringToken;
 
-    // Global Administrators have full access
-    if (user.role === Roles.ADMIN || user.role === Roles.SUPER_ADMIN) {
-      return next();
-    }
-
+    // 1. Resolve target match or innings
     let match = null;
+    const matchId = req.params.matchId || req.body?.matchId;
+    const inningsId = req.params.inningsId || req.body?.inningsId;
 
-    if (req.params.matchId) {
+    if (matchId) {
       match = await prisma.match.findUnique({
-        where: { id: req.params.matchId },
+        where: { id: matchId },
         include: {
           tournament: { select: { organizerId: true } }
         }
       });
-    } else if (req.params.inningsId) {
+    } else if (inningsId) {
       const innings = await prisma.innings.findUnique({
-        where: { id: req.params.inningsId },
+        where: { id: inningsId },
         include: {
           match: {
             include: {
@@ -48,6 +48,49 @@ export async function authorizeScorer(req, res, next) {
         success: false,
         message: "Target match or innings not found."
       });
+    }
+
+    // 2. Check Match Scoring Access Token
+    if (scoringToken && typeof scoringToken === "string") {
+      if (match.scoringToken && match.scoringToken === scoringToken) {
+        req.isTokenScorer = true;
+        req.scoringMatchId = match.id;
+        return next();
+      }
+      return res.status(403).json({
+        success: false,
+        message: "Invalid, expired, or revoked scoring access link."
+      });
+    }
+
+    // 3. Fallback to User JWT Authentication
+    let user = req.user;
+    if (!user) {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        try {
+          const token = authHeader.split(" ")[1];
+          user = jwt.verify(token, env.JWT_SECRET);
+          req.user = user;
+        } catch {
+          return res.status(401).json({
+            success: false,
+            message: "Invalid or expired user session."
+          });
+        }
+      }
+    }
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Authorization required. Please provide a valid scoring access token or sign in."
+      });
+    }
+
+    // Global Administrators have full access
+    if (user.role === Roles.ADMIN || user.role === Roles.SUPER_ADMIN) {
+      return next();
     }
 
     // Tournament Organizer has authority over matches in their tournament

@@ -4,7 +4,11 @@ import {
   getAll,
   getOne,
   update,
-  remove
+  remove,
+  generateScoringToken,
+  revokeScoringToken,
+  getScoringToken,
+  getScoreSessionByToken
 } from "../controllers/match.controller.js";
 import { authenticate } from "../middleware/auth.middleware.js";
 import { authorize } from "../middleware/authorize.middleware.js";
@@ -17,6 +21,36 @@ const router = Router();
 | Match Routes (RBAC Protected)
 |--------------------------------------------------------------------------
 */
+
+// Public / Token-verified Guest Score Session Route
+router.get(
+  "/score-session/:token",
+  getScoreSessionByToken
+);
+
+// Generate / Regenerate Scoring Token (ADMIN, ORGANIZER, TOURNAMENT_ADMIN)
+router.post(
+  "/:id/scoring-token/generate",
+  authenticate,
+  authorize(Roles.ADMIN, Roles.ORGANIZER, Roles.TOURNAMENT_ADMIN),
+  generateScoringToken
+);
+
+// Revoke Scoring Token (ADMIN, ORGANIZER, TOURNAMENT_ADMIN)
+router.post(
+  "/:id/scoring-token/revoke",
+  authenticate,
+  authorize(Roles.ADMIN, Roles.ORGANIZER, Roles.TOURNAMENT_ADMIN),
+  revokeScoringToken
+);
+
+// Get Active Scoring Token (ADMIN, ORGANIZER, TOURNAMENT_ADMIN)
+router.get(
+  "/:id/scoring-token",
+  authenticate,
+  authorize(Roles.ADMIN, Roles.ORGANIZER, Roles.TOURNAMENT_ADMIN),
+  getScoringToken
+);
 
 // Create Match (ADMIN, ORGANIZER, TOURNAMENT_ADMIN)
 router.post(

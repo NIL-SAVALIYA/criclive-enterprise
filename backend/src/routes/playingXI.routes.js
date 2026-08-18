@@ -22,7 +22,7 @@ router.get(
 router.post(
     "/:matchId/playing-xi",
     authenticate,
-    authorize(Roles.ADMIN, Roles.ORGANIZER, Roles.TOURNAMENT_ADMIN, Roles.SCORER),
+    authorize(Roles.ADMIN, Roles.ORGANIZER, Roles.TOURNAMENT_ADMIN, Roles.TEAM_MANAGER, Roles.SCORER),
     validate(createPlayingXISchema),
     createPlayingXIController
 );
@@ -30,7 +30,7 @@ router.post(
 router.put(
     "/:matchId/playing-xi",
     authenticate,
-    authorize(Roles.ADMIN, Roles.ORGANIZER, Roles.TOURNAMENT_ADMIN, Roles.SCORER),
+    authorize(Roles.ADMIN, Roles.ORGANIZER, Roles.TOURNAMENT_ADMIN, Roles.TEAM_MANAGER, Roles.SCORER),
     validate(createPlayingXISchema),
     updatePlayingXIController
 );

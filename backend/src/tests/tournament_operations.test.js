@@ -12,7 +12,17 @@ import {
 } from "../services/tournament-team.service.js";
 import { generateFixturesService } from "../services/fixture.service.js";
 import { createTeamService, updateTeamService } from "../services/team.service.js";
-import { updateMatchService, getAllMatchesService } from "../services/match.service.js";
+import {
+  updateMatchService,
+  getAllMatchesService,
+  generateScoringTokenService,
+  revokeScoringTokenService,
+  getScoringTokenService,
+  getMatchByScoringTokenService
+} from "../services/match.service.js";
+import {
+  createPlayingXIService
+} from "../services/playingXI.service.js";
 import { startMatch } from "../services/startMatch.service.js";
 import { evaluateMatchResult } from "../engine/matchResult.engine.js";
 import { getPointsTableService } from "../services/pointsTable.service.js";
@@ -315,6 +325,14 @@ describe("Real-World Organizer Tournament Operations Test Suite", () => {
     );
     assert.equal(updatedTeam.managerId, managerUser1.id);
 
+    // Organizer 1 assigns managerUser2 to teamBeta
+    const updatedBeta = await updateTeamService(
+      teamBeta.id,
+      { managerId: managerUser2.id },
+      { userId: organizer1.id, role: Roles.ORGANIZER }
+    );
+    assert.equal(updatedBeta.managerId, managerUser2.id);
+
     // Verify audit log
     const auditLog = await prisma.auditLog.findFirst({
       where: {
@@ -473,6 +491,118 @@ describe("Real-World Organizer Tournament Operations Test Suite", () => {
     assert.ok(dashboard.availableTeams.some((t) => t.id === teamDelta.id));
   });
 
+  it("10a. Team Manager submits Playing XI for their own team (with cross-team protection)", async () => {
+    const match = await prisma.match.findFirst({
+      where: {
+        tournamentId: tournament1.id,
+        teamAId: teamAlpha.id,
+        teamBId: teamBeta.id
+      }
+    });
+    assert.ok(match);
+
+    const alphaPlayers = await prisma.player.findMany({ where: { teamId: teamAlpha.id }, orderBy: { jerseyNumber: "asc" } });
+
+    // Team Manager 2 attempts to submit Playing XI for Team Alpha (must fail with 403)
+    await assert.rejects(
+      async () => {
+        await createPlayingXIService(
+          match.id,
+          teamAlpha.id,
+          alphaPlayers.slice(0, 11).map((p, idx) => ({
+            playerId: p.id,
+            battingOrder: idx + 1,
+            isCaptain: idx === 0,
+            isWicketKeeper: idx === 1
+          })),
+          { userId: managerUser2.id, role: Roles.TEAM_MANAGER }
+        );
+      },
+      (err) => {
+        assert.equal(err.statusCode, 403);
+        return true;
+      }
+    );
+
+    // Team Manager 1 (manager of Alpha) submits Playing XI for Team Alpha (succeeds)
+    const result = await createPlayingXIService(
+      match.id,
+      teamAlpha.id,
+      alphaPlayers.slice(0, 11).map((p, idx) => ({
+        playerId: p.id,
+        battingOrder: idx + 1,
+        isCaptain: idx === 0,
+        isWicketKeeper: idx === 1
+      })),
+      { userId: managerUser1.id, role: Roles.TEAM_MANAGER }
+    );
+    assert.ok(result.message);
+
+    const xiCount = await prisma.playingXI.count({ where: { matchId: match.id, teamId: teamAlpha.id } });
+    assert.equal(xiCount, 11);
+  });
+
+  it("10b. Generate, copy, revoke, and regenerate match-specific scoring access link", async () => {
+    const match = await prisma.match.findFirst({
+      where: {
+        tournamentId: tournament1.id,
+        teamAId: teamAlpha.id,
+        teamBId: teamBeta.id
+      }
+    });
+
+    // Cross-organizer generation attempt must fail (403)
+    await assert.rejects(
+      async () => {
+        await generateScoringTokenService(match.id, { userId: organizer2.id, role: Roles.ORGANIZER });
+      },
+      (err) => {
+        assert.equal(err.statusCode, 403);
+        return true;
+      }
+    );
+
+    // Organizer 1 generates scoring token
+    const tokenResult = await generateScoringTokenService(match.id, { userId: organizer1.id, role: Roles.ORGANIZER });
+    assert.ok(tokenResult.scoringToken.startsWith("sc_"));
+    assert.ok(tokenResult.scoringTokenGeneratedAt);
+
+    // Get active scoring token
+    const fetchedToken = await getScoringTokenService(match.id, { userId: organizer1.id, role: Roles.ORGANIZER });
+    assert.equal(fetchedToken.scoringToken, tokenResult.scoringToken);
+
+    // Fetch guest scoring session by token
+    const session = await getMatchByScoringTokenService(tokenResult.scoringToken);
+    assert.equal(session.match.id, match.id);
+    assert.equal(session.match.teamA.id, teamAlpha.id);
+    assert.equal(session.playingXI.teamACount, 11);
+    assert.equal(session.playingXI.teamBCount, 0);
+    assert.equal(session.playingXI.isReady, false);
+
+    // Revoke token
+    const revokeResult = await revokeScoringTokenService(match.id, { userId: organizer1.id, role: Roles.ORGANIZER });
+    assert.equal(revokeResult.scoringToken, null);
+
+    // Attempting to fetch session with revoked token must fail (404)
+    await assert.rejects(
+      async () => {
+        await getMatchByScoringTokenService(tokenResult.scoringToken);
+      },
+      (err) => {
+        assert.equal(err.statusCode, 404);
+        return true;
+      }
+    );
+
+    // Regenerate token -> fresh token assigned
+    const regenResult = await generateScoringTokenService(match.id, { userId: organizer1.id, role: Roles.ORGANIZER });
+    assert.ok(regenResult.scoringToken.startsWith("sc_"));
+    assert.notEqual(regenResult.scoringToken, tokenResult.scoringToken);
+
+    const activeSession = await getMatchByScoringTokenService(regenResult.scoringToken);
+    assert.equal(activeSession.match.id, match.id);
+  });
+
   it("11. Setup match Playing XI, Toss, and Start Match with authorization", async () => {
     // Find the match between teamAlpha and teamBeta
     const match = await prisma.match.findFirst({
@@ -495,27 +625,25 @@ describe("Real-World Organizer Tournament Operations Test Suite", () => {
       { userId: organizer1.id, role: Roles.ORGANIZER }
     );
 
-    // Add Playing XI for Team Alpha (11 players)
     const alphaPlayers = await prisma.player.findMany({ where: { teamId: teamAlpha.id }, orderBy: { jerseyNumber: "asc" } });
-    await prisma.playingXI.createMany({
-      data: alphaPlayers.slice(0, 11).map((p, idx) => ({
-        matchId: match.id,
-        teamId: teamAlpha.id,
-        playerId: p.id,
-        battingOrder: idx + 1
-      }))
-    });
-
-    // Add Playing XI for Team Beta (11 players)
     const betaPlayers = await prisma.player.findMany({ where: { teamId: teamBeta.id }, orderBy: { jerseyNumber: "asc" } });
-    await prisma.playingXI.createMany({
-      data: betaPlayers.slice(0, 11).map((p, idx) => ({
-        matchId: match.id,
-        teamId: teamBeta.id,
+
+    // Team Beta Manager submits Playing XI for Team Beta (11 players)
+    await createPlayingXIService(
+      match.id,
+      teamBeta.id,
+      betaPlayers.slice(0, 11).map((p, idx) => ({
         playerId: p.id,
-        battingOrder: idx + 1
-      }))
-    });
+        battingOrder: idx + 1,
+        isCaptain: idx === 0,
+        isWicketKeeper: idx === 1
+      })),
+      { userId: managerUser2.id, role: Roles.TEAM_MANAGER }
+    );
+
+    // Verify readiness for both teams
+    const totalXI = await prisma.playingXI.count({ where: { matchId: match.id } });
+    assert.equal(totalXI, 22);
 
     // Start match as assigned SCORER
     const startedMatch = await startMatch(

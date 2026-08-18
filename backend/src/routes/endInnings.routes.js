@@ -1,12 +1,12 @@
 import express from "express";
-import { authenticate } from "../middleware/auth.middleware.js";
+import { authorizeScorer } from "../middleware/authorizeScorer.middleware.js";
 import { endInningsController } from "../controllers/endInnings.controller.js";
 
 const router = express.Router();
 
 router.post(
     "/:inningsId/end",
-    authenticate,
+    authorizeScorer,
     endInningsController
 );
 

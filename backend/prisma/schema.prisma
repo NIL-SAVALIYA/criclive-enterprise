@@ -273,6 +273,10 @@ model Match {
 
   scorerId String?
 
+  scoringToken String? @unique
+
+  scoringTokenGeneratedAt DateTime?
+
   innings Innings[]
 
   playingXI PlayingXI[]
@@ -287,6 +291,7 @@ model Match {
   @@index([status])
   @@index([winnerTeamId])
   @@index([scorerId])
+  @@index([scoringToken])
 }
 
 model Tournament {

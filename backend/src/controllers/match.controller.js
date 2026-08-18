@@ -8,7 +8,11 @@ import {
   getAllMatchesService,
   getMatchByIdService,
   updateMatchService,
-  deleteMatchService
+  deleteMatchService,
+  generateScoringTokenService,
+  revokeScoringTokenService,
+  getScoringTokenService,
+  getMatchByScoringTokenService
 } from "../services/match.service.js";
 import { ZodError } from "zod";
 
@@ -124,6 +128,80 @@ export async function remove(req, res) {
     return res.status(statusCode).json({
       success: false,
       message: error.message || "Failed to delete match."
+    });
+  }
+}
+
+export async function generateScoringToken(req, res) {
+  try {
+    const { id } = req.params;
+    const result = await generateScoringTokenService(id, req.user);
+
+    return res.status(200).json({
+      success: true,
+      message: "Scoring access token generated successfully.",
+      data: result
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 400;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Failed to generate scoring token."
+    });
+  }
+}
+
+export async function revokeScoringToken(req, res) {
+  try {
+    const { id } = req.params;
+    const result = await revokeScoringTokenService(id, req.user);
+
+    return res.status(200).json({
+      success: true,
+      message: result.message,
+      data: result
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 400;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Failed to revoke scoring token."
+    });
+  }
+}
+
+export async function getScoringToken(req, res) {
+  try {
+    const { id } = req.params;
+    const result = await getScoringTokenService(id, req.user);
+
+    return res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 400;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Failed to get scoring token."
+    });
+  }
+}
+
+export async function getScoreSessionByToken(req, res) {
+  try {
+    const { token } = req.params;
+    const result = await getMatchByScoringTokenService(token);
+
+    return res.status(200).json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    const statusCode = error.statusCode || 404;
+    return res.status(statusCode).json({
+      success: false,
+      message: error.message || "Invalid or expired scoring link."
     });
   }
 }

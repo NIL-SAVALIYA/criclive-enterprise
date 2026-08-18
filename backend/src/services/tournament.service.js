@@ -229,6 +229,7 @@ export async function getTournamentDashboardService(id, user = null) {
           tossWinner: { select: { id: true, name: true, shortName: true } },
           winnerTeam: { select: { id: true, name: true, shortName: true } },
           scorer: { select: { id: true, firstName: true, lastName: true, email: true } },
+          playingXI: { select: { id: true, teamId: true, playerId: true, battingOrder: true, isCaptain: true, isWicketKeeper: true } },
           innings: {
             select: {
               id: true,
@@ -357,10 +358,25 @@ export async function getTournamentDashboardService(id, user = null) {
     orderBy: { firstName: "asc" }
   });
 
+  const enrichedMatches = tournament.matches.map((m) => {
+    const teamAXI = m.playingXI?.filter((p) => p.teamId === m.teamAId) || [];
+    const teamBXI = m.playingXI?.filter((p) => p.teamId === m.teamBId) || [];
+    const isPlayingXIReady = teamAXI.length === 11 && teamBXI.length === 11;
+
+    return {
+      ...m,
+      teamAPlayingXICount: teamAXI.length,
+      teamBPlayingXICount: teamBXI.length,
+      isPlayingXIReady,
+      hasScoringToken: Boolean(m.scoringToken),
+      isReadyToScore: isPlayingXIReady
+    };
+  });
+
   // 5. Matches grouped by status
-  const upcomingMatches = tournament.matches.filter((m) => m.status === "UPCOMING");
-  const liveMatches = tournament.matches.filter((m) => m.status === "LIVE");
-  const completedMatches = tournament.matches.filter((m) => m.status === "COMPLETED");
+  const upcomingMatches = enrichedMatches.filter((m) => m.status === "UPCOMING");
+  const liveMatches = enrichedMatches.filter((m) => m.status === "LIVE");
+  const completedMatches = enrichedMatches.filter((m) => m.status === "COMPLETED");
 
   // 6. Staff summary
   const staff = {
@@ -378,14 +394,20 @@ export async function getTournamentDashboardService(id, user = null) {
       managerName: t.manager ? `${t.manager.firstName} ${t.manager.lastName}` : "Not Assigned",
       email: t.manager?.email || null
     })),
-    matchScorers: tournament.matches.map((m) => ({
+    matchScorers: enrichedMatches.map((m) => ({
       matchId: m.id,
       matchTitle: `${m.teamA.shortName || m.teamA.name} vs ${m.teamB.shortName || m.teamB.name}`,
       status: m.status,
+      scoringToken: m.scoringToken || null,
+      hasScoringToken: Boolean(m.scoringToken),
+      scoringTokenGeneratedAt: m.scoringTokenGeneratedAt || null,
+      isPlayingXIReady: m.isPlayingXIReady,
+      teamAPlayingXICount: m.teamAPlayingXICount,
+      teamBPlayingXICount: m.teamBPlayingXICount,
       scorerId: m.scorerId,
       scorerName: m.scorer ? `${m.scorer.firstName} ${m.scorer.lastName}` : "Not Assigned",
       email: m.scorer?.email || null,
-      isAssigned: Boolean(m.scorerId)
+      isAssigned: Boolean(m.scorerId || m.scoringToken)
     }))
   };
 
@@ -404,9 +426,9 @@ export async function getTournamentDashboardService(id, user = null) {
     );
   }
 
-  const unassignedScorerMatches = upcomingMatches.filter((m) => !m.scorerId);
+  const unassignedScorerMatches = upcomingMatches.filter((m) => !m.scorerId && !m.scoringToken);
   if (unassignedScorerMatches.length > 0) {
-    warnings.push(`${unassignedScorerMatches.length} upcoming match(es) have no assigned scorer.`);
+    warnings.push(`${unassignedScorerMatches.length} upcoming match(es) have no active scoring link or assigned scorer.`);
   }
 
   return {
@@ -423,7 +445,7 @@ export async function getTournamentDashboardService(id, user = null) {
     },
     registeredTeams,
     availableTeams,
-    matches: tournament.matches,
+    matches: enrichedMatches,
     groupedMatches: {
       upcoming: upcomingMatches,
       live: liveMatches,

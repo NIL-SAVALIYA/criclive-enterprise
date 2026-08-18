@@ -1,3 +1,4 @@
+import crypto from "crypto";
 import prisma from "../config/db.js";
 import {
   createMatch,
@@ -328,6 +329,275 @@ export async function deleteMatchService(id, user = null) {
     },
     { maxWait: 15000, timeout: 30000 }
   );
+}
+
+/**
+ * Generates or regenerates a cryptographically secure random scoring access token for a match.
+ */
+export async function generateScoringTokenService(matchId, user = null) {
+  const match = await getMatchById(matchId);
+  if (!match) {
+    const error = new Error("Match not found.");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Ownership verification for ORGANIZER
+  if (user && user.role !== Roles.ADMIN && user.role !== Roles.SUPER_ADMIN) {
+    if (user.role === Roles.ORGANIZER) {
+      if (match.tournament?.organizerId && match.tournament.organizerId !== user.userId) {
+        const error = new Error("Access denied. You can only generate scoring links for tournaments you organize.");
+        error.statusCode = 403;
+        throw error;
+      }
+    } else {
+      const error = new Error("Access denied. Only tournament organizers and admins can generate scoring links.");
+      error.statusCode = 403;
+      throw error;
+    }
+  }
+
+  const token = "sc_" + crypto.randomBytes(24).toString("hex");
+  const now = new Date();
+
+  return prisma.$transaction(
+    async (tx) => {
+      const updated = await tx.match.update({
+        where: { id: matchId },
+        data: {
+          scoringToken: token,
+          scoringTokenGeneratedAt: now
+        },
+        include: {
+          tournament: { select: { id: true, name: true, organizerId: true } },
+          teamA: { select: { id: true, name: true, shortName: true } },
+          teamB: { select: { id: true, name: true, shortName: true } }
+        }
+      });
+
+      await recordAuditLog({
+        userId: user ? user.userId : null,
+        action: "MATCH_SCORING_TOKEN_GENERATED",
+        entityType: "MATCH",
+        entityId: matchId,
+        metadata: {
+          matchId,
+          tournamentId: match.tournamentId
+        },
+        db: tx
+      });
+
+      console.log(`[MATCH EVENT] Scoring Token Generated | Match ID: ${matchId} | Token: ${token}`);
+      return {
+        matchId: updated.id,
+        scoringToken: updated.scoringToken,
+        scoringTokenGeneratedAt: updated.scoringTokenGeneratedAt
+      };
+    },
+    { maxWait: 15000, timeout: 30000 }
+  );
+}
+
+/**
+ * Revokes an existing scoring access token for a match.
+ */
+export async function revokeScoringTokenService(matchId, user = null) {
+  const match = await getMatchById(matchId);
+  if (!match) {
+    const error = new Error("Match not found.");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  // Ownership verification for ORGANIZER
+  if (user && user.role !== Roles.ADMIN && user.role !== Roles.SUPER_ADMIN) {
+    if (user.role === Roles.ORGANIZER) {
+      if (match.tournament?.organizerId && match.tournament.organizerId !== user.userId) {
+        const error = new Error("Access denied. You can only revoke scoring links for tournaments you organize.");
+        error.statusCode = 403;
+        throw error;
+      }
+    } else {
+      const error = new Error("Access denied. Only tournament organizers and admins can revoke scoring links.");
+      error.statusCode = 403;
+      throw error;
+    }
+  }
+
+  return prisma.$transaction(
+    async (tx) => {
+      const updated = await tx.match.update({
+        where: { id: matchId },
+        data: {
+          scoringToken: null,
+          scoringTokenGeneratedAt: null
+        }
+      });
+
+      await recordAuditLog({
+        userId: user ? user.userId : null,
+        action: "MATCH_SCORING_TOKEN_REVOKED",
+        entityType: "MATCH",
+        entityId: matchId,
+        metadata: { matchId },
+        db: tx
+      });
+
+      console.log(`[MATCH EVENT] Scoring Token Revoked | Match ID: ${matchId}`);
+      return {
+        matchId: updated.id,
+        scoringToken: null,
+        message: "Scoring access token revoked successfully."
+      };
+    },
+    { maxWait: 15000, timeout: 30000 }
+  );
+}
+
+/**
+ * Retrieves the scoring access token for a match.
+ */
+export async function getScoringTokenService(matchId, user = null) {
+  const match = await getMatchById(matchId);
+  if (!match) {
+    const error = new Error("Match not found.");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  if (user && user.role !== Roles.ADMIN && user.role !== Roles.SUPER_ADMIN) {
+    if (user.role === Roles.ORGANIZER) {
+      if (match.tournament?.organizerId && match.tournament.organizerId !== user.userId) {
+        const error = new Error("Access denied. You can only view scoring links for tournaments you organize.");
+        error.statusCode = 403;
+        throw error;
+      }
+    } else {
+      const error = new Error("Access denied.");
+      error.statusCode = 403;
+      throw error;
+    }
+  }
+
+  return {
+    matchId: match.id,
+    scoringToken: match.scoringToken,
+    scoringTokenGeneratedAt: match.scoringTokenGeneratedAt
+  };
+}
+
+/**
+ * Retrieves public/guest match scoring session details for a validated token.
+ */
+export async function getMatchByScoringTokenService(token) {
+  if (!token || typeof token !== "string") {
+    const error = new Error("Valid scoring access token is required.");
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const match = await prisma.match.findUnique({
+    where: { scoringToken: token },
+    include: {
+      tournament: { select: { id: true, name: true, format: true, status: true, organizerId: true } },
+      teamA: {
+        include: {
+          players: { select: { id: true, firstName: true, lastName: true, jerseyNumber: true, playerType: true, battingStyle: true, bowlingStyle: true } }
+        }
+      },
+      teamB: {
+        include: {
+          players: { select: { id: true, firstName: true, lastName: true, jerseyNumber: true, playerType: true, battingStyle: true, bowlingStyle: true } }
+        }
+      },
+      tossWinner: { select: { id: true, name: true, shortName: true } },
+      winnerTeam: { select: { id: true, name: true, shortName: true } },
+      playingXI: {
+        include: {
+          player: { select: { id: true, firstName: true, lastName: true, jerseyNumber: true, playerType: true, battingStyle: true, bowlingStyle: true } }
+        },
+        orderBy: { battingOrder: "asc" }
+      },
+      innings: {
+        include: {
+          battingTeam: { select: { id: true, name: true, shortName: true } },
+          bowlingTeam: { select: { id: true, name: true, shortName: true } },
+          battingScorecards: {
+            include: {
+              player: { select: { id: true, firstName: true, lastName: true } },
+              bowler: { select: { id: true, firstName: true, lastName: true } },
+              fielder: { select: { id: true, firstName: true, lastName: true } }
+            },
+            orderBy: { battingPosition: "asc" }
+          },
+          bowlingScorecards: {
+            include: {
+              bowler: { select: { id: true, firstName: true, lastName: true } }
+            }
+          },
+          balls: {
+            take: 12,
+            orderBy: { deliveryNumber: "desc" }
+          }
+        },
+        orderBy: { inningsNumber: "asc" }
+      }
+    }
+  });
+
+  if (!match || !match.scoringToken) {
+    const error = new Error("Invalid or revoked scoring access link.");
+    error.statusCode = 404;
+    throw error;
+  }
+
+  const teamAPlayingXI = match.playingXI.filter((p) => p.teamId === match.teamAId);
+  const teamBPlayingXI = match.playingXI.filter((p) => p.teamId === match.teamBId);
+
+  return {
+    match: {
+      id: match.id,
+      tournamentId: match.tournamentId,
+      tournament: match.tournament,
+      teamAId: match.teamAId,
+      teamA: {
+        id: match.teamA.id,
+        name: match.teamA.name,
+        shortName: match.teamA.shortName,
+        logoUrl: match.teamA.logoUrl,
+        players: match.teamA.players
+      },
+      teamBId: match.teamBId,
+      teamB: {
+        id: match.teamB.id,
+        name: match.teamB.name,
+        shortName: match.teamB.shortName,
+        logoUrl: match.teamB.logoUrl,
+        players: match.teamB.players
+      },
+      venue: match.venue,
+      matchDate: match.matchDate,
+      status: match.status,
+      tossWinnerId: match.tossWinnerId,
+      tossWinner: match.tossWinner,
+      tossDecision: match.tossDecision,
+      winnerTeamId: match.winnerTeamId,
+      winnerTeam: match.winnerTeam,
+      result: match.result,
+      winningMargin: match.winningMargin,
+      scoringToken: match.scoringToken,
+      scoringTokenGeneratedAt: match.scoringTokenGeneratedAt
+    },
+    playingXI: {
+      teamA: teamAPlayingXI,
+      teamB: teamBPlayingXI,
+      teamACount: teamAPlayingXI.length,
+      teamBCount: teamBPlayingXI.length,
+      isReady: teamAPlayingXI.length === 11 && teamBPlayingXI.length === 11
+    },
+    innings: match.innings,
+    activeInnings: match.innings.find((inn) => inn.status === "LIVE") || match.innings[match.innings.length - 1] || null
+  };
 }
 
 /*

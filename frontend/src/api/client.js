@@ -22,6 +22,10 @@ api.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
+  const scoringToken = sessionStorage.getItem('activeScoringToken');
+  if (scoringToken && !config.headers['x-scoring-token']) {
+    config.headers['x-scoring-token'] = scoringToken;
+  }
   return config;
 });
 
