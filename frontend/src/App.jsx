@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { SportProvider } from './context/SportContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
@@ -25,7 +26,8 @@ export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <div className="min-h-screen bg-[#0B0F19] text-gray-100 flex flex-col font-['Outfit',sans-serif]">
+        <SportProvider>
+          <div className="min-h-screen bg-[#0B0F19] text-gray-100 flex flex-col font-['Outfit',sans-serif]">
           <Navbar />
           <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
             <Routes>
@@ -133,7 +135,8 @@ export default function App() {
             </Routes>
           </main>
         </div>
-      </AuthProvider>
-    </BrowserRouter>
+      </SportProvider>
+    </AuthProvider>
+  </BrowserRouter>
   );
 }

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useSport } from '../context/SportContext';
 import {
   Trophy,
   Users,
@@ -27,16 +28,22 @@ export default function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, isManager, isOrganizer, isAdmin, isScorer } = useAuth();
+  const { currentSport, setSport, sportsList, activeSportMeta } = useSport();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
+  const [sportDropdownOpen, setSportDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const sportDropdownRef = useRef(null);
 
   // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setMenuOpen(false);
+      }
+      if (sportDropdownRef.current && !sportDropdownRef.current.contains(event.target)) {
+        setSportDropdownOpen(false);
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
@@ -47,6 +54,7 @@ export default function Navbar() {
   useEffect(() => {
     setMenuOpen(false);
     setMobileNavOpen(false);
+    setSportDropdownOpen(false);
   }, [location.pathname]);
 
   const navLinks = [
@@ -61,13 +69,13 @@ export default function Navbar() {
 
   return (
     <nav className="glass-panel sticky top-0 z-50 border-b border-gray-800 px-4 lg:px-8 py-3 flex items-center justify-between shadow-xl backdrop-blur-md bg-gray-950/80">
-      {/* Brand Logo */}
-      <div className="flex items-center gap-4">
+      {/* Brand Logo & Sport Selector */}
+      <div className="flex items-center gap-3 md:gap-4">
         <Link to="/" className="flex items-center gap-2.5 group">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white font-black text-xl shadow-lg glow-emerald group-hover:scale-105 transition-transform">
             ⚡
           </div>
-          <div>
+          <div className="hidden sm:block">
             <span className="text-lg font-extrabold tracking-tight bg-gradient-to-r from-white via-gray-200 to-emerald-400 bg-clip-text text-transparent">
               CRICLIVE
             </span>
@@ -76,6 +84,53 @@ export default function Navbar() {
             </span>
           </div>
         </Link>
+
+        {/* Global Sport Selector Dropdown */}
+        <div className="relative" ref={sportDropdownRef}>
+          <button
+            type="button"
+            onClick={() => setSportDropdownOpen(!sportDropdownOpen)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gray-900/90 border border-gray-700/80 text-xs font-bold text-gray-200 hover:border-emerald-500/60 hover:text-white transition-all shadow-md"
+            aria-label="Select Sport"
+            id="sport-selector-button"
+          >
+            <span className="text-sm leading-none">{activeSportMeta.icon || '🏏'}</span>
+            <span>{activeSportMeta.name}</span>
+            <ChevronDown className={`w-3.5 h-3.5 text-gray-400 transition-transform ${sportDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {sportDropdownOpen && (
+            <div className="absolute left-0 mt-2 w-44 rounded-xl bg-gray-900 border border-gray-700 shadow-2xl z-50 py-1.5 backdrop-blur-xl animate-fadeIn">
+              <div className="px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-gray-500">
+                Select Active Sport
+              </div>
+              {sportsList.map((s) => {
+                const isSelected = s.code === currentSport;
+                return (
+                  <button
+                    key={s.code}
+                    type="button"
+                    onClick={() => {
+                      setSport(s.code);
+                      setSportDropdownOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-colors ${
+                      isSelected
+                        ? 'bg-emerald-950/60 text-emerald-400 border-l-2 border-emerald-400'
+                        : 'text-gray-300 hover:bg-gray-800/80 hover:text-white'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="text-sm">{s.icon || '🏏'}</span>
+                      {s.name}
+                    </span>
+                    {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Main Desktop Navigation Links */}

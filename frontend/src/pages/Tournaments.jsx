@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useSport } from '../context/SportContext';
 import Skeleton from '../components/Skeleton';
 import {
   Trophy,
@@ -35,7 +36,8 @@ import {
 import { Link } from 'react-router-dom';
 
 export default function Tournaments() {
-  const { user, hasRole } = useAuth();
+  const { user, hasRole, isOrganizer, isAdmin } = useAuth();
+  const { currentSport } = useSport();
 
   const [tournaments, setTournaments] = useState([]);
   const [selectedTournament, setSelectedTournament] = useState(null);
@@ -95,18 +97,20 @@ export default function Tournaments() {
 
   useEffect(() => {
     fetchTournaments();
-  }, []);
+  }, [currentSport]);
 
   async function fetchTournaments(preferredSelectedId = null) {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const res = await api.get('/tournaments');
+      const res = await api.get('/tournaments', { params: { sport: currentSport } });
       const list = res.data.data || [];
       setTournaments(list);
       const targetId = preferredSelectedId || (selectedTournament?.id && list.some(t => t.id === selectedTournament.id) ? selectedTournament.id : list[0]?.id);
       if (targetId) {
         selectTournament(targetId);
+      } else {
+        setSelectedTournament(null);
       }
     } catch (err) {
       console.error('Failed to fetch tournaments:', err);
@@ -236,7 +240,8 @@ export default function Tournaments() {
         format: formData.format,
         startDate: new Date(formData.startDate).toISOString(),
         endDate: new Date(formData.endDate).toISOString(),
-        status: formData.status
+        status: formData.status,
+        sport: currentSport
       };
       const res = await api.post('/tournaments', payload);
       setSuccessMsg('Tournament created successfully!');
