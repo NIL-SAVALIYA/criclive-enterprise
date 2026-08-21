@@ -215,6 +215,7 @@ export async function getTournamentDashboardService(id, user = null) {
   const tournament = await prisma.tournament.findUnique({
     where: { id },
     include: {
+      sport: { select: { id: true, code: true, name: true } },
       organizer: {
         select: { id: true, firstName: true, lastName: true, email: true, phone: true }
       },
@@ -295,13 +296,16 @@ export async function getTournamentDashboardService(id, user = null) {
     }
   }
 
+  const isBadminton = tournament.sport?.code === "BADMINTON";
+  const requiredPlayers = isBadminton ? 1 : 11;
+
   // 1. Registered teams with readiness status
   const registeredTeamIds = new Set(tournament.registeredTeams.map((rt) => rt.teamId));
   const registeredTeams = tournament.registeredTeams.map((rt) => {
     const team = rt.team;
     const playerCount = team.players?.length || 0;
     let rosterStatus = "NO_PLAYERS";
-    if (playerCount >= 11) {
+    if (playerCount >= requiredPlayers) {
       rosterStatus = "READY";
     } else if (playerCount > 0) {
       rosterStatus = "INCOMPLETE";
@@ -317,7 +321,7 @@ export async function getTournamentDashboardService(id, user = null) {
       description: team.description,
       playerCount,
       rosterStatus,
-      isReady: playerCount >= 11,
+      isReady: playerCount >= requiredPlayers,
       managerId: team.managerId,
       manager: team.manager,
       players: team.players
@@ -437,7 +441,7 @@ export async function getTournamentDashboardService(id, user = null) {
   const enrichedMatches = tournament.matches.map((m) => {
     const teamAXI = m.playingXI?.filter((p) => p.teamId === m.teamAId) || [];
     const teamBXI = m.playingXI?.filter((p) => p.teamId === m.teamBId) || [];
-    const isPlayingXIReady = teamAXI.length === 11 && teamBXI.length === 11;
+    const isPlayingXIReady = isBadminton ? true : (teamAXI.length === 11 && teamBXI.length === 11);
 
     const teamAAssignment = m.managerAssignments?.find(
       (a) => a.teamId === m.teamAId && a.status === "ACCEPTED"
@@ -456,8 +460,8 @@ export async function getTournamentDashboardService(id, user = null) {
       ...m,
       teamAPlayingXICount: teamAXI.length,
       teamBPlayingXICount: teamBXI.length,
-      teamAXIReady: teamAXI.length === 11,
-      teamBXIReady: teamBXI.length === 11,
+      teamAXIReady: isBadminton ? true : (teamAXI.length === 11),
+      teamBXIReady: isBadminton ? true : (teamBXI.length === 11),
       isPlayingXIReady,
       hasScoringToken: Boolean(m.scoringToken),
       isReadyToScore: isPlayingXIReady,

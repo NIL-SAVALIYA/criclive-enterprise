@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useSport } from '../context/SportContext';
 import Skeleton from '../components/Skeleton';
 import { Shield, Plus, Search, Edit, Trash2, Users, MapPin, AlertCircle, X, CheckCircle2, UserCheck, ArrowRight } from 'lucide-react';
 
@@ -36,15 +37,17 @@ export default function TeamsAndPlayers() {
   });
   const [submitting, setSubmitting] = useState(false);
 
+  const { currentSport } = useSport();
+
   useEffect(() => {
     fetchTeams();
-  }, []);
+  }, [currentSport]);
 
   async function fetchTeams(preferredSelectedId = null) {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const res = await api.get('/teams');
+      const res = await api.get('/teams', { params: { sport: currentSport } });
       const list = res.data.data || [];
       setTeams(list);
       const targetId = preferredSelectedId || (selectedTeam?.id && list.some(t => t.id === selectedTeam.id) ? selectedTeam.id : list[0]?.id);
@@ -135,7 +138,8 @@ export default function TeamsAndPlayers() {
         shortName: formData.shortName.toUpperCase(),
         city: formData.city,
         description: formData.description || undefined,
-        logoUrl: formData.logoUrl || undefined
+        logoUrl: formData.logoUrl || undefined,
+        sport: currentSport
       };
       const res = await api.post('/teams', payload);
       setSuccessMsg('Team created successfully!');

@@ -49,7 +49,19 @@ async function getAuthenticatedOrganizerToken() {
     })
   });
 
-  return token;
+  // 4. Login again to refresh the JWT token with the upgraded role
+  const secondLoginRes = await fetch(`${BASE_URL}/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      email,
+      password,
+      captchaToken: "test_captcha_bypass_token"
+    })
+  });
+  assert.equal(secondLoginRes.status, 200);
+  const secondLoginData = await secondLoginRes.json();
+  return secondLoginData.data.token;
 }
 
 test("🏸 Badminton Scoring Engine Unit & Integration Verification Suite", async (t) => {

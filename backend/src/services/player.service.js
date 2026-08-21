@@ -8,6 +8,7 @@ import {
   findPlayerByJerseyNumber
 } from "../repositories/player.repository.js";
 import { getTeamById } from "../repositories/team.repository.js";
+import { validateAndGetSportByCode } from "./sports.service.js";
 
 /**
  * Creates a new player with team existence and unique jersey number validation.
@@ -29,11 +30,18 @@ export async function createPlayerService(playerData) {
     }
   }
 
+  const targetSportCode = playerData.sport || "CRICKET";
+  const sportEntity = await validateAndGetSportByCode(targetSportCode);
+
+  const cleanData = { ...playerData };
+  delete cleanData.sport;
+
   const payload = {
-    ...playerData,
+    ...cleanData,
     firstName: playerData.firstName.trim(),
     lastName: playerData.lastName.trim(),
-    ...(playerData.dateOfBirth && { dateOfBirth: new Date(playerData.dateOfBirth) })
+    ...(playerData.dateOfBirth && { dateOfBirth: new Date(playerData.dateOfBirth) }),
+    sportId: sportEntity.id
   };
 
   return prisma.$transaction(async (tx) => {

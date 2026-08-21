@@ -23,7 +23,7 @@ export async function createTeam(data, db = prisma) {
  * Retrieves all teams with search, filtering, pagination, and count summaries.
  */
 export async function getAllTeams(params = {}, db = prisma) {
-  const { page, limit, search, city } = params;
+  const { page, limit, search, city, sport } = params;
 
   const where = {};
 
@@ -37,6 +37,12 @@ export async function getAllTeams(params = {}, db = prisma) {
 
   if (city) {
     where.city = { contains: city, mode: "insensitive" };
+  }
+
+  if (sport) {
+    where.sport = {
+      code: sport.trim().toUpperCase()
+    };
   }
 
   const query = {

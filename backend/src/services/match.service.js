@@ -499,7 +499,16 @@ export async function getMatchByScoringTokenService(token) {
   const match = await prisma.match.findUnique({
     where: { scoringToken: token },
     include: {
-      tournament: { select: { id: true, name: true, format: true, status: true, organizerId: true } },
+      tournament: {
+        select: {
+          id: true,
+          name: true,
+          format: true,
+          status: true,
+          organizerId: true,
+          sport: { select: { id: true, code: true, name: true } }
+        }
+      },
       teamA: {
         include: {
           players: { select: { id: true, firstName: true, lastName: true, jerseyNumber: true, playerType: true, battingStyle: true, bowlingStyle: true } }

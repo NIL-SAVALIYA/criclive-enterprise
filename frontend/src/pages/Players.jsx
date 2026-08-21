@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useSport } from '../context/SportContext';
 import Skeleton from '../components/Skeleton';
 import { Users, Plus, Search, Filter, Edit, Trash2, Shield, Award, Activity, AlertCircle, X, CheckCircle2 } from 'lucide-react';
 
@@ -45,17 +46,19 @@ export default function Players() {
   });
   const [submitting, setSubmitting] = useState(false);
 
+  const { currentSport } = useSport();
+
   useEffect(() => {
     fetchInitialData();
-  }, []);
+  }, [currentSport]);
 
   async function fetchInitialData() {
     setLoading(true);
     setErrorMsg(null);
     try {
       const [pRes, tRes] = await Promise.all([
-        api.get('/players'),
-        api.get('/teams')
+        api.get('/players', { params: { sport: currentSport } }),
+        api.get('/teams', { params: { sport: currentSport } })
       ]);
       const playerList = pRes.data.data || [];
       const teamList = tRes.data.data || [];
@@ -160,12 +163,13 @@ export default function Players() {
         firstName: formData.firstName,
         lastName: formData.lastName,
         jerseyNumber: formData.jerseyNumber ? Number(formData.jerseyNumber) : undefined,
-        playerType: formData.playerType,
-        battingStyle: formData.battingStyle || undefined,
-        bowlingStyle: formData.bowlingStyle || undefined,
+        playerType: currentSport === 'BADMINTON' ? undefined : formData.playerType,
+        battingStyle: currentSport === 'BADMINTON' ? undefined : (formData.battingStyle || undefined),
+        bowlingStyle: currentSport === 'BADMINTON' ? undefined : (formData.bowlingStyle || undefined),
         isCaptain: Boolean(formData.isCaptain),
         isViceCaptain: Boolean(formData.isViceCaptain),
-        teamId: formData.teamId
+        teamId: formData.teamId,
+        sport: currentSport
       };
       await api.post('/players', payload);
       setSuccessMsg('Player created successfully!');
@@ -192,9 +196,9 @@ export default function Players() {
         firstName: formData.firstName,
         lastName: formData.lastName,
         jerseyNumber: formData.jerseyNumber ? Number(formData.jerseyNumber) : undefined,
-        playerType: formData.playerType,
-        battingStyle: formData.battingStyle || undefined,
-        bowlingStyle: formData.bowlingStyle || undefined,
+        playerType: currentSport === 'BADMINTON' ? undefined : formData.playerType,
+        battingStyle: currentSport === 'BADMINTON' ? undefined : (formData.battingStyle || undefined),
+        bowlingStyle: currentSport === 'BADMINTON' ? undefined : (formData.bowlingStyle || undefined),
         isCaptain: Boolean(formData.isCaptain),
         isViceCaptain: Boolean(formData.isViceCaptain),
         teamId: formData.teamId
@@ -279,21 +283,23 @@ export default function Players() {
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          <div className="flex items-center gap-2">
-            <Filter className="w-3.5 h-3.5 text-gray-400" />
-            <span className="text-xs font-bold text-gray-400">Role:</span>
-            <select
-              value={typeFilter}
-              onChange={(e) => { setTypeFilter(e.target.value); setCurrentPage(1); }}
-              className="bg-gray-900 border border-gray-700 text-white text-xs font-semibold rounded-lg p-2"
-            >
-              <option value="ALL">All Roles</option>
-              <option value="BATSMAN">BATSMAN</option>
-              <option value="BOWLER">BOWLER</option>
-              <option value="ALL_ROUNDER">ALL ROUNDER</option>
-              <option value="WICKET_KEEPER">WICKET KEEPER</option>
-            </select>
-          </div>
+          {currentSport !== 'BADMINTON' && (
+            <div className="flex items-center gap-2">
+              <Filter className="w-3.5 h-3.5 text-gray-400" />
+              <span className="text-xs font-bold text-gray-400">Role:</span>
+              <select
+                value={typeFilter}
+                onChange={(e) => { setTypeFilter(e.target.value); setCurrentPage(1); }}
+                className="bg-gray-900 border border-gray-700 text-white text-xs font-semibold rounded-lg p-2"
+              >
+                <option value="ALL">All Roles</option>
+                <option value="BATSMAN">BATSMAN</option>
+                <option value="BOWLER">BOWLER</option>
+                <option value="ALL_ROUNDER">ALL ROUNDER</option>
+                <option value="WICKET_KEEPER">WICKET KEEPER</option>
+              </select>
+            </div>
+          )}
 
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-gray-400">Team:</span>
@@ -362,8 +368,12 @@ export default function Players() {
                 </div>
 
                 <div className="text-xs text-gray-400 pt-1 space-y-1">
-                  <div>Role: <span className="text-gray-200 font-semibold">{p.playerType}</span></div>
-                  <div className="text-[11px]">Bat: {p.battingStyle || 'Right Hand'} • Bowl: {p.bowlingStyle || 'None'}</div>
+                  {currentSport !== 'BADMINTON' && p.playerType && (
+                    <div>Role: <span className="text-gray-200 font-semibold">{p.playerType}</span></div>
+                  )}
+                  {currentSport !== 'BADMINTON' && (
+                    <div className="text-[11px]">Bat: {p.battingStyle || 'Right Hand'} • Bowl: {p.bowlingStyle || 'None'}</div>
+                  )}
                 </div>
               </div>
 
@@ -538,47 +548,49 @@ export default function Players() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-2">
-                <div>
-                  <label className="block text-gray-300 mb-1">Role *</label>
-                  <select
-                    value={formData.playerType}
-                    onChange={(e) => setFormData({ ...formData, playerType: e.target.value })}
-                    className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2"
-                  >
-                    <option value="BATSMAN">BATSMAN</option>
-                    <option value="BOWLER">BOWLER</option>
-                    <option value="ALL_ROUNDER">ALL ROUNDER</option>
-                    <option value="WICKET_KEEPER">WICKET KEEPER</option>
-                  </select>
+              {currentSport !== 'BADMINTON' && (
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-gray-300 mb-1">Role *</label>
+                    <select
+                      value={formData.playerType}
+                      onChange={(e) => setFormData({ ...formData, playerType: e.target.value })}
+                      className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2"
+                    >
+                      <option value="BATSMAN">BATSMAN</option>
+                      <option value="BOWLER">BOWLER</option>
+                      <option value="ALL_ROUNDER">ALL ROUNDER</option>
+                      <option value="WICKET_KEEPER">WICKET KEEPER</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-gray-300 mb-1">Batting Style</label>
+                    <select
+                      value={formData.battingStyle}
+                      onChange={(e) => setFormData({ ...formData, battingStyle: e.target.value })}
+                      className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2"
+                    >
+                      <option value="RIGHT_HAND">RIGHT HAND</option>
+                      <option value="LEFT_HAND">LEFT HAND</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-gray-300 mb-1">Bowling Style</label>
+                    <select
+                      value={formData.bowlingStyle}
+                      onChange={(e) => setFormData({ ...formData, bowlingStyle: e.target.value })}
+                      className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2"
+                    >
+                      <option value="RIGHT_ARM_FAST">RIGHT ARM FAST</option>
+                      <option value="LEFT_ARM_FAST">LEFT ARM FAST</option>
+                      <option value="RIGHT_ARM_MEDIUM">RIGHT ARM MEDIUM</option>
+                      <option value="LEFT_ARM_MEDIUM">LEFT ARM MEDIUM</option>
+                      <option value="RIGHT_ARM_SPIN">RIGHT ARM SPIN</option>
+                      <option value="LEFT_ARM_SPIN">LEFT ARM SPIN</option>
+                    </select>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-gray-300 mb-1">Batting Style</label>
-                  <select
-                    value={formData.battingStyle}
-                    onChange={(e) => setFormData({ ...formData, battingStyle: e.target.value })}
-                    className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2"
-                  >
-                    <option value="RIGHT_HAND">RIGHT HAND</option>
-                    <option value="LEFT_HAND">LEFT HAND</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-gray-300 mb-1">Bowling Style</label>
-                  <select
-                    value={formData.bowlingStyle}
-                    onChange={(e) => setFormData({ ...formData, bowlingStyle: e.target.value })}
-                    className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2"
-                  >
-                    <option value="RIGHT_ARM_FAST">RIGHT ARM FAST</option>
-                    <option value="LEFT_ARM_FAST">LEFT ARM FAST</option>
-                    <option value="RIGHT_ARM_MEDIUM">RIGHT ARM MEDIUM</option>
-                    <option value="LEFT_ARM_MEDIUM">LEFT ARM MEDIUM</option>
-                    <option value="RIGHT_ARM_SPIN">RIGHT ARM SPIN</option>
-                    <option value="LEFT_ARM_SPIN">LEFT ARM SPIN</option>
-                  </select>
-                </div>
-              </div>
+              )}
 
               <div className="flex gap-6 pt-2">
                 <label className="flex items-center gap-2 cursor-pointer">

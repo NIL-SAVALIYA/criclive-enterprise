@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useSport } from '../context/SportContext';
 import Skeleton from '../components/Skeleton';
 import { Calendar, Radio, CheckCircle2, Clock, Search, Filter, Plus, Edit, Trash2, MapPin, ChevronRight, AlertCircle, X, Wand2 } from 'lucide-react';
 
@@ -41,18 +42,20 @@ export default function Fixtures() {
   });
   const [submitting, setSubmitting] = useState(false);
 
+  const { currentSport } = useSport();
+
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [currentSport]);
 
   async function fetchData() {
     setLoading(true);
     setErrorMsg(null);
     try {
       const [mRes, tRes, tmRes] = await Promise.all([
-        api.get('/matches'),
-        api.get('/tournaments'),
-        api.get('/teams')
+        api.get('/matches', { params: { sport: currentSport } }),
+        api.get('/tournaments', { params: { sport: currentSport } }),
+        api.get('/teams', { params: { sport: currentSport } })
       ]);
       const matchData = mRes.data.data || [];
       const tourData = tRes.data.data || [];

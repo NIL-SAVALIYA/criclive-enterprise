@@ -1164,9 +1164,9 @@ export default function Tournaments() {
                                       }`}
                                     >
                                       {reg.rosterStatus === 'READY'
-                                        ? 'READY (11+)'
+                                        ? selectedTournament?.sport?.code === 'BADMINTON' ? `READY (${reg.playerCount})` : 'READY (11+)'
                                         : reg.rosterStatus === 'INCOMPLETE'
-                                        ? `INCOMPLETE (${reg.playerCount}/11)`
+                                        ? selectedTournament?.sport?.code === 'BADMINTON' ? `INCOMPLETE` : `INCOMPLETE (${reg.playerCount}/11)`
                                         : 'NO PLAYERS'}
                                     </span>
                                   </td>
@@ -1263,11 +1263,11 @@ export default function Tournaments() {
 
                                 <div className="flex items-center gap-2">
                                   <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
-                                    match.isReadyToScore
+                                    selectedTournament?.sport?.code === 'BADMINTON' || match.isReadyToScore
                                       ? 'bg-emerald-950/80 text-emerald-300 border-emerald-600/40'
                                       : 'bg-gray-800 text-gray-400 border-gray-700'
                                   }`}>
-                                    {match.isReadyToScore ? '✓ READY TO SCORE' : 'SQUAD SETUP INCOMPLETE'}
+                                    {selectedTournament?.sport?.code === 'BADMINTON' || match.isReadyToScore ? '✓ READY TO SCORE' : 'SQUAD SETUP INCOMPLETE'}
                                   </span>
                                 </div>
                               </div>
@@ -1576,17 +1576,18 @@ export default function Tournaments() {
                                 </div>
 
                                 <div className="flex items-center gap-2">
-                                  {/* Playing XI Readiness Badge */}
-                                  <span
-                                    className={`px-2.5 py-0.5 rounded-full font-mono text-[10px] font-bold border ${
-                                      m.isPlayingXIReady
-                                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
-                                        : 'bg-amber-500/20 text-amber-400 border-amber-500/40'
-                                    }`}
-                                  >
-                                    Lineups: {m.teamAPlayingXICount || 0}/11 vs {m.teamBPlayingXICount || 0}/11{' '}
-                                    {m.isPlayingXIReady ? '(Ready)' : '(Pending)'}
-                                  </span>
+                                  {selectedTournament?.sport?.code !== 'BADMINTON' && (
+                                    <span
+                                      className={`px-2.5 py-0.5 rounded-full font-mono text-[10px] font-bold border ${
+                                        m.isPlayingXIReady
+                                          ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
+                                          : 'bg-amber-500/20 text-amber-400 border-amber-500/40'
+                                      }`}
+                                    >
+                                      Lineups: {m.teamAPlayingXICount || 0}/11 vs {m.teamBPlayingXICount || 0}/11{' '}
+                                      {m.isPlayingXIReady ? '(Ready)' : '(Pending)'}
+                                    </span>
+                                  )}
 
                                   {/* Match Status Badge */}
                                   <span

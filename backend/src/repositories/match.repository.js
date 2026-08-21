@@ -18,7 +18,7 @@ export async function createMatch(data, db = prisma) {
  * Retrieves matches with search, filtering, and pagination.
  */
 export async function getAllMatches(params = {}, db = prisma) {
-  const { page, limit, search, tournamentId, status } = params;
+  const { page, limit, search, tournamentId, status, sport } = params;
 
   const where = {};
 
@@ -38,13 +38,29 @@ export async function getAllMatches(params = {}, db = prisma) {
     where.status = status;
   }
 
+  if (sport) {
+    where.tournament = {
+      sport: {
+        code: sport.trim().toUpperCase()
+      }
+    };
+  }
+
   const query = {
     where,
     orderBy: {
       matchDate: "asc"
     },
     include: {
-      tournament: { select: { id: true, name: true, format: true, organizerId: true } },
+      tournament: {
+        select: {
+          id: true,
+          name: true,
+          format: true,
+          organizerId: true,
+          sport: { select: { id: true, code: true, name: true } }
+        }
+      },
       teamA: { select: { id: true, name: true, shortName: true, logoUrl: true } },
       teamB: { select: { id: true, name: true, shortName: true, logoUrl: true } },
       tossWinner: { select: { id: true, name: true, shortName: true } },
@@ -88,7 +104,16 @@ export async function getMatchById(id, db = prisma) {
   return db.match.findUnique({
     where: { id },
     include: {
-      tournament: { select: { id: true, name: true, format: true, status: true, organizerId: true } },
+      tournament: {
+        select: {
+          id: true,
+          name: true,
+          format: true,
+          status: true,
+          organizerId: true,
+          sport: { select: { id: true, code: true, name: true } }
+        }
+      },
       teamA: { select: { id: true, name: true, shortName: true, logoUrl: true } },
       teamB: { select: { id: true, name: true, shortName: true, logoUrl: true } },
       tossWinner: { select: { id: true, name: true, shortName: true } },

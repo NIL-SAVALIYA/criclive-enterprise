@@ -29,7 +29,8 @@ export async function getAllPlayers(params = {}, db = prisma) {
     limit,
     search,
     teamId,
-    playerType
+    playerType,
+    sport
   } = params;
 
   const where = {};
@@ -47,6 +48,12 @@ export async function getAllPlayers(params = {}, db = prisma) {
 
   if (playerType) {
     where.playerType = playerType;
+  }
+
+  if (sport) {
+    where.sport = {
+      code: sport.trim().toUpperCase()
+    };
   }
 
   const query = {

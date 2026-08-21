@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../api/client';
+import BadmintonScoringConsole from '../components/BadmintonScoringConsole';
 import WagonWheelSVG, { CANONICAL_ZONES, CANONICAL_ZONE_COORDS } from '../components/WagonWheelSVG';
 import PitchMapCanvas from '../components/PitchMapCanvas';
 import { useCricketSocket } from '../socket/useCricketSocket';
@@ -477,6 +478,10 @@ export default function DedicatedScorerConsole() {
         </div>
       </div>
     );
+  }
+
+  if (match.tournament?.sport?.code === 'BADMINTON') {
+    return <BadmintonScoringConsole matchId={match.id} />;
   }
 
   return (

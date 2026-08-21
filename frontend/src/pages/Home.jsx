@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../api/client';
+import { useSport } from '../context/SportContext';
 import LiveTicker from '../components/LiveTicker';
 import { Trophy, Flame, Play, ChevronRight, Activity, Calendar, Award } from 'lucide-react';
 
@@ -9,15 +10,20 @@ export default function Home() {
   const [caps, setCaps] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const { currentSport } = useSport();
+
   useEffect(() => {
     async function fetchData() {
       try {
-        const [matchRes, capRes] = await Promise.all([
-          api.get('/matches'),
-          api.get('/records/caps-and-leaders')
-        ]);
+        const promises = [
+          api.get('/matches', { params: { sport: currentSport } })
+        ];
+        if (currentSport === 'CRICKET') {
+          promises.push(api.get('/records/caps-and-leaders'));
+        }
+        const [matchRes, capRes] = await Promise.all(promises);
         setMatches(matchRes.data.data || []);
-        setCaps(capRes.data.data || null);
+        setCaps(capRes ? (capRes.data.data || null) : null);
       } catch (err) {
         console.error('Failed to load home page data:', err);
       } finally {
@@ -25,7 +31,7 @@ export default function Home() {
       }
     }
     fetchData();
-  }, []);
+  }, [currentSport]);
 
   const liveMatches = matches.filter((m) => m.status === 'LIVE');
   const upcomingMatches = matches.filter((m) => m.status === 'UPCOMING');
@@ -40,13 +46,15 @@ export default function Home() {
         <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
         <div className="relative z-10 max-w-3xl space-y-4">
           <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider">
-            <Flame className="w-3.5 h-3.5" /> Next-Gen Enterprise Cricket Engine
+            <Flame className="w-3.5 h-3.5" /> {currentSport === 'BADMINTON' ? '🏸 Next-Gen Enterprise Badminton Engine' : '🏏 Next-Gen Enterprise Cricket Engine'}
           </span>
           <h1 className="text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
             Real-Time Scoring, Deep Analytics & Tournament League Engine
           </h1>
           <p className="text-gray-300 text-sm lg:text-base leading-relaxed">
-            Experience Cricbuzz-grade live ball-by-ball updates, Wagon Wheel shot analysis, Pitch Map heatmaps, win probability predictions, and comprehensive tournament standings.
+            {currentSport === 'BADMINTON' 
+              ? 'Experience live rally-by-rally updates, set-by-set scoring statistics, player match history, and comprehensive league tournament standings.'
+              : 'Experience Cricbuzz-grade live ball-by-ball updates, Wagon Wheel shot analysis, Pitch Map heatmaps, win probability predictions, and comprehensive tournament standings.'}
           </p>
           <div className="flex flex-wrap gap-4 pt-2">
             <Link
@@ -68,7 +76,7 @@ export default function Home() {
       {/* Main Grid: Live & Upcoming Matches */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left 2 Cols: Live & Matches */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className={`${currentSport === 'BADMINTON' ? 'lg:col-span-3' : 'lg:col-span-2'} space-y-6`}>
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-bold flex items-center gap-2 text-white">
               <Activity className="w-5 h-5 text-emerald-400" /> Active & Live Matches
@@ -136,55 +144,57 @@ export default function Home() {
         </div>
 
         {/* Right 1 Col: Leaderboards */}
-        <div className="space-y-6">
-          <h2 className="text-xl font-bold flex items-center gap-2 text-white">
-            <Award className="w-5 h-5 text-amber-400" /> Leaders & Cap Holders
-          </h2>
+        {currentSport !== 'BADMINTON' && (
+          <div className="space-y-6">
+            <h2 className="text-xl font-bold flex items-center gap-2 text-white">
+              <Award className="w-5 h-5 text-amber-400" /> Leaders & Cap Holders
+            </h2>
 
-          {/* Orange Cap Card */}
-          <div className="glass-panel p-5 rounded-xl border border-amber-500/30 space-y-3 shadow-lg glow-gold">
-            <div className="flex justify-between items-center text-xs font-extrabold uppercase text-amber-400 tracking-wider">
-              <span>Orange Cap (Most Runs)</span>
-              <span className="text-lg">🏏</span>
-            </div>
-            {caps?.orangeCap ? (
-              <div className="space-y-1">
-                <div className="text-lg font-extrabold text-white">
-                  {caps.orangeCap.player?.firstName} {caps.orangeCap.player?.lastName}
-                </div>
-                <div className="text-xs text-gray-400">{caps.orangeCap.player?.team?.name}</div>
-                <div className="flex justify-between text-xs font-mono pt-2 text-amber-300">
-                  <span>Runs: {caps.orangeCap.totalRuns}</span>
-                  <span>SR: {caps.orangeCap.strikeRate}</span>
-                </div>
+            {/* Orange Cap Card */}
+            <div className="glass-panel p-5 rounded-xl border border-amber-500/30 space-y-3 shadow-lg glow-gold">
+              <div className="flex justify-between items-center text-xs font-extrabold uppercase text-amber-400 tracking-wider">
+                <span>Orange Cap (Most Runs)</span>
+                <span className="text-lg">🏏</span>
               </div>
-            ) : (
-              <p className="text-xs text-gray-400">No stats logged yet.</p>
-            )}
-          </div>
+              {caps?.orangeCap ? (
+                <div className="space-y-1">
+                  <div className="text-lg font-extrabold text-white">
+                    {caps.orangeCap.player?.firstName} {caps.orangeCap.player?.lastName}
+                  </div>
+                  <div className="text-xs text-gray-400">{caps.orangeCap.player?.team?.name}</div>
+                  <div className="flex justify-between text-xs font-mono pt-2 text-amber-300">
+                    <span>Runs: {caps.orangeCap.totalRuns}</span>
+                    <span>SR: {caps.orangeCap.strikeRate}</span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400">No stats logged yet.</p>
+              )}
+            </div>
 
-          {/* Purple Cap Card */}
-          <div className="glass-panel p-5 rounded-xl border border-purple-500/30 space-y-3 shadow-lg">
-            <div className="flex justify-between items-center text-xs font-extrabold uppercase text-purple-400 tracking-wider">
-              <span>Purple Cap (Most Wickets)</span>
-              <span className="text-lg">🎯</span>
-            </div>
-            {caps?.purpleCap ? (
-              <div className="space-y-1">
-                <div className="text-lg font-extrabold text-white">
-                  {caps.purpleCap.player?.firstName} {caps.purpleCap.player?.lastName}
-                </div>
-                <div className="text-xs text-gray-400">{caps.purpleCap.player?.team?.name}</div>
-                <div className="flex justify-between text-xs font-mono pt-2 text-purple-300">
-                  <span>Wickets: {caps.purpleCap.totalWickets}</span>
-                  <span>Econ: {caps.purpleCap.economy}</span>
-                </div>
+            {/* Purple Cap Card */}
+            <div className="glass-panel p-5 rounded-xl border border-purple-500/30 space-y-3 shadow-lg">
+              <div className="flex justify-between items-center text-xs font-extrabold uppercase text-purple-400 tracking-wider">
+                <span>Purple Cap (Most Wickets)</span>
+                <span className="text-lg">🎯</span>
               </div>
-            ) : (
-              <p className="text-xs text-gray-400">No stats logged yet.</p>
-            )}
+              {caps?.purpleCap ? (
+                <div className="space-y-1">
+                  <div className="text-lg font-extrabold text-white">
+                    {caps.purpleCap.player?.firstName} {caps.purpleCap.player?.lastName}
+                  </div>
+                  <div className="text-xs text-gray-400">{caps.purpleCap.player?.team?.name}</div>
+                  <div className="flex justify-between text-xs font-mono pt-2 text-purple-300">
+                    <span>Wickets: {caps.purpleCap.totalWickets}</span>
+                    <span>Econ: {caps.purpleCap.economy}</span>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-gray-400">No stats logged yet.</p>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

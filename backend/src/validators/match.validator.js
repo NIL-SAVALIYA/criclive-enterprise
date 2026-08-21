@@ -63,5 +63,6 @@ export const matchQuerySchema = z.object({
   limit: z.string().optional().transform((val) => (val ? parseInt(val, 10) : undefined)),
   search: z.string().optional(),
   tournamentId: z.string().optional(),
-  status: MatchStatusEnum.optional()
+  status: MatchStatusEnum.optional(),
+  sport: z.string().optional()
 });
