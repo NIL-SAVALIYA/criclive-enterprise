@@ -59,8 +59,8 @@ export const updateMatchSchema = z.object({
 });
 
 export const matchQuerySchema = z.object({
-  page: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 1)),
-  limit: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 10)),
+  page: z.string().optional().transform((val) => (val ? parseInt(val, 10) : undefined)),
+  limit: z.string().optional().transform((val) => (val ? parseInt(val, 10) : undefined)),
   search: z.string().optional(),
   tournamentId: z.string().optional(),
   status: MatchStatusEnum.optional()

@@ -23,8 +23,7 @@ export async function createTeam(data, db = prisma) {
  * Retrieves all teams with search, filtering, pagination, and count summaries.
  */
 export async function getAllTeams(params = {}, db = prisma) {
-  const { page = 1, limit = 10, search, city } = params;
-  const skip = (page - 1) * limit;
+  const { page, limit, search, city } = params;
 
   const where = {};
 
@@ -40,33 +39,39 @@ export async function getAllTeams(params = {}, db = prisma) {
     where.city = { contains: city, mode: "insensitive" };
   }
 
-  const [teams, total] = await Promise.all([
-    db.team.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: {
-        name: "asc"
+  const query = {
+    where,
+    orderBy: {
+      name: "asc"
+    },
+    include: {
+      manager: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true
+        }
       },
-      include: {
-        manager: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            email: true
-          }
-        },
-        _count: {
-          select: {
-            players: true,
-            tournaments: true,
-            matchesAsTeamA: true,
-            matchesAsTeamB: true
-          }
+      _count: {
+        select: {
+          players: true,
+          tournaments: true,
+          matchesAsTeamA: true,
+          matchesAsTeamB: true
         }
       }
-    }),
+    }
+  };
+
+  const isPaginated = Boolean(page && limit);
+  if (isPaginated) {
+    query.skip = (page - 1) * limit;
+    query.take = Number(limit);
+  }
+
+  const [teams, total] = await Promise.all([
+    db.team.findMany(query),
     db.team.count({ where })
   ]);
 
@@ -74,9 +79,9 @@ export async function getAllTeams(params = {}, db = prisma) {
     teams,
     pagination: {
       total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit)
+      page: isPaginated ? page : 1,
+      limit: isPaginated ? limit : total,
+      totalPages: isPaginated ? Math.ceil(total / limit) : 1
     }
   };
 }

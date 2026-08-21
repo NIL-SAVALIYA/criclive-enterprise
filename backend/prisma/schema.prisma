@@ -35,6 +35,8 @@ model User {
   organizerApplications OrganizerApplication[] @relation("UserApplications")
   reviewedApplications  OrganizerApplication[] @relation("ReviewedApplications")
   auditLogs             AuditLog[]
+  managerProfile        ManagerProfile?
+  managerAssignmentsMade ManagerAssignment[]   @relation("AssignedBy")
 }
 
 model Team {
@@ -62,8 +64,9 @@ model Team {
 
   pointsTable PointsTable[]
 
-  playingXI PlayingXI[]
-  manager   User?       @relation(fields: [managerId], references: [id])
+  playingXI          PlayingXI[]
+  manager            User?               @relation(fields: [managerId], references: [id])
+  managerAssignments ManagerAssignment[]
 }
 
 model Innings {
@@ -282,6 +285,8 @@ model Match {
   playingXI PlayingXI[]
 
   scorer User? @relation("AssignedMatches", fields: [scorerId], references: [id])
+
+  managerAssignments ManagerAssignment[]
 
   createdAt DateTime @default(now())
 
@@ -679,3 +684,66 @@ model Notification {
 
   @@index([createdAt])
 }
+
+enum ManagerAssignmentStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+  REVOKED
+  COMPLETED
+}
+
+model ManagerProfile {
+  id                 String              @id @default(uuid())
+  userId             String              @unique
+  nickname           String
+  normalizedNickname String              @unique
+  displayName        String?
+  bio                String?
+  profileImageUrl    String?
+  phone              String?
+  city               String?
+  isActive           Boolean             @default(true)
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments        ManagerAssignment[]
+
+  @@index([normalizedNickname])
+  @@index([userId])
+  @@index([isActive])
+}
+
+model ManagerAssignment {
+  id               String                  @id @default(uuid())
+  managerProfileId String
+  matchId          String
+  teamId           String
+  assignedByUserId String
+  status           ManagerAssignmentStatus @default(PENDING)
+  requestedAt      DateTime                @default(now())
+  respondedAt      DateTime?
+  acceptedAt       DateTime?
+  declinedAt       DateTime?
+  cancelledAt      DateTime?
+  revokedAt        DateTime?
+  notes            String?
+  createdAt        DateTime                @default(now())
+  updatedAt        DateTime                @updatedAt
+
+  managerProfile   ManagerProfile          @relation(fields: [managerProfileId], references: [id], onDelete: Cascade)
+  match            Match                   @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  team             Team                    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  assignedByUser   User                    @relation("AssignedBy", fields: [assignedByUserId], references: [id])
+
+  @@index([managerProfileId])
+  @@index([matchId])
+  @@index([teamId])
+  @@index([assignedByUserId])
+  @@index([status])
+  @@index([matchId, teamId, status])
+  @@index([matchId, managerProfileId, status])
+}
+

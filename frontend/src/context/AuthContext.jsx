@@ -24,8 +24,8 @@ export function AuthProvider({ children }) {
     loadUserProfile();
   }, [token]);
 
-  const login = async (email, password) => {
-    const res = await api.post('/auth/login', { email, password });
+  const login = async (email, password, captchaToken) => {
+    const res = await api.post('/auth/login', { email, password, captchaToken });
     const { token: jwtToken, user: userData } = res.data.data;
 
     localStorage.setItem('token', jwtToken);
@@ -73,9 +73,12 @@ export function AuthProvider({ children }) {
   };
 
   const isAdmin = user?.role === 'ADMIN';
-  const isOrganizer = user?.role === 'ORGANIZER';
+  const isOrganizer = user?.role === 'ORGANIZER' || Boolean(user?.isOrganizer);
   const isViewer = user?.role === 'VIEWER';
   const isScorer = user?.role === 'SCORER';
+  const isManager = Boolean(user?.managerProfile?.isActive || user?.isManager || user?.role === 'TEAM_MANAGER');
+  const isTeamManager = isManager;
+  const managerProfile = user?.managerProfile || null;
 
   return (
     <AuthContext.Provider
@@ -91,6 +94,9 @@ export function AuthProvider({ children }) {
         isOrganizer,
         isViewer,
         isScorer,
+        isManager,
+        isTeamManager,
+        managerProfile,
         refreshUserProfile,
         setUser
       }}

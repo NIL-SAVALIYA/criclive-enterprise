@@ -154,6 +154,12 @@ export async function getProfile(userId) {
     firstName: user.firstName,
     lastName: user.lastName,
     email: user.email,
-    role: user.role.name
+    phone: user.phone,
+    profileImageUrl: user.profileImageUrl,
+    role: user.role.name,
+    createdAt: user.createdAt,
+    managerProfile: user.managerProfile || null,
+    isManager: Boolean(user.managerProfile && user.managerProfile.isActive),
+    isOrganizer: user.role.name === "ORGANIZER"
   };
 }

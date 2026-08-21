@@ -51,6 +51,20 @@ export async function findUserById(id, db = prisma) {
                     name: true,
                     description: true
                 }
+            },
+            managerProfile: {
+                select: {
+                    id: true,
+                    nickname: true,
+                    normalizedNickname: true,
+                    displayName: true,
+                    bio: true,
+                    phone: true,
+                    city: true,
+                    profileImageUrl: true,
+                    isActive: true,
+                    createdAt: true
+                }
             }
         }
     });

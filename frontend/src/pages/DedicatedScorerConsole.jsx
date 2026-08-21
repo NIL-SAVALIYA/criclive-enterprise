@@ -1,8 +1,17 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../api/client';
-import WagonWheelSVG from '../components/WagonWheelSVG';
+import WagonWheelSVG, { CANONICAL_ZONES, CANONICAL_ZONE_COORDS } from '../components/WagonWheelSVG';
 import PitchMapCanvas from '../components/PitchMapCanvas';
+import { useCricketSocket } from '../socket/useCricketSocket';
+import {
+  resolveBattingTeamId,
+  resolveBowlingTeamId,
+  getBattingXIPlayers,
+  getEligibleStrikers,
+  getEligibleNonStrikers,
+  getEligibleIncomingBatters
+} from '../utils/battingEligibility';
 import {
   Play,
   Settings,
@@ -18,7 +27,8 @@ import {
   Users,
   ChevronRight,
   Flame,
-  ArrowRight
+  ArrowRight,
+  RotateCcw
 } from 'lucide-react';
 import Skeleton from '../components/Skeleton';
 
@@ -56,8 +66,8 @@ export default function DedicatedScorerConsole() {
   const [fielderId, setFielderId] = useState('');
   const [commentary, setCommentary] = useState('');
   const [shotZone, setShotZone] = useState('Mid Wicket');
-  const [shotX, setShotX] = useState(0);
-  const [shotY, setShotY] = useState(0);
+  const [shotX, setShotX] = useState(95);
+  const [shotY, setShotY] = useState(45);
   const [pitchLength, setPitchLength] = useState('Good');
   const [pitchLine, setPitchLine] = useState('Stumps');
 
@@ -212,17 +222,26 @@ export default function DedicatedScorerConsole() {
       return;
     }
 
+    if (currentStriker === currentNonStriker) {
+      setStatusMsg({ type: 'error', text: 'Striker and non-striker cannot be the same player.' });
+      return;
+    }
+
     setActionLoading(true);
     setStatusMsg(null);
 
     try {
+      const isByeType = extraType === 'BYE' || extraType === 'LEG_BYE' || extraType === 'WIDE';
+      const actualBatRuns = isByeType ? 0 : Number(batRuns) || 0;
+      const actualExtraRuns = Number(extraRuns) || 0;
+
       const payload = {
         inningsId,
         batsmanId: currentStriker,
-        nonStrikerId: currentNonStriker || currentStriker,
+        nonStrikerId: currentNonStriker,
         bowlerId: currentBowler,
-        batRuns: Number(batRuns),
-        extraRuns: Number(extraRuns),
+        batRuns: actualBatRuns,
+        extraRuns: actualExtraRuns,
         extraType,
         isFreeHit: Boolean(isFreeHit),
         isWicket,
@@ -230,7 +249,13 @@ export default function DedicatedScorerConsole() {
         dismissedPlayerId: isWicket ? (dismissedPlayerId || currentStriker) : null,
         newBatsmanId: isWicket ? (newBatsmanId || null) : null,
         fielderId: (isWicket && fielderId) ? fielderId : null,
-        commentary: commentary || `${batRuns} run${batRuns === 1 ? '' : 's'} scored to ${shotZone}`,
+        commentary: commentary || (
+          extraType === 'BYE'
+            ? `${actualExtraRuns} Bye runs`
+            : extraType === 'LEG_BYE'
+            ? `${actualExtraRuns} Leg Bye runs`
+            : `${actualBatRuns} run${actualBatRuns === 1 ? '' : 's'} scored to ${shotZone}`
+        ),
         shotZone,
         shotX,
         shotY,
@@ -244,7 +269,7 @@ export default function DedicatedScorerConsole() {
 
       setStatusMsg({
         type: 'success',
-        text: `Ball recorded successfully! (${batRuns} runs to ${shotZone}${isWicket ? ' - WICKET!' : ''})`
+        text: `Ball recorded ✓ (${extraType === 'BYE' ? `${actualExtraRuns}B` : extraType === 'LEG_BYE' ? `${actualExtraRuns}LB` : `${actualBatRuns}r`} to ${shotZone}${isWicket ? ' - WICKET!' : ''})`
       });
 
       // Reset Ball Inputs
@@ -293,6 +318,40 @@ export default function DedicatedScorerConsole() {
     }
   }
 
+  // Undo Last Delivery
+  async function handleUndoLastDelivery() {
+    const matchId = match?.id;
+    if (!matchId) return;
+
+    const confirmUndo = window.confirm(
+      "Undo Last Delivery?\nThis will revert the latest delivery and all dependent match statistics."
+    );
+    if (!confirmUndo) return;
+
+    setActionLoading(true);
+    setStatusMsg(null);
+    try {
+      await api.post(
+        `/matches/${matchId}/undo-last-ball`,
+        {},
+        { headers: { 'x-scoring-token': token } }
+      );
+      setStatusMsg({
+        type: 'success',
+        text: 'Last delivery undone successfully ✓'
+      });
+      await loadSession();
+    } catch (err) {
+      console.error('Failed to undo last ball:', err);
+      setStatusMsg({
+        type: 'error',
+        text: err.response?.data?.message || 'Error undoing last delivery.'
+      });
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
   // Derived Match State
   const match = sessionData?.match;
   const playingXI = sessionData?.playingXI;
@@ -300,21 +359,83 @@ export default function DedicatedScorerConsole() {
   const teamBXI = playingXI?.teamB || [];
   const isPlayingXIReady = playingXI?.isReady;
 
-  const battingTeamId =
-    tossDecision === 'BAT'
-      ? tossWinnerId
-      : tossWinnerId === match?.teamAId
-      ? match?.teamBId
-      : match?.teamAId;
-  const bowlingTeamId =
-    tossDecision === 'BOWL'
-      ? tossWinnerId
-      : tossWinnerId === match?.teamAId
-      ? match?.teamBId
-      : match?.teamAId;
+  // Real-time socket sync
+  const socketData = useCricketSocket(match?.id);
 
-  const battingXIPlayers = battingTeamId === match?.teamAId ? teamAXI : teamBXI;
-  const bowlingXIPlayers = bowlingTeamId === match?.teamAId ? teamAXI : teamBXI;
+  useEffect(() => {
+    if (socketData.liveScore) {
+      setLiveDetails(prev => ({
+        ...prev,
+        ...socketData.liveScore,
+        innings: socketData.liveScore.innings || prev?.innings
+      }));
+    }
+    if (socketData.scorecard) {
+      setScorecardDetails(socketData.scorecard);
+    }
+  }, [socketData.liveScore, socketData.scorecard]);
+
+  // Active Innings & Batting Team derivations
+  const currentInnings = liveDetails?.innings || scorecardDetails?.innings || null;
+
+  const activeBattingTeamId = resolveBattingTeamId({
+    innings: currentInnings,
+    match,
+    tossWinnerId,
+    tossDecision
+  });
+
+  const activeBowlingTeamId = resolveBowlingTeamId({
+    innings: currentInnings,
+    match,
+    tossWinnerId,
+    tossDecision
+  });
+
+  // Pre-match Playing XI lists
+  const preMatchBattingXI = getBattingXIPlayers({
+    battingTeamId: activeBattingTeamId,
+    playingXI,
+    match
+  });
+
+  const preMatchBowlingXI = getBattingXIPlayers({
+    battingTeamId: activeBowlingTeamId,
+    playingXI,
+    match
+  });
+
+  // Live match full batting Playing XI enriched with scorecard
+  const liveBattingXI = getBattingXIPlayers({
+    battingTeamId: activeBattingTeamId,
+    playingXI,
+    scorecardBatting: scorecardDetails?.batting,
+    match
+  });
+
+  const currentStriker = activeStrikerId || liveDetails?.currentBatters?.striker?.id;
+  const currentNonStriker = activeNonStrikerId || liveDetails?.currentBatters?.nonStriker?.id;
+
+  const eligibleStrikers = getEligibleStrikers({
+    battingXIPlayers: liveBattingXI,
+    currentNonStrikerId: currentNonStriker,
+    currentStrikerId: currentStriker
+  });
+
+  const eligibleNonStrikers = getEligibleNonStrikers({
+    battingXIPlayers: liveBattingXI,
+    currentStrikerId: currentStriker,
+    currentNonStrikerId: currentNonStriker
+  });
+
+  const eligibleIncomingBatters = getEligibleIncomingBatters({
+    battingXIPlayers: liveBattingXI,
+    currentStrikerId: currentStriker,
+    currentNonStrikerId: currentNonStriker,
+    dismissedPlayerId: (dismissedPlayerId || currentStriker)
+  });
+
+  const availableBowlers = scorecardDetails?.allBowlers || scorecardDetails?.bowling || [];
 
   const isFreeHit = Boolean(
     liveDetails?.score?.isFreeHit ||
@@ -323,9 +444,6 @@ export default function DedicatedScorerConsole() {
     liveDetails?.freeHitNextDelivery ||
     (liveDetails?.recentBalls && liveDetails.recentBalls.length > 0 && liveDetails.recentBalls[0]?.extraType === 'NO_BALL')
   );
-
-  const availableBatters = scorecardDetails?.batting || [];
-  const availableBowlers = scorecardDetails?.allBowlers || scorecardDetails?.bowling || [];
 
   if (loading) {
     return (
@@ -599,11 +717,14 @@ export default function DedicatedScorerConsole() {
                     className="w-full bg-gray-900 border border-gray-700 text-white rounded-xl p-3 text-xs font-semibold focus:border-emerald-500"
                   >
                     <option value="">-- Select Striker --</option>
-                    {battingXIPlayers.map((p) => (
-                      <option key={p.playerId} value={p.playerId}>
-                        {p.player?.firstName} {p.player?.lastName} #{p.player?.jerseyNumber || ''}
-                      </option>
-                    ))}
+                    {preMatchBattingXI.map((p) => {
+                      const pid = p.playerId || p.id;
+                      return (
+                        <option key={pid} value={pid} disabled={pid === nonStrikerId}>
+                          {p.name} #{p.jerseyNumber || ''}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
@@ -615,11 +736,14 @@ export default function DedicatedScorerConsole() {
                     className="w-full bg-gray-900 border border-gray-700 text-white rounded-xl p-3 text-xs font-semibold focus:border-emerald-500"
                   >
                     <option value="">-- Select Non-Striker --</option>
-                    {battingXIPlayers.map((p) => (
-                      <option key={p.playerId} value={p.playerId} disabled={p.playerId === strikerId}>
-                        {p.player?.firstName} {p.player?.lastName} #{p.player?.jerseyNumber || ''}
-                      </option>
-                    ))}
+                    {preMatchBattingXI.map((p) => {
+                      const pid = p.playerId || p.id;
+                      return (
+                        <option key={pid} value={pid} disabled={pid === strikerId}>
+                          {p.name} #{p.jerseyNumber || ''}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
 
@@ -631,11 +755,14 @@ export default function DedicatedScorerConsole() {
                     className="w-full bg-gray-900 border border-gray-700 text-white rounded-xl p-3 text-xs font-semibold focus:border-blue-500"
                   >
                     <option value="">-- Select Bowler --</option>
-                    {bowlingXIPlayers.map((p) => (
-                      <option key={p.playerId} value={p.playerId}>
-                        {p.player?.firstName} {p.player?.lastName} #{p.player?.jerseyNumber || ''}
-                      </option>
-                    ))}
+                    {preMatchBowlingXI.map((p) => {
+                      const pid = p.playerId || p.id;
+                      return (
+                        <option key={pid} value={pid}>
+                          {p.name} #{p.jerseyNumber || ''}
+                        </option>
+                      );
+                    })}
                   </select>
                 </div>
               </div>
@@ -722,48 +849,77 @@ export default function DedicatedScorerConsole() {
               <div className="glass-panel p-3 rounded-xl border border-gray-800 space-y-1">
                 <label className="text-emerald-400 font-bold block">Striker (*):</label>
                 <select
-                  value={activeStrikerId}
+                  value={activeStrikerId || currentStriker || ''}
                   onChange={(e) => {
-                    setActiveStrikerId(e.target.value);
-                    setDismissedPlayerId(e.target.value);
+                    const val = e.target.value;
+                    setActiveStrikerId(val);
+                    setDismissedPlayerId(val);
                   }}
                   className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2 font-semibold text-xs focus:border-emerald-500"
                 >
-                  {availableBatters.map((b) => (
-                    <option key={b.playerId} value={b.playerId}>
-                      {b.name} ({b.runs}r, {b.balls}b)
+                  {eligibleStrikers.length > 0 ? (
+                    eligibleStrikers.map((b) => {
+                      const pid = b.id || b.playerId;
+                      return (
+                        <option key={pid} value={pid}>
+                          {b.name} ({b.runs || 0}r, {b.balls || 0}b)
+                        </option>
+                      );
+                    })
+                  ) : (
+                    <option value={currentStriker || ''}>
+                      {liveDetails?.currentBatters?.striker?.name || 'No eligible striker'}
                     </option>
-                  ))}
+                  )}
                 </select>
               </div>
 
               <div className="glass-panel p-3 rounded-xl border border-gray-800 space-y-1">
-                <label className="text-gray-400 font-bold block">Non-Striker:</label>
+                <label className="text-gray-400 font-bold block">Non-Striker (*):</label>
                 <select
-                  value={activeNonStrikerId}
+                  value={activeNonStrikerId || currentNonStriker || ''}
                   onChange={(e) => setActiveNonStrikerId(e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2 font-semibold text-xs focus:border-emerald-500"
+                  className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2 font-semibold text-xs focus:border-gray-500"
                 >
-                  {availableBatters.map((b) => (
-                    <option key={b.playerId} value={b.playerId} disabled={b.playerId === activeStrikerId}>
-                      {b.name} ({b.runs}r, {b.balls}b)
+                  {eligibleNonStrikers.length > 0 ? (
+                    eligibleNonStrikers.map((b) => {
+                      const pid = b.id || b.playerId;
+                      return (
+                        <option key={pid} value={pid}>
+                          {b.name} ({b.runs || 0}r, {b.balls || 0}b)
+                        </option>
+                      );
+                    })
+                  ) : (
+                    <option value={currentNonStriker || ''}>
+                      {liveDetails?.currentBatters?.nonStriker?.name || 'No eligible non-striker'}
                     </option>
-                  ))}
+                  )}
                 </select>
               </div>
 
               <div className="glass-panel p-3 rounded-xl border border-gray-800 space-y-1">
-                <label className="text-blue-400 font-bold block">Active Bowler:</label>
+                <label className="text-blue-400 font-bold block">Active Bowler (*):</label>
                 <select
-                  value={activeBowlerId}
+                  value={activeBowlerId || liveDetails?.currentBowling?.id || ''}
                   onChange={(e) => setActiveBowlerId(e.target.value)}
                   className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2 font-semibold text-xs focus:border-blue-500"
                 >
-                  {availableBowlers.map((bw) => (
-                    <option key={bw.bowlerId || bw.id} value={bw.bowlerId || bw.id}>
-                      {bw.name} ({bw.overs || 0}ov, {bw.wickets || 0}w)
-                    </option>
-                  ))}
+                  <option value="">-- Select Eligible Bowler --</option>
+                  {availableBowlers.map((bw) => {
+                    const bid = bw.bowlerId || bw.id;
+                    const isPrev = Boolean(
+                      liveDetails?.score?.legalBalls > 0 &&
+                      liveDetails.score.legalBalls % 6 === 0 &&
+                      liveDetails.currentBowling?.id &&
+                      bid === liveDetails.currentBowling.id
+                    );
+                    return (
+                      <option key={bid} value={bid} disabled={isPrev}>
+                        {bw.name} ({bw.overs || '0.0'} ov, {bw.wickets || 0}w, {bw.runs || 0}r){isPrev ? ' (Consecutive - cannot bowl)' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             </div>
@@ -773,38 +929,18 @@ export default function DedicatedScorerConsole() {
               onSubmit={handleRecordBall}
               className="glass-panel p-6 rounded-2xl border border-gray-800 space-y-6"
             >
-              {/* Runs Keypad */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-300 uppercase tracking-wider block">
-                  Runs Scored Off Bat:
-                </label>
-                <div className="grid grid-cols-6 gap-2">
-                  {[0, 1, 2, 3, 4, 6].map((r) => (
-                    <button
-                      type="button"
-                      key={r}
-                      onClick={() => setBatRuns(r)}
-                      className={`py-3 rounded-xl font-mono font-black text-base transition-all ${
-                        batRuns === r
-                          ? r === 4
-                            ? 'bg-blue-600 text-white shadow-lg glow-blue'
-                            : r === 6
-                            ? 'bg-purple-600 text-white shadow-lg glow-purple'
-                            : 'bg-emerald-600 text-white shadow-lg glow-emerald'
-                          : 'bg-gray-900 text-gray-300 border border-gray-800 hover:border-gray-600'
-                      }`}
-                    >
-                      {r}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               {/* Extras Selector */}
               <div className="space-y-2 text-xs">
-                <label className="text-xs font-bold text-gray-300 uppercase tracking-wider block">
-                  Extras:
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-gray-300 uppercase tracking-wider block">
+                    Extras:
+                  </label>
+                  {isFreeHit && (
+                    <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-500/40 animate-pulse">
+                      FREE HIT ACTIVE
+                    </span>
+                  )}
+                </div>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
                   {[
                     { type: 'NONE', label: 'None' },
@@ -818,8 +954,14 @@ export default function DedicatedScorerConsole() {
                       key={ext.type}
                       onClick={() => {
                         setExtraType(ext.type);
-                        if (ext.type === 'WIDE' || ext.type === 'NO_BALL') {
+                        if (ext.type === 'WIDE') {
+                          setBatRuns(0);
                           setExtraRuns(1);
+                        } else if (ext.type === 'NO_BALL') {
+                          setExtraRuns(1);
+                        } else if (ext.type === 'BYE' || ext.type === 'LEG_BYE') {
+                          setBatRuns(0);
+                          if (!extraRuns || Number(extraRuns) === 0) setExtraRuns(1);
                         } else {
                           setExtraRuns(0);
                         }
@@ -836,6 +978,135 @@ export default function DedicatedScorerConsole() {
                 </div>
               </div>
 
+              {/* Dynamic Run Keypad Based on Extra Type */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-300 uppercase tracking-wider block">
+                  {extraType === 'NONE'
+                    ? 'Runs Scored Off Bat:'
+                    : extraType === 'BYE'
+                    ? 'Bye Runs (Extras):'
+                    : extraType === 'LEG_BYE'
+                    ? 'Leg Bye Runs (Extras):'
+                    : extraType === 'WIDE'
+                    ? 'Wide Runs (Penalty + Extras):'
+                    : 'No Ball Runs (Bat Runs + 1 Nb):'}
+                </label>
+
+                {extraType === 'NONE' && (
+                  <div className="grid grid-cols-6 gap-2">
+                    {[0, 1, 2, 3, 4, 6].map((r) => (
+                      <button
+                        type="button"
+                        key={r}
+                        onClick={() => {
+                          setBatRuns(r);
+                          setExtraRuns(0);
+                        }}
+                        className={`py-3 rounded-xl font-mono font-black text-base transition-all ${
+                          batRuns === r
+                            ? r === 4
+                              ? 'bg-blue-600 text-white shadow-lg glow-blue'
+                              : r === 6
+                              ? 'bg-purple-600 text-white shadow-lg glow-purple'
+                              : 'bg-emerald-600 text-white shadow-lg glow-emerald'
+                            : 'bg-gray-900 text-gray-300 border border-gray-800 hover:border-gray-600'
+                        }`}
+                      >
+                        {r}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {extraType === 'BYE' && (
+                  <div className="grid grid-cols-6 gap-2">
+                    {[1, 2, 3, 4, 5, 6].map((r) => (
+                      <button
+                        type="button"
+                        key={r}
+                        onClick={() => {
+                          setBatRuns(0);
+                          setExtraRuns(r);
+                        }}
+                        className={`py-3 rounded-xl font-mono font-black text-base transition-all ${
+                          Number(extraRuns) === r
+                            ? 'bg-cyan-600 text-white shadow-lg glow-cyan'
+                            : 'bg-gray-900 text-cyan-400 border border-cyan-800/40 hover:border-cyan-600'
+                        }`}
+                      >
+                        {r}B
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {extraType === 'LEG_BYE' && (
+                  <div className="grid grid-cols-6 gap-2">
+                    {[1, 2, 3, 4, 5, 6].map((r) => (
+                      <button
+                        type="button"
+                        key={r}
+                        onClick={() => {
+                          setBatRuns(0);
+                          setExtraRuns(r);
+                        }}
+                        className={`py-3 rounded-xl font-mono font-black text-base transition-all ${
+                          Number(extraRuns) === r
+                            ? 'bg-cyan-600 text-white shadow-lg glow-cyan'
+                            : 'bg-gray-900 text-cyan-400 border border-cyan-800/40 hover:border-cyan-600'
+                        }`}
+                      >
+                        {r}LB
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {extraType === 'WIDE' && (
+                  <div className="grid grid-cols-5 gap-2">
+                    {[1, 2, 3, 4, 5].map((r) => (
+                      <button
+                        type="button"
+                        key={r}
+                        onClick={() => {
+                          setBatRuns(0);
+                          setExtraRuns(r);
+                        }}
+                        className={`py-3 rounded-xl font-mono font-black text-base transition-all ${
+                          Number(extraRuns) === r
+                            ? 'bg-purple-600 text-white shadow-lg glow-purple'
+                            : 'bg-gray-900 text-purple-400 border border-purple-800/40 hover:border-purple-600'
+                        }`}
+                      >
+                        {r === 1 ? '1Wd' : `${r}Wd`}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {extraType === 'NO_BALL' && (
+                  <div className="grid grid-cols-6 gap-2">
+                    {[0, 1, 2, 3, 4, 6].map((r) => (
+                      <button
+                        type="button"
+                        key={r}
+                        onClick={() => {
+                          setBatRuns(r);
+                          setExtraRuns(1);
+                        }}
+                        className={`py-3 rounded-xl font-mono font-black text-base transition-all ${
+                          batRuns === r
+                            ? 'bg-purple-600 text-white shadow-lg glow-purple'
+                            : 'bg-gray-900 text-purple-400 border border-purple-800/40 hover:border-purple-600'
+                        }`}
+                      >
+                        {r === 0 ? 'Nb' : `${r + 1}Nb`}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Wicket Drawer */}
               <div className="p-4 bg-gray-900/90 rounded-2xl border border-gray-800 space-y-4">
                 <div className="flex items-center justify-between">
@@ -843,7 +1114,12 @@ export default function DedicatedScorerConsole() {
                     <input
                       type="checkbox"
                       checked={isWicket}
-                      onChange={(e) => setIsWicket(e.target.checked)}
+                      onChange={(e) => {
+                        setIsWicket(e.target.checked);
+                        if (!e.target.checked) {
+                          setNewBatsmanId('');
+                        }
+                      }}
                       className="w-4 h-4 rounded text-red-600 focus:ring-red-500 bg-gray-800 border-gray-700"
                     />
                     WICKET ON THIS BALL
@@ -880,8 +1156,14 @@ export default function DedicatedScorerConsole() {
                         onChange={(e) => setDismissedPlayerId(e.target.value)}
                         className="w-full bg-gray-800 border border-gray-700 text-white rounded-xl p-2 font-semibold focus:border-red-500"
                       >
-                        <option value={activeStrikerId}>Striker (Active)</option>
-                        <option value={activeNonStrikerId}>Non-Striker</option>
+                        <option value={currentStriker}>
+                          Striker ({eligibleStrikers.find(b => (b.id || b.playerId) === currentStriker)?.name || 'Active'})
+                        </option>
+                        {currentNonStriker && (
+                          <option value={currentNonStriker}>
+                            Non-Striker ({eligibleNonStrikers.find(b => (b.id || b.playerId) === currentNonStriker)?.name || 'Active'})
+                          </option>
+                        )}
                       </select>
                     </div>
 
@@ -892,14 +1174,19 @@ export default function DedicatedScorerConsole() {
                         onChange={(e) => setNewBatsmanId(e.target.value)}
                         className="w-full bg-gray-800 border border-gray-700 text-white rounded-xl p-2 font-semibold focus:border-emerald-500"
                       >
-                        <option value="">-- Next in Order --</option>
-                        {battingXIPlayers
-                          .filter((p) => p.playerId !== activeStrikerId && p.playerId !== activeNonStrikerId)
-                          .map((p) => (
-                            <option key={p.playerId} value={p.playerId}>
-                              {p.player?.firstName} {p.player?.lastName}
-                            </option>
-                          ))}
+                        <option value="">-- Select Next Batter --</option>
+                        {eligibleIncomingBatters.length > 0 ? (
+                          eligibleIncomingBatters.map((p) => {
+                            const pid = p.id || p.playerId;
+                            return (
+                              <option key={pid} value={pid}>
+                                {p.name} (#{p.jerseyNumber || p.battingOrder})
+                              </option>
+                            );
+                          })
+                        ) : (
+                          <option value="" disabled>No eligible batters available (All Out)</option>
+                        )}
                       </select>
                     </div>
                   </div>
@@ -909,13 +1196,46 @@ export default function DedicatedScorerConsole() {
               {/* Spatial Vector Coordinates (Wagon Wheel & Pitch Map) */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <span className="text-[11px] font-bold text-gray-400 block uppercase">
-                    Wagon Wheel (Shot Placement):
-                  </span>
-                  <WagonWheelSVG onSelectZone={handleShotZoneSelect} selectedZone={shotZone} />
-                  <div className="text-[10px] font-mono text-gray-400 text-center">
-                    Zone: <span className="text-emerald-400 font-bold">{shotZone}</span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-gray-400 block uppercase">
+                      Wagon Wheel (Shot Placement):
+                    </span>
+                    {shotZone && (
+                      <span className="text-[10px] font-bold text-emerald-400 font-mono bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-500/30">
+                        {shotZone}
+                      </span>
+                    )}
                   </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-gray-400 uppercase block">
+                      Shot Placement / Wagon Wheel Zone
+                    </label>
+                    <select
+                      value={shotZone}
+                      onChange={(e) => {
+                        const zone = e.target.value;
+                        const coords = CANONICAL_ZONE_COORDS[zone] || { x: 0, y: 0 };
+                        handleShotZoneSelect({ zone, x: coords.x, y: coords.y });
+                      }}
+                      className="w-full bg-gray-800 border border-gray-700 text-white rounded-xl p-2 font-semibold text-xs focus:border-emerald-500"
+                    >
+                      <option value="">-- Select Zone --</option>
+                      {CANONICAL_ZONES.map((z) => (
+                        <option key={z} value={z}>
+                          {z}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <WagonWheelSVG
+                    onSelectZone={handleShotZoneSelect}
+                    selectedZone={shotZone}
+                    selectedX={shotX}
+                    selectedY={shotY}
+                    isInteractive={true}
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -923,9 +1243,10 @@ export default function DedicatedScorerConsole() {
                     Pitch Map (Length & Line):
                   </span>
                   <PitchMapCanvas
-                    onSelectCoordinates={handlePitchSelect}
+                    onSelectPitch={handlePitchSelect}
                     selectedLength={pitchLength}
                     selectedLine={pitchLine}
+                    isInteractive={true}
                   />
                   <div className="text-[10px] font-mono text-gray-400 text-center">
                     Length: <span className="text-blue-400 font-bold">{pitchLength}</span> • Line:{' '}
@@ -934,20 +1255,32 @@ export default function DedicatedScorerConsole() {
                 </div>
               </div>
 
-              {/* Ball Submission Button */}
-              <button
-                type="submit"
-                disabled={actionLoading}
-                className="w-full py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-sm rounded-2xl flex items-center justify-center gap-2 shadow-xl glow-emerald disabled:opacity-40 transition-all"
-              >
-                {actionLoading ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <>
-                    <CheckCircle2 className="w-5 h-5" /> RECORD BALL & BROADCAST REAL-TIME
-                  </>
-                )}
-              </button>
+              {/* Ball Submission & Undo Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={actionLoading}
+                  className="flex-1 py-4 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-black text-sm rounded-2xl flex items-center justify-center gap-2 shadow-xl glow-emerald disabled:opacity-40 transition-all"
+                >
+                  {actionLoading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-5 h-5" /> RECORD BALL & BROADCAST REAL-TIME
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleUndoLastDelivery}
+                  disabled={actionLoading || !(liveDetails?.score?.totalBalls > 0 || (liveDetails?.recentBalls && liveDetails.recentBalls.length > 0))}
+                  className="px-5 py-4 bg-amber-950/70 hover:bg-amber-900/80 border border-amber-500/50 hover:border-amber-400 text-amber-300 hover:text-white font-extrabold text-xs rounded-2xl flex items-center justify-center gap-2 shadow-lg disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                  title="Undo the latest ball delivery"
+                >
+                  <RotateCcw className="w-4 h-4" /> Undo Last Delivery
+                </button>
+              </div>
             </form>
           </div>
 
@@ -960,24 +1293,42 @@ export default function DedicatedScorerConsole() {
               </h4>
               {liveDetails?.recentBalls && liveDetails.recentBalls.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
-                  {liveDetails.recentBalls.slice(0, 12).map((b, idx) => (
-                    <span
-                      key={idx}
-                      className={`w-8 h-8 rounded-full flex items-center justify-center font-mono font-bold text-xs border ${
-                        b.isWicket
-                          ? 'bg-red-500/20 text-red-400 border-red-500/40'
-                          : b.batRuns === 6
-                          ? 'bg-purple-500/20 text-purple-400 border-purple-500/40'
-                          : b.batRuns === 4
-                          ? 'bg-blue-500/20 text-blue-400 border-blue-500/40'
-                          : b.extraRuns > 0
-                          ? 'bg-amber-500/20 text-amber-400 border-amber-500/40'
-                          : 'bg-gray-800 text-gray-300 border-gray-700'
-                      }`}
-                    >
-                      {b.isWicket ? 'W' : b.extraType === 'WIDE' ? 'Wd' : b.extraType === 'NO_BALL' ? 'Nb' : b.batRuns}
-                    </span>
-                  ))}
+                  {liveDetails.recentBalls.slice(0, 12).map((b, idx) => {
+                    let badgeStyle = 'bg-gray-800 text-gray-300 border-gray-700';
+                    let label = String(b.batRuns || 0);
+
+                    if (b.isWicket) {
+                      badgeStyle = 'bg-red-500/20 text-red-400 border-red-500/40 font-black';
+                      label = 'W';
+                    } else if (b.extraType === 'BYE') {
+                      badgeStyle = 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40 font-bold';
+                      label = `${b.extraRuns || b.totalRuns || 1}B`;
+                    } else if (b.extraType === 'LEG_BYE') {
+                      badgeStyle = 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40 font-bold';
+                      label = `${b.extraRuns || b.totalRuns || 1}LB`;
+                    } else if (b.batRuns === 6 || b.totalRuns === 6) {
+                      badgeStyle = 'bg-purple-500/20 text-purple-400 border-purple-500/40 font-black';
+                      label = '6';
+                    } else if (b.batRuns === 4 || b.totalRuns === 4) {
+                      badgeStyle = 'bg-blue-500/20 text-blue-400 border-blue-500/40 font-black';
+                      label = '4';
+                    } else if (b.extraType === 'WIDE') {
+                      badgeStyle = 'bg-purple-500/20 text-purple-400 border-purple-500/40 font-bold';
+                      label = b.extraRuns > 1 ? `${b.extraRuns}Wd` : 'Wd';
+                    } else if (b.extraType === 'NO_BALL') {
+                      badgeStyle = 'bg-purple-500/20 text-purple-400 border-purple-500/40 font-bold';
+                      label = b.batRuns > 0 ? `${b.batRuns + 1}Nb` : 'Nb';
+                    }
+
+                    return (
+                      <span
+                        key={idx}
+                        className={`w-8 h-8 rounded-full flex items-center justify-center font-mono text-xs border ${badgeStyle}`}
+                      >
+                        {label}
+                      </span>
+                    );
+                  })}
                 </div>
               ) : (
                 <p className="text-xs text-gray-500 italic">No balls recorded in this over yet.</p>

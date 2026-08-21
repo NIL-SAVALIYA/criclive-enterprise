@@ -11,6 +11,8 @@ const env = {
   DATABASE_URL: process.env.DATABASE_URL,
   JWT_SECRET: process.env.JWT_SECRET || "development-secret",
   NODE_ENV: process.env.NODE_ENV || "development",
+  CAPTCHA_SECRET_KEY: process.env.CAPTCHA_SECRET_KEY || "1x0000000000000000000000000000000AA",
+  CAPTCHA_SITE_KEY: process.env.CAPTCHA_SITE_KEY || "1x00000000000000000000AA",
 };
 
 export default env;

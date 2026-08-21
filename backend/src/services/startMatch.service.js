@@ -77,6 +77,12 @@ export async function startMatch(matchId, strikerId, nonStrikerId, bowlerId, use
         }
 
         // Validate striker, non-striker and bowler
+        if (strikerId === nonStrikerId) {
+            const error = new Error("Striker and Non-Striker cannot be the same player");
+            error.statusCode = 400;
+            throw error;
+        }
+
         const battingPlayers = playingXI.filter(p => p.teamId === battingTeamId);
         const bowlingPlayers = playingXI.filter(p => p.teamId === bowlingTeamId);
 

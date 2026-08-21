@@ -1,15 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Lock, Mail, LogIn, AlertCircle, CheckCircle2 } from 'lucide-react';
+import CaptchaVerification from '../components/CaptchaVerification';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [captchaToken, setCaptchaToken] = useState(null);
+  const [captchaLoading, setCaptchaLoading] = useState(true);
   const [error, setError] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
+  const captchaRef = useRef(null);
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -28,10 +32,16 @@ export default function Login() {
   async function handleSubmit(e) {
     e.preventDefault();
     setError(null);
+
+    if (!captchaToken) {
+      setError('Please complete the human verification.');
+      return;
+    }
+
     setSubmitting(true);
 
     try {
-      const loggedUser = await login(email, password);
+      const loggedUser = await login(email, password, captchaToken);
       if (loggedUser.role === 'ADMIN' || loggedUser.role === 'SCORER') {
         navigate('/admin/scorer', { replace: true });
       } else {
@@ -48,10 +58,22 @@ export default function Login() {
         errMsg = 'Unable to connect to server. Please check your internet connection.';
       }
       setError(errMsg);
+
+      // Reset single-use CAPTCHA token on login failure
+      setCaptchaToken(null);
+      captchaRef.current?.reset();
     } finally {
       setSubmitting(false);
     }
   }
+
+  const isFormValid = Boolean(
+    email.trim() &&
+    password &&
+    captchaToken &&
+    !captchaLoading &&
+    !submitting
+  );
 
   return (
     <div className="flex items-center justify-center min-h-[75vh] px-4">
@@ -115,13 +137,34 @@ export default function Login() {
             </div>
           </div>
 
+          {/* Cloudflare Turnstile Human Verification */}
+          <div className="pt-1.5 pb-1">
+            <CaptchaVerification
+              ref={captchaRef}
+              onVerify={(token) => {
+                setCaptchaToken(token);
+                setError(null);
+              }}
+              onExpire={() => {
+                setCaptchaToken(null);
+              }}
+              onError={(err) => {
+                setCaptchaToken(null);
+                setError(err);
+              }}
+              onLoading={(loading) => {
+                setCaptchaLoading(loading);
+              }}
+            />
+          </div>
+
           <button
             type="submit"
-            disabled={submitting}
-            className={`w-full py-3 rounded-xl text-white font-extrabold text-xs uppercase tracking-wider shadow-lg transition-all flex justify-center items-center gap-2 mt-2 ${
-              submitting
-                ? 'bg-gray-700 cursor-not-allowed opacity-75'
-                : 'bg-emerald-600 hover:bg-emerald-500 glow-emerald'
+            disabled={!isFormValid}
+            className={`w-full py-3 rounded-xl font-extrabold text-xs uppercase tracking-wider shadow-lg transition-all flex justify-center items-center gap-2 mt-2 ${
+              isFormValid
+                ? 'bg-emerald-600 hover:bg-emerald-500 glow-emerald text-white cursor-pointer'
+                : 'bg-gray-800 border border-gray-700/60 text-gray-500 cursor-not-allowed opacity-70'
             }`}
           >
             <LogIn className="w-4 h-4" /> {submitting ? 'Signing In...' : 'Sign In'}
@@ -143,4 +186,3 @@ export default function Login() {
     </div>
   );
 }
-

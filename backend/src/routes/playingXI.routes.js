@@ -9,8 +9,6 @@ import {
 import { validate } from "../middleware/validate.middleware.js";
 import { createPlayingXISchema } from "../validators/playingXI.validator.js";
 import { authenticate } from "../middleware/auth.middleware.js";
-import { authorize } from "../middleware/authorize.middleware.js";
-import { Roles } from "../constants/roles.js";
 
 const router = Router();
 
@@ -22,7 +20,6 @@ router.get(
 router.post(
     "/:matchId/playing-xi",
     authenticate,
-    authorize(Roles.ADMIN, Roles.ORGANIZER, Roles.TOURNAMENT_ADMIN, Roles.TEAM_MANAGER, Roles.SCORER),
     validate(createPlayingXISchema),
     createPlayingXIController
 );
@@ -30,7 +27,6 @@ router.post(
 router.put(
     "/:matchId/playing-xi",
     authenticate,
-    authorize(Roles.ADMIN, Roles.ORGANIZER, Roles.TOURNAMENT_ADMIN, Roles.TEAM_MANAGER, Roles.SCORER),
     validate(createPlayingXISchema),
     updatePlayingXIController
 );

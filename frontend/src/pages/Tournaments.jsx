@@ -18,6 +18,7 @@ import {
   Settings,
   Users,
   Shield,
+  ShieldCheck,
   UserCheck,
   Play,
   RefreshCw,
@@ -70,6 +71,16 @@ export default function Tournaments() {
   const [actionLoading, setActionLoading] = useState(false);
   const [copiedMatchId, setCopiedMatchId] = useState(null);
 
+  // Match Manager Assignment Search Modal State
+  const [managerModal, setManagerModal] = useState({
+    open: false,
+    match: null,
+    team: null,
+    searchQuery: '',
+    searchResults: [],
+    loading: false
+  });
+
   // Form State
   const [formData, setFormData] = useState({
     id: '',
@@ -86,15 +97,16 @@ export default function Tournaments() {
     fetchTournaments();
   }, []);
 
-  async function fetchTournaments() {
+  async function fetchTournaments(preferredSelectedId = null) {
     setLoading(true);
     setErrorMsg(null);
     try {
       const res = await api.get('/tournaments');
       const list = res.data.data || [];
       setTournaments(list);
-      if (list.length > 0) {
-        selectTournament(list[0].id);
+      const targetId = preferredSelectedId || (selectedTournament?.id && list.some(t => t.id === selectedTournament.id) ? selectedTournament.id : list[0]?.id);
+      if (targetId) {
+        selectTournament(targetId);
       }
     } catch (err) {
       console.error('Failed to fetch tournaments:', err);
@@ -167,10 +179,17 @@ export default function Tournaments() {
 
   // Pagination Logic
   const totalPages = Math.ceil(filteredTournaments.length / itemsPerPage) || 1;
+  const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedTournaments = filteredTournaments.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    startIndex,
+    startIndex + itemsPerPage
   );
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   // Form Handlers
   const handleOpenCreate = () => {
@@ -219,10 +238,15 @@ export default function Tournaments() {
         endDate: new Date(formData.endDate).toISOString(),
         status: formData.status
       };
-      await api.post('/tournaments', payload);
+      const res = await api.post('/tournaments', payload);
       setSuccessMsg('Tournament created successfully!');
       setShowCreateModal(false);
-      fetchTournaments();
+      setSearchQuery('');
+      setFormatFilter('ALL');
+      setStatusFilter('ALL');
+      setCurrentPage(1);
+      const createdTournament = res.data.data;
+      await fetchTournaments(createdTournament?.id);
     } catch (err) {
       console.error('Create error:', err);
       setErrorMsg(err.response?.data?.message || 'Failed to create tournament.');
@@ -323,6 +347,79 @@ export default function Tournaments() {
     } catch (err) {
       console.error('Assign manager error:', err);
       setErrorMsg(err.response?.data?.message || 'Failed to assign team manager.');
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  function handleOpenManagerModal(match, team) {
+    setManagerModal({
+      open: true,
+      match,
+      team,
+      searchQuery: '',
+      searchResults: manageDashboard?.eligibleManagers || [],
+      loading: false
+    });
+  }
+
+  async function handleSearchManagersQuery(query) {
+    setManagerModal((prev) => ({ ...prev, searchQuery: query, loading: true }));
+    try {
+      const res = await api.get(`/managers/search?query=${encodeURIComponent(query || '')}`);
+      setManagerModal((prev) => ({ ...prev, searchResults: res.data.data || [], loading: false }));
+    } catch {
+      setManagerModal((prev) => ({ ...prev, loading: false }));
+    }
+  }
+
+  async function handleSendManagerRequest(matchId, teamId, managerIdentifier) {
+    setActionLoading(true);
+    setErrorMsg(null);
+    try {
+      await api.post(`/matches/${matchId}/manager-assignments`, {
+        teamId,
+        managerIdentifier
+      });
+      setSuccessMsg('Manager assignment request sent successfully!');
+      setManagerModal({ open: false, match: null, team: null, searchQuery: '', searchResults: [], loading: false });
+      setTimeout(() => setSuccessMsg(null), 4000);
+      await reloadManageDashboard(manageDashboard.tournament.id);
+    } catch (err) {
+      console.error('Manager assignment request error:', err);
+      setErrorMsg(err.response?.data?.message || 'Failed to send manager assignment request.');
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleCancelManagerAssignment(assignmentId) {
+    setActionLoading(true);
+    setErrorMsg(null);
+    try {
+      await api.post(`/manager-assignments/${assignmentId}/cancel`);
+      setSuccessMsg('Manager assignment request cancelled.');
+      setTimeout(() => setSuccessMsg(null), 4000);
+      await reloadManageDashboard(manageDashboard.tournament.id);
+    } catch (err) {
+      console.error('Cancel assignment error:', err);
+      setErrorMsg(err.response?.data?.message || 'Failed to cancel assignment.');
+    } finally {
+      setActionLoading(false);
+    }
+  }
+
+  async function handleRevokeManagerAssignment(assignmentId) {
+    setActionLoading(true);
+    setErrorMsg(null);
+    try {
+      await api.post(`/manager-assignments/${assignmentId}/revoke`);
+      setSuccessMsg('Manager assignment revoked.');
+      setTimeout(() => setSuccessMsg(null), 4000);
+      await reloadManageDashboard(manageDashboard.tournament.id);
+    } catch (err) {
+      console.error('Revoke assignment error:', err);
+      setErrorMsg(err.response?.data?.message || 'Failed to revoke assignment.');
     } finally {
       setActionLoading(false);
     }
@@ -1094,57 +1191,224 @@ export default function Tournaments() {
                 )}
 
                 {/* ------------------------------------------------------------- */}
-                {/* TAB 3: TEAM MANAGERS */}
+                {/* ------------------------------------------------------------- */}
+                {/* TAB 3: TEAM MANAGERS & MATCH ASSIGNMENTS */}
                 {/* ------------------------------------------------------------- */}
                 {manageTab === 'managers' && (
                   <div className="space-y-4">
-                    <div className="glass-panel p-4 rounded-2xl border border-gray-800">
-                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">
-                        Tournament Team Managers Assignment
-                      </h4>
-                      <p className="text-[11px] text-gray-400 mt-0.5">
-                        Assign registered active users with TEAM_MANAGER role to each tournament team.
-                      </p>
+                    <div className="glass-panel p-4 rounded-2xl border border-gray-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div>
+                        <h4 className="text-xs font-bold text-white uppercase tracking-wider flex items-center gap-2">
+                          <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                          Match-Specific Manager Assignments
+                        </h4>
+                        <p className="text-[11px] text-gray-400 mt-0.5">
+                          Search registered managers by @nickname to invite them to manage squads for individual matches.
+                        </p>
+                      </div>
+
+                      <div className="text-right">
+                        <span className="text-[10px] font-mono text-gray-400">
+                          Active Managers in System:{' '}
+                          <span className="text-emerald-400 font-bold">
+                            {manageDashboard?.eligibleManagers?.length || 0}
+                          </span>
+                        </span>
+                      </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {manageDashboard?.registeredTeams?.map((team) => (
-                        <div
-                          key={team.teamId}
-                          className="glass-panel p-4 rounded-2xl border border-gray-800 space-y-3"
-                        >
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <h5 className="font-bold text-sm text-white">{team.name}</h5>
-                              <p className="text-[11px] text-gray-400">{team.city}</p>
-                            </div>
-                            <span className="font-mono text-[10px] text-emerald-400 bg-gray-900 px-2 py-0.5 rounded">
-                              {team.shortName}
-                            </span>
-                          </div>
-
-                          <div className="space-y-1.5">
-                            <label className="text-[11px] text-gray-400 font-semibold block">
-                              Assigned Manager:
-                            </label>
-                            <div className="flex items-center gap-2">
-                              <select
-                                value={team.managerId || ''}
-                                onChange={(e) => handleAssignTeamManager(team.teamId, e.target.value)}
-                                disabled={actionLoading}
-                                className="bg-gray-900 border border-gray-700 text-white text-xs rounded-xl p-2 flex-1"
-                              >
-                                <option value="">-- No Manager Assigned --</option>
-                                {manageDashboard?.eligibleManagers?.map((mgr) => (
-                                  <option key={mgr.id} value={mgr.id}>
-                                    {mgr.firstName} {mgr.lastName} ({mgr.email})
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                          </div>
+                    {/* Match Fixture Manager Assignments */}
+                    <div className="space-y-3">
+                      {manageDashboard?.matches?.length === 0 ? (
+                        <div className="p-8 text-center rounded-2xl bg-gray-900/40 border border-gray-800 space-y-2">
+                          <Shield className="w-8 h-8 text-gray-600 mx-auto" />
+                          <p className="text-xs text-gray-400">
+                            No match fixtures generated yet. Generate tournament fixtures in the Fixtures tab to assign managers.
+                          </p>
+                          <button
+                            onClick={() => setManageTab('fixtures')}
+                            className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
+                          >
+                            Go to Fixtures
+                          </button>
                         </div>
-                      ))}
+                      ) : (
+                        manageDashboard?.matches?.map((match) => {
+                          const teamA = match.teamA;
+                          const teamB = match.teamB;
+
+                          const teamAMgr = match.teamAManager;
+                          const teamBMgr = match.teamBManager;
+                          const teamAPendingMgr = match.teamAPendingManager;
+                          const teamBPendingMgr = match.teamBPendingManager;
+
+                          const teamAStatus = match.teamAManagerStatus;
+                          const teamBStatus = match.teamBManagerStatus;
+
+                          return (
+                            <div
+                              key={match.id}
+                              className="p-4 rounded-2xl bg-gray-900/70 border border-gray-800 space-y-3 hover:border-gray-700 transition-all"
+                            >
+                              {/* Fixture Header */}
+                              <div className="flex items-center justify-between border-b border-gray-800/80 pb-2 text-xs">
+                                <span className="font-mono text-[11px] text-gray-400 font-semibold">
+                                  {match.matchDate ? new Date(match.matchDate).toLocaleDateString() : 'Scheduled'} • {match.venue || 'TBD'}
+                                </span>
+
+                                <div className="flex items-center gap-2">
+                                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase border ${
+                                    match.isReadyToScore
+                                      ? 'bg-emerald-950/80 text-emerald-300 border-emerald-600/40'
+                                      : 'bg-gray-800 text-gray-400 border-gray-700'
+                                  }`}>
+                                    {match.isReadyToScore ? '✓ READY TO SCORE' : 'SQUAD SETUP INCOMPLETE'}
+                                  </span>
+                                </div>
+                              </div>
+
+                              {/* Dual Team Manager Cards */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {/* Team A Manager Card */}
+                                <div className="p-3 rounded-xl bg-gray-950/60 border border-gray-850 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-bold text-xs text-white flex items-center gap-1.5">
+                                      <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                                      {teamA.name} ({teamA.shortName})
+                                    </span>
+
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
+                                      teamAStatus === 'ACCEPTED'
+                                        ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                        : teamAStatus === 'PENDING'
+                                        ? 'bg-amber-950 text-amber-300 border border-amber-800'
+                                        : 'bg-gray-900 text-gray-400 border border-gray-800'
+                                    }`}>
+                                      {teamAStatus}
+                                    </span>
+                                  </div>
+
+                                  <div className="text-xs">
+                                    {teamAStatus === 'ACCEPTED' && teamAMgr ? (
+                                      <div className="flex items-center justify-between">
+                                        <div>
+                                          <p className="font-semibold text-gray-200">
+                                            {teamAMgr.displayName || teamAMgr.nickname}
+                                          </p>
+                                          <p className="text-[10px] font-mono text-emerald-400">
+                                            @{teamAMgr.nickname}
+                                          </p>
+                                        </div>
+                                        <button
+                                          onClick={() => handleOpenManagerModal(match, teamA)}
+                                          className="text-[10px] font-bold text-gray-400 hover:text-white px-2 py-1 rounded bg-gray-900 hover:bg-gray-800 border border-gray-700"
+                                        >
+                                          Reassign
+                                        </button>
+                                      </div>
+                                    ) : teamAStatus === 'PENDING' && teamAPendingMgr ? (
+                                      <div className="flex items-center justify-between">
+                                        <div>
+                                          <p className="font-semibold text-amber-200">
+                                            Request Sent to @{teamAPendingMgr.nickname}
+                                          </p>
+                                          <p className="text-[10px] text-gray-400">
+                                            Waiting for manager acceptance...
+                                          </p>
+                                        </div>
+                                        <button
+                                          onClick={() => handleOpenManagerModal(match, teamA)}
+                                          className="text-[10px] font-bold text-gray-400 hover:text-white px-2 py-1 rounded bg-gray-900 hover:bg-gray-800 border border-gray-700"
+                                        >
+                                          Change
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-gray-500 text-[11px]">No manager assigned</span>
+                                        <button
+                                          onClick={() => handleOpenManagerModal(match, teamA)}
+                                          className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] flex items-center gap-1 shadow-sm"
+                                        >
+                                          <Plus className="w-3 h-3" /> Assign Manager
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Team B Manager Card */}
+                                <div className="p-3 rounded-xl bg-gray-950/60 border border-gray-850 space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="font-bold text-xs text-white flex items-center gap-1.5">
+                                      <span className="w-2 h-2 rounded-full bg-teal-400" />
+                                      {teamB.name} ({teamB.shortName})
+                                    </span>
+
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase ${
+                                      teamBStatus === 'ACCEPTED'
+                                        ? 'bg-emerald-950 text-emerald-300 border border-emerald-800'
+                                        : teamBStatus === 'PENDING'
+                                        ? 'bg-amber-950 text-amber-300 border border-amber-800'
+                                        : 'bg-gray-900 text-gray-400 border border-gray-800'
+                                    }`}>
+                                      {teamBStatus}
+                                    </span>
+                                  </div>
+
+                                  <div className="text-xs">
+                                    {teamBStatus === 'ACCEPTED' && teamBMgr ? (
+                                      <div className="flex items-center justify-between">
+                                        <div>
+                                          <p className="font-semibold text-gray-200">
+                                            {teamBMgr.displayName || teamBMgr.nickname}
+                                          </p>
+                                          <p className="text-[10px] font-mono text-teal-400">
+                                            @{teamBMgr.nickname}
+                                          </p>
+                                        </div>
+                                        <button
+                                          onClick={() => handleOpenManagerModal(match, teamB)}
+                                          className="text-[10px] font-bold text-gray-400 hover:text-white px-2 py-1 rounded bg-gray-900 hover:bg-gray-800 border border-gray-700"
+                                        >
+                                          Reassign
+                                        </button>
+                                      </div>
+                                    ) : teamBStatus === 'PENDING' && teamBPendingMgr ? (
+                                      <div className="flex items-center justify-between">
+                                        <div>
+                                          <p className="font-semibold text-amber-200">
+                                            Request Sent to @{teamBPendingMgr.nickname}
+                                          </p>
+                                          <p className="text-[10px] text-gray-400">
+                                            Waiting for manager acceptance...
+                                          </p>
+                                        </div>
+                                        <button
+                                          onClick={() => handleOpenManagerModal(match, teamB)}
+                                          className="text-[10px] font-bold text-gray-400 hover:text-white px-2 py-1 rounded bg-gray-900 hover:bg-gray-800 border border-gray-700"
+                                        >
+                                          Change
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <div className="flex items-center justify-between">
+                                        <span className="text-gray-500 text-[11px]">No manager assigned</span>
+                                        <button
+                                          onClick={() => handleOpenManagerModal(match, teamB)}
+                                          className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[10px] flex items-center gap-1 shadow-sm"
+                                        >
+                                          <Plus className="w-3 h-3" /> Assign Manager
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   </div>
                 )}
@@ -1728,6 +1992,112 @@ export default function Tournaments() {
                 {submitting ? 'Updating...' : 'Save Tournament Changes'}
               </button>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MANAGER ASSIGNMENT SEARCH & REQUEST MODAL */}
+      {managerModal.open && managerModal.match && managerModal.team && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="glass-panel p-6 rounded-2xl border border-gray-800 w-full max-w-lg space-y-4 animate-in fade-in scale-95 duration-150">
+            {/* Header */}
+            <div className="flex justify-between items-start border-b border-gray-800 pb-3">
+              <div>
+                <span className="text-[10px] font-mono text-emerald-400 font-bold uppercase tracking-wider block">
+                  Assign Match Manager
+                </span>
+                <h3 className="text-base font-bold text-white">
+                  {managerModal.team.name} ({managerModal.team.shortName})
+                </h3>
+                <p className="text-[11px] text-gray-400 mt-0.5">
+                  Fixture: vs {managerModal.match.teamAId === managerModal.team.id ? managerModal.match.teamB?.name : managerModal.match.teamA?.name}
+                </p>
+              </div>
+
+              <button
+                onClick={() => setManagerModal({ open: false, match: null, team: null, searchQuery: '', searchResults: [], loading: false })}
+                className="p-1 rounded-lg text-gray-400 hover:text-white hover:bg-gray-800"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Search Input */}
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-gray-300 block">
+                Search Registered Managers by @Nickname or Name:
+              </label>
+              <div className="relative">
+                <Search className="w-4 h-4 text-gray-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  type="text"
+                  placeholder="e.g. MikeManager or John..."
+                  value={managerModal.searchQuery}
+                  onChange={(e) => handleSearchManagersQuery(e.target.value)}
+                  className="w-full pl-9 pr-3.5 py-2 rounded-xl bg-gray-950 border border-gray-800 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            {/* Manager Search Results List */}
+            <div className="max-h-60 overflow-y-auto space-y-2 pr-1">
+              {managerModal.loading ? (
+                <div className="py-6 text-center text-xs text-gray-400">Searching active managers...</div>
+              ) : managerModal.searchResults.length === 0 ? (
+                <div className="py-6 text-center text-xs text-gray-400 space-y-1">
+                  <p>No active registered managers found matching this search.</p>
+                  <p className="text-[10px] text-gray-500">Only users with an active Manager Profile can receive match assignments.</p>
+                </div>
+              ) : (
+                managerModal.searchResults.map((mgr) => {
+                  return (
+                    <div
+                      key={mgr.id || mgr.managerProfileId}
+                      className="p-3 rounded-xl bg-gray-950/60 border border-gray-800 hover:border-emerald-600/50 flex items-center justify-between gap-3 transition-all"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-950 border border-emerald-800/60 flex items-center justify-center text-emerald-400 font-bold text-xs flex-shrink-0">
+                          {mgr.displayName?.[0] || mgr.firstName?.[0] || 'M'}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-white truncate">
+                            {mgr.displayName || `${mgr.firstName || ''} ${mgr.lastName || ''}`.trim()}
+                          </p>
+                          <span className="text-[10px] font-mono text-emerald-400 font-semibold block">
+                            @{mgr.nickname}
+                          </span>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={() =>
+                          handleSendManagerRequest(
+                            managerModal.match.id,
+                            managerModal.team.id,
+                            mgr.id || mgr.managerProfileId
+                          )
+                        }
+                        disabled={actionLoading}
+                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-[11px] flex items-center gap-1 shadow-sm glow-emerald transition-all"
+                      >
+                        <UserPlus className="w-3.5 h-3.5" /> Send Request
+                      </button>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Footer Notice */}
+            <div className="pt-2 border-t border-gray-800 flex items-center justify-between text-[11px] text-gray-400">
+              <span>Selected manager will receive a request in their fixtures console.</span>
+              <button
+                onClick={() => setManagerModal({ open: false, match: null, team: null, searchQuery: '', searchResults: [], loading: false })}
+                className="px-3 py-1 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 font-semibold"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -102,10 +102,17 @@ export default function Fixtures() {
 
   // Pagination Logic
   const totalPages = Math.ceil(filteredMatches.length / itemsPerPage) || 1;
+  const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedMatches = filteredMatches.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    startIndex,
+    startIndex + itemsPerPage
   );
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   // Auto Generate Fixtures
   async function handleAutoGenerateFixtures(tournamentId) {

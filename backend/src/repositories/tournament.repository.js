@@ -13,8 +13,7 @@ export async function createTournament(data, db = prisma) {
  * Retrieves tournaments with search, filtering, and pagination.
  */
 export async function getAllTournaments(params = {}, db = prisma) {
-  const { page = 1, limit = 10, search, status, format } = params;
-  const skip = (page - 1) * limit;
+  const { page, limit, search, status, format } = params;
 
   const where = {};
 
@@ -33,23 +32,29 @@ export async function getAllTournaments(params = {}, db = prisma) {
     where.format = format;
   }
 
-  const [tournaments, total] = await Promise.all([
-    db.tournament.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: {
-        startDate: "desc"
-      },
-      include: {
-        _count: {
-          select: {
-            registeredTeams: true,
-            matches: true
-          }
+  const query = {
+    where,
+    orderBy: {
+      startDate: "desc"
+    },
+    include: {
+      _count: {
+        select: {
+          registeredTeams: true,
+          matches: true
         }
       }
-    }),
+    }
+  };
+
+  const isPaginated = Boolean(page && limit);
+  if (isPaginated) {
+    query.skip = (page - 1) * limit;
+    query.take = Number(limit);
+  }
+
+  const [tournaments, total] = await Promise.all([
+    db.tournament.findMany(query),
     db.tournament.count({ where })
   ]);
 
@@ -57,9 +62,9 @@ export async function getAllTournaments(params = {}, db = prisma) {
     tournaments,
     pagination: {
       total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit)
+      page: isPaginated ? page : 1,
+      limit: isPaginated ? limit : total,
+      totalPages: isPaginated ? Math.ceil(total / limit) : 1
     }
   };
 }

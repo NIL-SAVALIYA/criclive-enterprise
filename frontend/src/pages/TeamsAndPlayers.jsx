@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
 import Skeleton from '../components/Skeleton';
-import { Shield, Plus, Search, Edit, Trash2, Users, MapPin, AlertCircle, X, CheckCircle2, UserCheck } from 'lucide-react';
+import { Shield, Plus, Search, Edit, Trash2, Users, MapPin, AlertCircle, X, CheckCircle2, UserCheck, ArrowRight } from 'lucide-react';
 
 export default function TeamsAndPlayers() {
   const { user, hasRole } = useAuth();
@@ -39,15 +40,16 @@ export default function TeamsAndPlayers() {
     fetchTeams();
   }, []);
 
-  async function fetchTeams() {
+  async function fetchTeams(preferredSelectedId = null) {
     setLoading(true);
     setErrorMsg(null);
     try {
       const res = await api.get('/teams');
       const list = res.data.data || [];
       setTeams(list);
-      if (list.length > 0) {
-        selectTeam(list[0].id);
+      const targetId = preferredSelectedId || (selectedTeam?.id && list.some(t => t.id === selectedTeam.id) ? selectedTeam.id : list[0]?.id);
+      if (targetId) {
+        selectTeam(targetId);
       }
     } catch (err) {
       console.error('Failed to fetch teams:', err);
@@ -81,10 +83,17 @@ export default function TeamsAndPlayers() {
 
   // Pagination Logic
   const totalPages = Math.ceil(filteredTeams.length / itemsPerPage) || 1;
+  const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedTeams = filteredTeams.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    startIndex,
+    startIndex + itemsPerPage
   );
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   // Modal Handlers
   const handleOpenCreate = () => {
@@ -128,10 +137,13 @@ export default function TeamsAndPlayers() {
         description: formData.description || undefined,
         logoUrl: formData.logoUrl || undefined
       };
-      await api.post('/teams', payload);
+      const res = await api.post('/teams', payload);
       setSuccessMsg('Team created successfully!');
       setShowCreateModal(false);
-      fetchTeams();
+      setSearchQuery('');
+      setCurrentPage(1);
+      const createdTeam = res.data.data;
+      await fetchTeams(createdTeam?.id);
     } catch (err) {
       console.error('Create team error:', err);
       setErrorMsg(err.response?.data?.message || 'Failed to create team.');
@@ -191,15 +203,26 @@ export default function TeamsAndPlayers() {
           <p className="text-gray-400 text-xs mt-1">Official franchise team management, player counts, and squad rosters</p>
         </div>
 
-        {/* Create Team Action for Authorized Roles */}
-        {hasRole(['ADMIN', 'ORGANIZER']) && (
-          <button
-            onClick={handleOpenCreate}
-            className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg glow-emerald transition-all"
-          >
-            <Plus className="w-4 h-4" /> Create New Team
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {hasRole(['TEAM_MANAGER', 'ADMIN']) && (
+            <Link
+              to="/manager/fixtures"
+              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center gap-2 shadow-lg glow-emerald transition-all"
+            >
+              <Users className="w-4 h-4" /> My Fixtures & Playing XI
+            </Link>
+          )}
+
+          {/* Create Team Action for Authorized Roles */}
+          {hasRole(['ADMIN', 'ORGANIZER']) && (
+            <button
+              onClick={handleOpenCreate}
+              className="px-5 py-2.5 rounded-xl bg-gray-900 hover:bg-gray-800 border border-gray-700 text-white font-bold text-xs flex items-center gap-2 shadow-md transition-all"
+            >
+              <Plus className="w-4 h-4" /> Create New Team
+            </button>
+          )}
+        </div>
       </div>
 
       {/* User Alerts */}
@@ -388,6 +411,18 @@ export default function TeamsAndPlayers() {
                   )}
                 </div>
               </div>
+
+              {/* Manager Fixtures Action */}
+              {hasRole(['TEAM_MANAGER', 'ADMIN']) && (
+                <div className="pt-2 border-t border-gray-800">
+                  <Link
+                    to="/manager/fixtures"
+                    className="w-full py-2.5 px-4 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold flex items-center justify-center gap-2 transition-all glow-emerald"
+                  >
+                    <Users className="w-4 h-4" /> Go to My Fixtures & Playing XI <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              )}
             </div>
           ) : (
             <div className="glass-panel p-6 rounded-2xl border border-gray-800 text-center text-xs text-gray-400">

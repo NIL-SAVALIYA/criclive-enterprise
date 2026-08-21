@@ -5,11 +5,14 @@ import {
     getAll,
     getOne,
     update,
-    remove
+    remove,
+    getEligibleBatters
 } from "../controllers/innings.controller.js";
 
 import { authenticate } from "../middleware/auth.middleware.js";
 import { authorize } from "../middleware/authorize.middleware.js";
+import { authorizeScorer } from "../middleware/authorizeScorer.middleware.js";
+import { undoLastBall } from "../controllers/undoBall.controller.js";
 
 const router = Router();
 
@@ -18,6 +21,17 @@ const router = Router();
 | Innings Routes
 |--------------------------------------------------------------------------
 */
+
+// Get Eligible Incoming Batters
+router.get(
+    "/:id/eligible-batters",
+    getEligibleBatters
+);
+
+router.get(
+    "/:inningsId/eligible-batters",
+    getEligibleBatters
+);
 
 // Create Innings
 router.post(
@@ -55,6 +69,19 @@ router.delete(
     authenticate,
     authorize("ADMIN"),
     remove
+);
+
+// Undo Last Ball
+router.post(
+    "/:inningsId/undo-last-ball",
+    authorizeScorer,
+    undoLastBall
+);
+
+router.post(
+    "/:id/undo-last-ball",
+    authorizeScorer,
+    undoLastBall
 );
 
 export default router;

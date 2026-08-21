@@ -230,6 +230,17 @@ export async function getTournamentDashboardService(id, user = null) {
           winnerTeam: { select: { id: true, name: true, shortName: true } },
           scorer: { select: { id: true, firstName: true, lastName: true, email: true } },
           playingXI: { select: { id: true, teamId: true, playerId: true, battingOrder: true, isCaptain: true, isWicketKeeper: true } },
+          managerAssignments: {
+            include: {
+              managerProfile: {
+                include: {
+                  user: { select: { id: true, firstName: true, lastName: true, email: true, profileImageUrl: true } }
+                }
+              },
+              team: { select: { id: true, name: true, shortName: true } }
+            },
+            orderBy: { requestedAt: "desc" }
+          },
           innings: {
             select: {
               id: true,
@@ -341,11 +352,35 @@ export async function getTournamentDashboardService(id, user = null) {
     orderBy: { firstName: "asc" }
   });
 
-  // 4. Eligible Team Managers (users with role TEAM_MANAGER or ADMIN)
-  const eligibleManagers = await prisma.user.findMany({
+  // 4. Eligible Team Managers (Active ManagerProfiles + legacy TEAM_MANAGER role fallback)
+  const activeManagerProfiles = await prisma.managerProfile.findMany({
+    where: {
+      isActive: true
+    },
+    include: {
+      user: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          email: true,
+          phone: true,
+          profileImageUrl: true,
+          role: { select: { name: true } }
+        }
+      },
+      _count: { select: { assignments: true } }
+    },
+    orderBy: { nickname: "asc" }
+  });
+
+  const profileUserIds = new Set(activeManagerProfiles.map((mp) => mp.userId));
+
+  const legacyTeamManagers = await prisma.user.findMany({
     where: {
       isActive: true,
-      role: { name: { in: [Roles.TEAM_MANAGER, Roles.ADMIN] } }
+      role: { name: Roles.TEAM_MANAGER },
+      id: { notIn: Array.from(profileUserIds) }
     },
     select: {
       id: true,
@@ -353,23 +388,75 @@ export async function getTournamentDashboardService(id, user = null) {
       lastName: true,
       email: true,
       phone: true,
+      profileImageUrl: true,
       role: { select: { name: true } }
     },
     orderBy: { firstName: "asc" }
   });
+
+  const eligibleManagers = [
+    ...activeManagerProfiles.map((mp) => ({
+      id: mp.id,
+      managerProfileId: mp.id,
+      userId: mp.userId,
+      nickname: mp.nickname,
+      displayName: mp.displayName || `${mp.user.firstName} ${mp.user.lastName}`,
+      firstName: mp.user.firstName,
+      lastName: mp.user.lastName,
+      email: mp.user.email,
+      phone: mp.phone || mp.user.phone,
+      profileImageUrl: mp.profileImageUrl || mp.user.profileImageUrl,
+      totalAssignments: mp._count.assignments
+    })),
+    ...legacyTeamManagers.map((u) => ({
+      id: u.id,
+      managerProfileId: null,
+      userId: u.id,
+      nickname: `${u.firstName}${u.lastName}`.toLowerCase(),
+      displayName: `${u.firstName} ${u.lastName}`,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      email: u.email,
+      phone: u.phone,
+      profileImageUrl: u.profileImageUrl,
+      totalAssignments: 0
+    }))
+  ];
 
   const enrichedMatches = tournament.matches.map((m) => {
     const teamAXI = m.playingXI?.filter((p) => p.teamId === m.teamAId) || [];
     const teamBXI = m.playingXI?.filter((p) => p.teamId === m.teamBId) || [];
     const isPlayingXIReady = teamAXI.length === 11 && teamBXI.length === 11;
 
+    const teamAAssignment = m.managerAssignments?.find(
+      (a) => a.teamId === m.teamAId && a.status === "ACCEPTED"
+    );
+    const teamBAssignment = m.managerAssignments?.find(
+      (a) => a.teamId === m.teamBId && a.status === "ACCEPTED"
+    );
+    const teamAPending = m.managerAssignments?.find(
+      (a) => a.teamId === m.teamAId && a.status === "PENDING"
+    );
+    const teamBPending = m.managerAssignments?.find(
+      (a) => a.teamId === m.teamBId && a.status === "PENDING"
+    );
+
     return {
       ...m,
       teamAPlayingXICount: teamAXI.length,
       teamBPlayingXICount: teamBXI.length,
+      teamAXIReady: teamAXI.length === 11,
+      teamBXIReady: teamBXI.length === 11,
       isPlayingXIReady,
       hasScoringToken: Boolean(m.scoringToken),
-      isReadyToScore: isPlayingXIReady
+      isReadyToScore: isPlayingXIReady,
+      teamAManager: teamAAssignment?.managerProfile || null,
+      teamBManager: teamBAssignment?.managerProfile || null,
+      teamAPendingManager: teamAPending?.managerProfile || null,
+      teamBPendingManager: teamBPending?.managerProfile || null,
+      teamAManagerStatus: teamAAssignment ? "ACCEPTED" : teamAPending ? "PENDING" : "UNASSIGNED",
+      teamBManagerStatus: teamBAssignment ? "ACCEPTED" : teamBPending ? "PENDING" : "UNASSIGNED",
+      isMatchReady: isPlayingXIReady && Boolean(m.scorerId)
     };
   });
 

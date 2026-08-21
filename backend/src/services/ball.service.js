@@ -59,8 +59,12 @@ import { buildWicketSummary } from "../engine/wicket.engine.js";
 import { evaluateMatchResult } from "../engine/matchResult.engine.js";
 import { isNextDeliveryFreeHit } from "../engine/freeHit.engine.js";
 
-import { emitLiveScore, emitCommentary, emitScorecardRefresh } from "../socket/socket.server.js";
+import { emitLiveScore, emitCommentary, emitScorecardRefresh, emitBallRecorded, emitMatchStateUpdated } from "../socket/socket.server.js";
 import { createDeliveryContext } from "../engine/delivery.context.js";
+import { getLiveScoreService } from "./liveScore.service.js";
+import { getMatchAnalyticsService } from "./analytics.service.js";
+import { getScorecardService } from "./scorecard.service.js";
+import { validateIncomingBatter } from "./batterEligibility.service.js";
 
 export async function createBallService(data) {
 
@@ -90,6 +94,13 @@ export async function createBallService(data) {
                 pitchLine
             } = deliveryCtx;
 
+            if (batsmanId === nonStrikerId) {
+                const error = new Error("Striker and non-striker cannot be the same player.");
+                error.statusCode = 400;
+                error.status = 400;
+                throw error;
+            }
+
             /* ------------------------------------------------------------------ */
             /*                         Load Match State                           */
             /* ------------------------------------------------------------------ */
@@ -115,6 +126,44 @@ export async function createBallService(data) {
 
             if (!bowling) {
                 throw new Error("Bowling scorecard not found for bowler.");
+            }
+
+            /* ------------------------------------------------------------------ */
+            /*               Bowler Consecutive Over Rule Validation              */
+            /* ------------------------------------------------------------------ */
+
+            const currentOver = Math.floor(innings.legalBalls / 6);
+            if (currentOver > 0) {
+                const lastOverBall = await tx.ball.findFirst({
+                    where: {
+                        inningsId: innings.id,
+                        over: currentOver - 1
+                    },
+                    orderBy: { deliveryNumber: "desc" },
+                    select: { bowlerId: true }
+                });
+
+                if (lastOverBall && lastOverBall.bowlerId === bowlerId) {
+                    const error = new Error("Consecutive over violation: A bowler cannot bowl two consecutive overs.");
+                    error.statusCode = 400;
+                    error.status = 400;
+                    throw error;
+                }
+            }
+
+            /* ------------------------------------------------------------------ */
+            /*             Incoming Batter Eligibility Validation                 */
+            /* ------------------------------------------------------------------ */
+
+            if (isWicket && newBatsmanId) {
+                await validateIncomingBatter({
+                    inningsId: innings.id,
+                    newBatsmanId,
+                    currentStrikerId: batsmanId,
+                    currentNonStrikerId: nonStrikerId,
+                    dismissedPlayerId: dismissedPlayerId || batsmanId,
+                    tx
+                });
             }
 
             let partnership = activePartnership;
@@ -177,6 +226,9 @@ export async function createBallService(data) {
             const strike = buildStrikeSummary({
                 strikerId: batsmanId,
                 nonStrikerId,
+                batRuns: ball.batRuns,
+                extraRuns: ball.extraRuns,
+                extraType: ball.extraType,
                 totalRuns: ball.totalRuns,
                 overCompleted: over.completed
             });
@@ -410,6 +462,7 @@ export async function createBallService(data) {
 
             return {
                 message: "Ball recorded successfully.",
+                matchId: innings.matchId,
                 matchResult,
                 liveScore: {
                     innings: {
@@ -443,18 +496,39 @@ export async function createBallService(data) {
     /*                 Emit WebSocket Events After Commit                      */
     /* ---------------------------------------------------------------------- */
 
-    if (result && result.ball) {
-        const matchId = result.ball.innings?.matchId || result.ball.inningsId;
-        if (matchId) {
-            emitLiveScore(matchId, result.liveScore);
+    if (result && result.matchId) {
+        const matchId = result.matchId;
+        try {
+            const [liveScoreData, analyticsData, scorecardData] = await Promise.all([
+                getLiveScoreService(matchId).catch(() => null),
+                getMatchAnalyticsService(matchId).catch(() => null),
+                getScorecardService(matchId).catch(() => null)
+            ]);
+
+            const authoritativePayload = {
+                matchId,
+                inningsId: result.ball?.inningsId,
+                liveScore: liveScoreData || result.liveScore,
+                analytics: analyticsData,
+                scorecard: scorecardData,
+                ball: result.ball,
+                strike: result.liveScore?.strike,
+                over: result.liveScore?.over
+            };
+
+            emitLiveScore(matchId, liveScoreData || result.liveScore);
             emitCommentary(matchId, {
-                commentary: result.ball.commentary,
-                over: result.ball.over,
-                ball: result.ball.ball,
-                totalRuns: result.ball.totalRuns,
-                isWicket: result.ball.isWicket
+                commentary: result.ball?.commentary,
+                over: result.ball?.over,
+                ball: result.ball?.ball,
+                totalRuns: result.ball?.totalRuns,
+                isWicket: result.ball?.isWicket
             });
-            emitScorecardRefresh(matchId, result);
+            emitScorecardRefresh(matchId, scorecardData || result);
+            emitBallRecorded(matchId, authoritativePayload);
+            emitMatchStateUpdated(matchId, authoritativePayload);
+        } catch (emitErr) {
+            console.error("Socket emission after ball save error:", emitErr);
         }
     }
 

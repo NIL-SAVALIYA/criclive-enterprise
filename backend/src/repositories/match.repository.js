@@ -18,8 +18,7 @@ export async function createMatch(data, db = prisma) {
  * Retrieves matches with search, filtering, and pagination.
  */
 export async function getAllMatches(params = {}, db = prisma) {
-  const { page = 1, limit = 10, search, tournamentId, status } = params;
-  const skip = (page - 1) * limit;
+  const { page, limit, search, tournamentId, status } = params;
 
   const where = {};
 
@@ -39,29 +38,35 @@ export async function getAllMatches(params = {}, db = prisma) {
     where.status = status;
   }
 
-  const [matches, total] = await Promise.all([
-    db.match.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: {
-        matchDate: "asc"
-      },
-      include: {
-        tournament: { select: { id: true, name: true, format: true, organizerId: true } },
-        teamA: { select: { id: true, name: true, shortName: true, logoUrl: true } },
-        teamB: { select: { id: true, name: true, shortName: true, logoUrl: true } },
-        tossWinner: { select: { id: true, name: true, shortName: true } },
-        winnerTeam: { select: { id: true, name: true, shortName: true } },
-        scorer: { select: { id: true, firstName: true, lastName: true, email: true } },
-        _count: {
-          select: {
-            innings: true,
-            playingXI: true
-          }
+  const query = {
+    where,
+    orderBy: {
+      matchDate: "asc"
+    },
+    include: {
+      tournament: { select: { id: true, name: true, format: true, organizerId: true } },
+      teamA: { select: { id: true, name: true, shortName: true, logoUrl: true } },
+      teamB: { select: { id: true, name: true, shortName: true, logoUrl: true } },
+      tossWinner: { select: { id: true, name: true, shortName: true } },
+      winnerTeam: { select: { id: true, name: true, shortName: true } },
+      scorer: { select: { id: true, firstName: true, lastName: true, email: true } },
+      _count: {
+        select: {
+          innings: true,
+          playingXI: true
         }
       }
-    }),
+    }
+  };
+
+  const isPaginated = Boolean(page && limit);
+  if (isPaginated) {
+    query.skip = (page - 1) * limit;
+    query.take = Number(limit);
+  }
+
+  const [matches, total] = await Promise.all([
+    db.match.findMany(query),
     db.match.count({ where })
   ]);
 
@@ -69,9 +74,9 @@ export async function getAllMatches(params = {}, db = prisma) {
     matches,
     pagination: {
       total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit)
+      page: isPaginated ? page : 1,
+      limit: isPaginated ? limit : total,
+      totalPages: isPaginated ? Math.ceil(total / limit) : 1
     }
   };
 }

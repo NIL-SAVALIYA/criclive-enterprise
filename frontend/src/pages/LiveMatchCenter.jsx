@@ -11,9 +11,15 @@ import { Radio, Activity, MessageSquare, PieChart, Target, Shield, Flame, Award,
 
 export default function LiveMatchCenter() {
   const { matchId } = useParams();
-  const { connected, liveScore: socketScore, commentaryFeed: socketCommentary, scorecard: socketScorecard } = useCricketSocket(matchId);
+  const {
+    connected,
+    liveScore: socketScore,
+    commentaryFeed: socketCommentary,
+    scorecard: socketScorecard,
+    analytics: socketAnalytics
+  } = useCricketSocket(matchId);
 
-  const [activeTab, setActiveTab] = useState('scorecard');
+  const [activeTab, setActiveTab] = useState('live');
   const [matchDetails, setMatchDetails] = useState(null);
   const [scorecardData, setScorecardData] = useState(null);
   const [commentaryList, setCommentaryList] = useState([]);
@@ -53,9 +59,18 @@ export default function LiveMatchCenter() {
   const currentBowler = live.currentBowling || {};
   const partnership = live.partnership || {};
   const recentBalls = live.recentBalls || [];
-  const winProb = analytics?.winProbability;
+  const currentAnalytics = socketAnalytics || analytics;
+  const winProb = currentAnalytics?.winProbability;
 
   const combinedCommentary = socketCommentary.length > 0 ? [...socketCommentary, ...commentaryList] : commentaryList;
+  const currentInningsNum = live.innings?.inningsNumber || score.inningsNumber || 1;
+  const activeWagonData = (currentInningsNum === 2 && currentAnalytics?.wagonWheel?.innings2?.shotPoints?.length)
+    ? currentAnalytics.wagonWheel.innings2
+    : (currentAnalytics?.wagonWheel?.innings1 || currentAnalytics?.wagonWheel?.innings2 || {});
+
+  const activePitchData = (currentInningsNum === 2 && currentAnalytics?.pitchMap?.innings2?.totalDeliveries)
+    ? currentAnalytics.pitchMap.innings2
+    : (currentAnalytics?.pitchMap?.innings1 || currentAnalytics?.pitchMap?.innings2 || {});
 
   return (
     <div className="space-y-6 pb-12">
@@ -130,12 +145,30 @@ export default function LiveMatchCenter() {
             ) : (
               recentBalls.map((b, idx) => {
                 let badgeStyle = 'bg-gray-800 text-gray-200 border-gray-700';
-                let label = b.totalRuns;
-                if (b.isWicket) { badgeStyle = 'bg-red-600 text-white font-black border-red-400 glow-danger'; label = 'W'; }
-                else if (b.totalRuns === 6) { badgeStyle = 'bg-emerald-600 text-white font-black border-emerald-400 glow-emerald'; label = '6'; }
-                else if (b.totalRuns === 4) { badgeStyle = 'bg-amber-500 text-black font-black border-amber-400 glow-gold'; label = '4'; }
-                else if (b.extraType === 'WIDE') { badgeStyle = 'bg-purple-600 text-white font-bold border-purple-400'; label = 'Wd'; }
-                else if (b.extraType === 'NO_BALL') { badgeStyle = 'bg-purple-600 text-white font-bold border-purple-400'; label = 'Nb'; }
+                let label = String(b.batRuns || b.totalRuns || 0);
+
+                if (b.isWicket) {
+                  badgeStyle = 'bg-red-600 text-white font-black border-red-400 glow-danger';
+                  label = 'W';
+                } else if (b.extraType === 'BYE') {
+                  badgeStyle = 'bg-cyan-600 text-white font-bold border-cyan-400';
+                  label = `${b.extraRuns || b.totalRuns || 1}B`;
+                } else if (b.extraType === 'LEG_BYE') {
+                  badgeStyle = 'bg-cyan-600 text-white font-bold border-cyan-400';
+                  label = `${b.extraRuns || b.totalRuns || 1}LB`;
+                } else if (b.batRuns === 6 || b.totalRuns === 6) {
+                  badgeStyle = 'bg-emerald-600 text-white font-black border-emerald-400 glow-emerald';
+                  label = '6';
+                } else if (b.batRuns === 4 || b.totalRuns === 4) {
+                  badgeStyle = 'bg-amber-500 text-black font-black border-amber-400 glow-gold';
+                  label = '4';
+                } else if (b.extraType === 'WIDE') {
+                  badgeStyle = 'bg-purple-600 text-white font-bold border-purple-400';
+                  label = b.extraRuns > 1 ? `${b.extraRuns}Wd` : 'Wd';
+                } else if (b.extraType === 'NO_BALL') {
+                  badgeStyle = 'bg-purple-600 text-white font-bold border-purple-400';
+                  label = b.batRuns > 0 ? `${b.batRuns + 1}Nb` : 'Nb';
+                }
 
                 return (
                   <span key={idx} className={`w-7 h-7 rounded-full flex items-center justify-center font-extrabold border shrink-0 text-xs ${badgeStyle}`}>
@@ -329,17 +362,19 @@ export default function LiveMatchCenter() {
       {/* TAB 3: WAGON WHEEL */}
       {activeTab === 'wagon' && (
         <div className="glass-panel p-6 rounded-2xl border border-gray-800 flex flex-col md:flex-row items-center gap-8 justify-center">
-          <WagonWheelSVG shotPoints={analytics?.wagonWheel?.innings1?.shotPoints || []} />
+          <WagonWheelSVG shotPoints={activeWagonData?.shotPoints || []} />
           <div className="space-y-4 max-w-md">
-            <h3 className="text-lg font-bold text-emerald-400">Wagon Wheel Shot Distribution</h3>
+            <h3 className="text-lg font-bold text-emerald-400">
+              Wagon Wheel Shot Distribution {currentInningsNum === 2 ? '(2nd Innings)' : '(1st Innings)'}
+            </h3>
             <p className="text-xs text-gray-300">
-              Interactive 8-zone field breakdown plotting every shot, boundary (4s & 6s), and wicket delivery.
+              Interactive 8-zone field breakdown plotting every shot, boundary (4s & 6s), and wicket delivery in real time.
             </p>
             <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-              {(analytics?.wagonWheel?.innings1?.zoneSummary || []).map((z) => (
+              {(activeWagonData?.zoneSummary || []).map((z) => (
                 <div key={z.zone} className="p-2.5 bg-gray-900 rounded-xl border border-gray-800 flex justify-between">
                   <span className="text-gray-400 font-sans">{z.zone}</span>
-                  <span className="font-bold text-emerald-400">{z.runs} runs</span>
+                  <span className="font-bold text-emerald-400">{z.runs} runs ({z.balls || 0}b)</span>
                 </div>
               ))}
             </div>
@@ -350,12 +385,28 @@ export default function LiveMatchCenter() {
       {/* TAB 4: PITCH MAP */}
       {activeTab === 'pitch' && (
         <div className="glass-panel p-6 rounded-2xl border border-gray-800 flex flex-col md:flex-row items-center gap-8 justify-center">
-          <PitchMapCanvas />
+          <PitchMapCanvas
+            isInteractive={false}
+            deliveries={activePitchData?.deliveries || []}
+            pitchLengths={activePitchData?.pitchLengths || {}}
+            pitchLines={activePitchData?.pitchLines || {}}
+          />
           <div className="space-y-3 max-w-sm">
-            <h3 className="text-lg font-bold text-amber-400">Bowling Pitch Heatmap</h3>
+            <h3 className="text-lg font-bold text-amber-400">
+              Bowling Pitch Heatmap {currentInningsNum === 2 ? '(2nd Innings)' : '(1st Innings)'}
+            </h3>
             <p className="text-xs text-gray-300">
-              Aggregated delivery pitch lengths (Yorker, Full, Good, Short) and line distributions.
+              Aggregated delivery pitch lengths (Yorker, Full, Good, Short) and line distributions plotted across all deliveries.
             </p>
+            <div className="p-3 bg-gray-900/80 rounded-xl border border-gray-800 text-xs font-mono space-y-1.5">
+              <div className="text-gray-400">Total Tracked: <span className="text-white font-bold">{activePitchData?.totalDeliveries || 0} deliveries</span></div>
+              <div className="flex gap-2 text-[10px]">
+                <span className="text-emerald-400">● 6s</span>
+                <span className="text-amber-400">● 4s</span>
+                <span className="text-blue-400">● Dots/Runs</span>
+                <span className="text-red-400">● Wickets</span>
+              </div>
+            </div>
           </div>
         </div>
       )}

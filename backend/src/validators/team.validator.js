@@ -45,8 +45,8 @@ export const createTeamSchema = z.object({
 export const updateTeamSchema = createTeamSchema.partial();
 
 export const teamQuerySchema = z.object({
-  page: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 1)),
-  limit: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 10)),
+  page: z.string().optional().transform((val) => (val ? parseInt(val, 10) : undefined)),
+  limit: z.string().optional().transform((val) => (val ? parseInt(val, 10) : undefined)),
   search: z.string().optional(),
   city: z.string().optional()
 });

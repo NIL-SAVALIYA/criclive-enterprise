@@ -101,10 +101,17 @@ export default function Players() {
 
   // Pagination Logic
   const totalPages = Math.ceil(filteredPlayers.length / itemsPerPage) || 1;
+  const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedPlayers = filteredPlayers.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    startIndex,
+    startIndex + itemsPerPage
   );
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
 
   // Modal Handlers
   const handleOpenCreate = () => {
@@ -163,6 +170,10 @@ export default function Players() {
       await api.post('/players', payload);
       setSuccessMsg('Player created successfully!');
       setShowCreateModal(false);
+      setSearchQuery('');
+      setTypeFilter('ALL');
+      setTeamFilter('ALL');
+      setCurrentPage(1);
       fetchInitialData();
     } catch (err) {
       console.error('Create player error:', err);

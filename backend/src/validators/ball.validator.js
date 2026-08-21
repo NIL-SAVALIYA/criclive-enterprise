@@ -54,8 +54,26 @@ export const createBallSchema = z.object({
 
     fielderId: z.string().uuid().nullable().default(null),
     
-    commentary: z.string().trim().max(500).default("")
+    commentary: z.string().trim().max(500).default(""),
+
+    shotZone: z.string().nullable().optional().default(null),
+
+    shotX: z.number().nullable().optional().default(null),
+
+    shotY: z.number().nullable().optional().default(null),
+
+    pitchLength: z.string().nullable().optional().default(null),
+
+    pitchLine: z.string().nullable().optional().default(null)
 }).superRefine((data, ctx) => {
+
+    if (data.batsmanId === data.nonStrikerId) {
+        ctx.addIssue({
+            code: "custom",
+            path: ["nonStrikerId"],
+            message: "Striker and non-striker cannot be the same player."
+        });
+    }
 
     if (data.extraRuns > 0 && data.extraType === ExtraType.NONE) {
         ctx.addIssue({

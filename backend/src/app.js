@@ -35,6 +35,8 @@ import analyticsRoutes from "./routes/analytics.routes.js";
 import recordsRoutes from "./routes/records.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 import organizerApplicationRoutes from "./routes/organizerApplication.routes.js";
+import managerRoutes from "./routes/manager.routes.js";
+import managerAssignmentRoutes from "./routes/managerAssignment.routes.js";
 
 const app = express();
 
@@ -95,7 +97,7 @@ app.use("/api/v1/fixtures", fixtureRoutes);
 app.use("/api/v1/innings", inningsRoutes);
 app.use("/api/v1/innings/:inningsId/balls", ballRoutes);
 app.use("/api/matches", liveScoreRoutes);
-app.use("/api/points-table", pointsTableRoutes);
+app.use("/api/v1/points-table", pointsTableRoutes);
 app.use("/api/v1/matches", liveMatchRoutes);
 app.use("/api/v1/commentary", commentaryRoutes);
 app.use("/api/v1/matches", matchSummaryRoutes);
@@ -111,6 +113,8 @@ app.use("/api/v1/matches", analyticsRoutes);
 app.use("/api/v1/records", recordsRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/organizer-applications", organizerApplicationRoutes);
+app.use("/api/v1/managers", managerRoutes);
+app.use("/api/v1", managerAssignmentRoutes);
 
 // 404 Not Found Catch-All Handler
 app.use((req, res) => {

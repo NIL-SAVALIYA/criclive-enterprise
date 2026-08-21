@@ -16,6 +16,10 @@ import AdminDashboard from './pages/AdminDashboard';
 import MatchControlCenter from './pages/MatchControlCenter';
 import Fixtures from './pages/Fixtures';
 import DedicatedScorerConsole from './pages/DedicatedScorerConsole';
+import ManagerFixtures from './pages/ManagerFixtures';
+import Profile from './pages/Profile';
+import ManagerRegister from './pages/ManagerRegister';
+import ManagerProfilePage from './pages/ManagerProfilePage';
 
 export default function App() {
   return (
@@ -35,6 +39,40 @@ export default function App() {
               <Route path="/teams" element={<TeamsAndPlayers />} />
               <Route path="/players" element={<Players />} />
 
+              {/* User Profile & Capability Routes */}
+              <Route
+                path="/profile"
+                element={
+                  <ProtectedRoute>
+                    <Profile />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/manager/register"
+                element={
+                  <ProtectedRoute>
+                    <ManagerRegister />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/manager/profile"
+                element={
+                  <ProtectedRoute>
+                    <ManagerProfilePage />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/my-fixtures"
+                element={
+                  <ProtectedRoute>
+                    <ManagerFixtures />
+                  </ProtectedRoute>
+                }
+              />
+
               {/* Dedicated Guest Match Scorer Console (Token Authenticated) */}
               <Route path="/score/:token" element={<DedicatedScorerConsole />} />
               <Route path="/score-match/:token" element={<DedicatedScorerConsole />} />
@@ -43,6 +81,24 @@ export default function App() {
                 element={
                   <ProtectedRoute>
                     <BecomeOrganizer />
+                  </ProtectedRoute>
+                }
+              />
+
+              {/* Protected Team Manager Console (All Manager URL variants supported) */}
+              <Route
+                path="/manager/fixtures"
+                element={
+                  <ProtectedRoute>
+                    <ManagerFixtures />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/my-matches"
+                element={
+                  <ProtectedRoute>
+                    <ManagerFixtures />
                   </ProtectedRoute>
                 }
               />
