@@ -226,3 +226,13 @@ export function emitPlayingXISubmitted(matchId, teamId, playingXI) {
   io.emit("GLOBAL_PLAYING_XI_UPDATED", { matchId, teamId, playingXI });
 }
 
+/**
+ * Emit Badminton Point Recorded Event
+ */
+export function emitBadmintonPointRecorded(matchId, payload) {
+  if (!io) return;
+  io.to(`match_${matchId}`).emit("BADMINTON_POINT_RECORDED", payload);
+  io.emit("GLOBAL_BADMINTON_POINT_RECORDED", { matchId, ...payload });
+}
+
+

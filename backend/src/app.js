@@ -38,6 +38,7 @@ import organizerApplicationRoutes from "./routes/organizerApplication.routes.js"
 import managerRoutes from "./routes/manager.routes.js";
 import managerAssignmentRoutes from "./routes/managerAssignment.routes.js";
 import sportsRoutes from "./routes/sports.routes.js";
+import badmintonRoutes from "./routes/badminton.routes.js";
 
 const app = express();
 
@@ -86,6 +87,7 @@ app.use("/api/v1", healthRoutes);
 
 // Register Core APIs
 app.use("/api/v1/sports", sportsRoutes);
+app.use("/api/v1/badminton", badmintonRoutes);
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/roles", roleRoutes);
 app.use("/api/v1/users", userRoutes);
