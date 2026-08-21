@@ -29,6 +29,10 @@ export const createTournamentSchema = z.object({
 
   endDate: z.string().datetime({ message: "Invalid end date format." }),
 
+  sport: z.string().trim().optional(),
+
+  sportCode: z.string().trim().optional(),
+
   status: TournamentStatusEnum.optional().default("UPCOMING")
 }).refine(
   (data) => new Date(data.endDate) >= new Date(data.startDate),
@@ -49,6 +53,10 @@ export const updateTournamentSchema = z.object({
 
   endDate: z.string().datetime().optional(),
 
+  sport: z.string().trim().optional(),
+
+  sportCode: z.string().trim().optional(),
+
   status: TournamentStatusEnum.optional()
 }).refine(
   (data) => {
@@ -68,5 +76,6 @@ export const tournamentQuerySchema = z.object({
   limit: z.string().optional().transform((val) => (val ? parseInt(val, 10) : undefined)),
   search: z.string().optional(),
   status: TournamentStatusEnum.optional(),
-  format: TournamentFormatEnum.optional()
+  format: TournamentFormatEnum.optional(),
+  sport: z.string().optional()
 });

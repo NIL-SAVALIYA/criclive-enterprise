@@ -13,7 +13,7 @@ export async function createTournament(data, db = prisma) {
  * Retrieves tournaments with search, filtering, and pagination.
  */
 export async function getAllTournaments(params = {}, db = prisma) {
-  const { page, limit, search, status, format } = params;
+  const { page, limit, search, status, format, sport } = params;
 
   const where = {};
 
@@ -32,12 +32,26 @@ export async function getAllTournaments(params = {}, db = prisma) {
     where.format = format;
   }
 
+  if (sport) {
+    where.sport = {
+      code: sport.trim().toUpperCase()
+    };
+  }
+
   const query = {
     where,
     orderBy: {
       startDate: "desc"
     },
     include: {
+      sport: {
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          icon: true
+        }
+      },
       _count: {
         select: {
           registeredTeams: true,
@@ -76,6 +90,14 @@ export async function getTournamentById(id, db = prisma) {
   return db.tournament.findUnique({
     where: { id },
     include: {
+      sport: {
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          icon: true
+        }
+      },
       _count: {
         select: {
           registeredTeams: true,

@@ -10,6 +10,8 @@ import {
 import { recordAuditLog } from "../utils/auditLogger.js";
 import { Roles } from "../constants/roles.js";
 
+import { validateAndGetSportByCode } from "./sports.service.js";
+
 const ALLOWED_TRANSITIONS = {
   UPCOMING: ["LIVE", "CANCELLED"],
   LIVE: ["COMPLETED", "CANCELLED"],
@@ -30,16 +32,25 @@ export async function createTournamentService(tournamentData, user = null) {
     throw error;
   }
 
+  // Determine sport (defaults to CRICKET if omitted for backward compatibility)
+  const targetSportCode = tournamentData.sport || tournamentData.sportCode || "CRICKET";
+  const sportEntity = await validateAndGetSportByCode(targetSportCode);
+
   // Always derive organizerId from the authenticated user. Never trust req.body.organizerId.
   const organizerId = user ? user.userId : (tournamentData.organizerId || null);
+
+  const cleanData = { ...tournamentData };
+  delete cleanData.sport;
+  delete cleanData.sportCode;
 
   return prisma.$transaction(
     async (tx) => {
       const tournament = await createTournament(
         {
-          ...tournamentData,
+          ...cleanData,
           name,
-          organizerId
+          organizerId,
+          sportId: sportEntity.id
         },
         tx
       );
