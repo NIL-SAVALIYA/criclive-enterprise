@@ -10,7 +10,7 @@ import {
   getLatestBadmintonPoint,
   deleteBadmintonPoint
 } from "../repositories/badminton.repository.js";
-import { emitBadmintonPointRecorded, emitMatchStateUpdated } from "../socket/socket.server.js";
+import { emitBadmintonPointRecorded, emitMatchStateUpdated, emitBadmintonPointUndone } from "../socket/socket.server.js";
 
 /**
  * Validates that a match exists and belongs to the BADMINTON sport.
@@ -72,7 +72,7 @@ export async function getBadmintonMatchStateService(matchId) {
 /**
  * Records a rally point for a Badminton match atomically in a transaction.
  */
-export async function recordBadmintonPointService(matchId, pointInput, user = null) {
+export async function recordBadmintonPointService(matchId, pointInput) {
   const { scoringTeamId, serverId, receiverId, commentary } = pointInput;
 
   return prisma.$transaction(
@@ -180,7 +180,7 @@ export async function recordBadmintonPointService(matchId, pointInput, user = nu
 /**
  * Undoes the most recent rally point of a Badminton match atomically.
  */
-export async function undoBadmintonPointService(matchId, user = null) {
+export async function undoBadmintonPointService(matchId) {
   return prisma.$transaction(
     async (tx) => {
       const match = await validateBadmintonMatch(matchId, tx);
@@ -272,6 +272,14 @@ export async function undoBadmintonPointService(matchId, user = null) {
           result: isMatchCompleted ? `Won by ${teamASetsWon}-${teamBSetsWon} sets` : null
         }
       });
+
+      // Socket updates (safe execution)
+      try {
+        emitBadmintonPointUndone(matchId, { undonePointId: lastPoint.id, revertedState });
+        emitMatchStateUpdated(matchId, { status });
+      } catch (err) {
+        console.warn("Socket emission warning:", err.message);
+      }
 
       return {
         matchState: revertedState,

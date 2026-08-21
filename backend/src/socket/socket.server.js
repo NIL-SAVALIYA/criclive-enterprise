@@ -235,4 +235,13 @@ export function emitBadmintonPointRecorded(matchId, payload) {
   io.emit("GLOBAL_BADMINTON_POINT_RECORDED", { matchId, ...payload });
 }
 
+/**
+ * Emit Badminton Point Undone Event
+ */
+export function emitBadmintonPointUndone(matchId, payload) {
+  if (!io) return;
+  io.to(`match_${matchId}`).emit("BADMINTON_POINT_UNDONE", payload);
+  io.emit("GLOBAL_BADMINTON_POINT_UNDONE", { matchId, ...payload });
+}
+
 

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../api/client';
 import { useCricketSocket } from '../socket/useCricketSocket';
+import BadmintonLiveMatchCenter from '../components/BadmintonLiveMatchCenter';
 import WagonWheelSVG from '../components/WagonWheelSVG';
 import PitchMapCanvas from '../components/PitchMapCanvas';
 import WinProbabilityMeter from '../components/WinProbabilityMeter';
@@ -35,20 +36,24 @@ export default function LiveMatchCenter() {
     try {
       const [mRes, scRes, cRes, aRes] = await Promise.all([
         api.get(`/matches/${matchId}/live`),
-        api.get(`/matches/${matchId}/scorecard`),
+        api.get(`/matches/${matchId}/scorecard`).catch(() => ({ data: { data: null } })),
         api.get(`/commentary/${matchId}/commentary`).catch(() => ({ data: { data: [] } })),
         api.get(`/matches/${matchId}/analytics`).catch(() => ({ data: { data: null } }))
       ]);
 
       setMatchDetails(mRes.data.data);
-      setScorecardData(scRes.data.data);
+      setScorecardData(scRes.data?.data);
       setCommentaryList(cRes.data.data || []);
-      setAnalytics(aRes.data.data);
+      setAnalytics(aRes.data?.data);
     } catch (err) {
       console.error('Failed to fetch live match details:', err);
     } finally {
       setLoading(false);
     }
+  }
+
+  if (matchDetails?.match?.tournament?.sport?.code === 'BADMINTON') {
+    return <BadmintonLiveMatchCenter matchId={matchId} />;
   }
 
   // Merge Socket data with initial fetch

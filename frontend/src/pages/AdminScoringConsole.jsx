@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import api from '../api/client';
+import BadmintonScoringConsole from '../components/BadmintonScoringConsole';
 import WagonWheelSVG, { CANONICAL_ZONES, CANONICAL_ZONE_COORDS } from '../components/WagonWheelSVG';
 import PitchMapCanvas from '../components/PitchMapCanvas';
 import { useCricketSocket } from '../socket/useCricketSocket';
@@ -339,8 +340,13 @@ export default function AdminScoringConsole() {
         </div>
       )}
 
-      {/* Match Loaded Body */}
-      {matchDetails && (
+      {/* Badminton Match Console */}
+      {matchDetails?.match?.tournament?.sport?.code === 'BADMINTON' && (
+        <BadmintonScoringConsole matchId={selectedMatchId} />
+      )}
+
+      {/* Cricket Match Scoring Grid */}
+      {matchDetails && matchDetails?.match?.tournament?.sport?.code !== 'BADMINTON' && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left 2 Cols: Scoring Control Form */}
           <div className="lg:col-span-2 space-y-6">

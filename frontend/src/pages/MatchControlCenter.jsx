@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import { Trophy, Users, CheckCircle, ArrowRight, Save, Flag, Activity } from 'lucide-react';
 import Skeleton from '../components/Skeleton';
+import BadmintonScoringConsole from '../components/BadmintonScoringConsole';
 
 export default function MatchControlCenter() {
   const { matchId } = useParams();
@@ -162,6 +163,10 @@ export default function MatchControlCenter() {
 
   if (!match) {
     return <div className="p-8 text-white">Match not found</div>;
+  }
+
+  if (match.tournament?.sport?.code === 'BADMINTON') {
+    return <BadmintonScoringConsole matchId={matchId} />;
   }
 
   return (
