@@ -17,6 +17,12 @@ import { emitBadmintonPointRecorded, emitMatchStateUpdated, emitBadmintonPointUn
  * Throws 400 error if match belongs to Cricket.
  */
 export async function validateBadmintonMatch(matchId, db = prisma) {
+  const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (matchId && !UUID_REGEX.test(matchId)) {
+    const error = new Error("Invalid format for one or more parameters. Check that all IDs are valid UUIDs.");
+    error.statusCode = 400;
+    throw error;
+  }
   const match = await db.match.findUnique({
     where: { id: matchId },
     include: {
@@ -244,6 +250,7 @@ export async function undoBadmintonPointService(matchId) {
 
       const isMatchCompleted = teamASetsWon >= 2 || teamBSetsWon >= 2;
       const status = remainingPoints.length === 0 ? "UPCOMING" : (isMatchCompleted ? "COMPLETED" : "LIVE");
+      const newLatestPoint = remainingPoints[remainingPoints.length - 1] || null;
 
       const revertedState = await updateBadmintonMatchState(
         currentState.id,
@@ -258,6 +265,8 @@ export async function undoBadmintonPointService(matchId) {
           teamAPointsGame3: gameScores.g3A,
           teamBPointsGame3: gameScores.g3B,
           servingTeamId: lastServingTeamId,
+          currentServerId: newLatestPoint?.serverId || null,
+          currentReceiverId: newLatestPoint?.receiverId || null,
           status
         },
         tx

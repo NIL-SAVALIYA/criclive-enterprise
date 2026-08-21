@@ -22,6 +22,20 @@ export async function authorizeScorer(req, res, next) {
     const matchId = req.params.matchId || req.body?.matchId;
     const inningsId = req.params.inningsId || req.body?.inningsId;
 
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (matchId && !UUID_REGEX.test(matchId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid format for one or more parameters. Check that all IDs are valid UUIDs."
+      });
+    }
+    if (inningsId && !UUID_REGEX.test(inningsId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid format for one or more parameters. Check that all IDs are valid UUIDs."
+      });
+    }
+
     if (matchId) {
       match = await prisma.match.findUnique({
         where: { id: matchId },

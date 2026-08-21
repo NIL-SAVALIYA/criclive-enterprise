@@ -135,7 +135,22 @@ app.use((req, res) => {
 app.use((err, req, res, next) => {
   void next;
   console.error("🔥 Global Error Handler:", err);
-  res.status(err.status || 500).json({
+
+  const isMalformedUuid =
+    err.message?.includes("invalid input syntax for type uuid") ||
+    err.code === "P2023" ||
+    err.message?.includes("Malformed OID") ||
+    err.message?.includes("Inconsistent column data");
+
+  if (isMalformedUuid) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid format for one or more parameters. Check that all IDs are valid UUIDs."
+    });
+  }
+
+  const statusCode = err.status || err.statusCode || 500;
+  res.status(statusCode).json({
     success: false,
     message: err.message || "Internal Server Error"
   });
