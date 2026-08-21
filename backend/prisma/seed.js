@@ -39,6 +39,53 @@ async function main() {
     console.log("✅ Roles seeded.");
 
     // ==========================
+    // Seed Sports
+    // ==========================
+    const cricketSport = await prisma.sport.upsert({
+        where: { code: "CRICKET" },
+        update: {},
+        create: {
+            code: "CRICKET",
+            name: "Cricket",
+            description: "Cricket platform sport",
+            icon: "🏏",
+            isActive: true
+        }
+    });
+
+    await prisma.sport.upsert({
+        where: { code: "BADMINTON" },
+        update: {},
+        create: {
+            code: "BADMINTON",
+            name: "Badminton",
+            description: "Badminton platform sport",
+            icon: "🏸",
+            isActive: true
+        }
+    });
+
+    console.log("✅ Sports seeded (CRICKET, BADMINTON).");
+
+    // Associate unassigned tournaments, teams, and players with Cricket
+    await prisma.tournament.updateMany({
+        where: { sportId: null },
+        data: { sportId: cricketSport.id }
+    });
+
+    await prisma.team.updateMany({
+        where: { sportId: null },
+        data: { sportId: cricketSport.id }
+    });
+
+    await prisma.player.updateMany({
+        where: { sportId: null },
+        data: { sportId: cricketSport.id }
+    });
+
+    console.log("✅ Existing records associated with Cricket.");
+
+    // ==========================
     // Seed Teams
     // ==========================
     const teams = [

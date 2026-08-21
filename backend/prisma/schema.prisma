@@ -16,27 +16,50 @@ model Role {
   users       User[]
 }
 
+enum SportCode {
+  CRICKET
+  BADMINTON
+}
+
+model Sport {
+  id          String    @id @default(uuid())
+  code        SportCode @unique
+  name        String
+  description String?
+  icon        String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  tournaments Tournament[]
+  teams       Team[]
+  players     Player[]
+
+  @@index([code])
+  @@index([isActive])
+}
+
 model User {
-  id              String   @id @default(uuid())
-  firstName       String
-  lastName        String
-  email           String   @unique
-  password        String
-  phone           String?
-  profileImageUrl String?
-  isActive        Boolean  @default(true)
-  roleId          String
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  teams                 Team[]
-  role                  Role                   @relation(fields: [roleId], references: [id])
-  organizedTournaments  Tournament[]           @relation("OrganizerTournaments")
-  assignedMatches       Match[]                @relation("AssignedMatches")
-  organizerApplications OrganizerApplication[] @relation("UserApplications")
-  reviewedApplications  OrganizerApplication[] @relation("ReviewedApplications")
-  auditLogs             AuditLog[]
-  managerProfile        ManagerProfile?
-  managerAssignmentsMade ManagerAssignment[]   @relation("AssignedBy")
+  id                     String                 @id @default(uuid())
+  firstName              String
+  lastName               String
+  email                  String                 @unique
+  password               String
+  phone                  String?
+  profileImageUrl        String?
+  isActive               Boolean                @default(true)
+  roleId                 String
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+  teams                  Team[]
+  role                   Role                   @relation(fields: [roleId], references: [id])
+  organizedTournaments   Tournament[]           @relation("OrganizerTournaments")
+  assignedMatches        Match[]                @relation("AssignedMatches")
+  organizerApplications  OrganizerApplication[] @relation("UserApplications")
+  reviewedApplications   OrganizerApplication[] @relation("ReviewedApplications")
+  auditLogs              AuditLog[]
+  managerProfile         ManagerProfile?
+  managerAssignmentsMade ManagerAssignment[]    @relation("AssignedBy")
 }
 
 model Team {
@@ -67,6 +90,11 @@ model Team {
   playingXI          PlayingXI[]
   manager            User?               @relation(fields: [managerId], references: [id])
   managerAssignments ManagerAssignment[]
+
+  sportId String?
+  sport   Sport?  @relation(fields: [sportId], references: [id])
+
+  @@index([sportId])
 }
 
 model Innings {
@@ -196,15 +224,17 @@ model Player {
   lastName      String
   dateOfBirth   DateTime?
   jerseyNumber  Int?
-  playerType    PlayerType
+  playerType    PlayerType?
   battingStyle  BattingStyle?
   bowlingStyle  BowlingStyle?
   isCaptain     Boolean       @default(false)
   isViceCaptain Boolean       @default(false)
   teamId        String
+  sportId       String?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   team          Team          @relation(fields: [teamId], references: [id])
+  sport         Sport?        @relation(fields: [sportId], references: [id])
 
   battingBalls Ball[] @relation("Batsman")
 
@@ -233,6 +263,8 @@ model Player {
 
   // Bowling Scorecard
   bowlingScorecards BowlingScorecard[]
+
+  @@index([sportId])
 }
 
 model Match {
@@ -288,6 +320,8 @@ model Match {
 
   managerAssignments ManagerAssignment[]
 
+  badmintonMatchState BadmintonMatchState?
+
   createdAt DateTime @default(now())
 
   updatedAt DateTime @updatedAt
@@ -317,10 +351,14 @@ model Tournament {
 
   organizer User? @relation("OrganizerTournaments", fields: [organizerId], references: [id])
 
+  sportId String?
+  sport   Sport?  @relation(fields: [sportId], references: [id])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([organizerId])
+  @@index([sportId])
 }
 
 model TournamentTeam {
@@ -695,21 +733,21 @@ enum ManagerAssignmentStatus {
 }
 
 model ManagerProfile {
-  id                 String              @id @default(uuid())
-  userId             String              @unique
+  id                 String   @id @default(uuid())
+  userId             String   @unique
   nickname           String
-  normalizedNickname String              @unique
+  normalizedNickname String   @unique
   displayName        String?
   bio                String?
   profileImageUrl    String?
   phone              String?
   city               String?
-  isActive           Boolean             @default(true)
-  createdAt          DateTime            @default(now())
-  updatedAt          DateTime            @updatedAt
+  isActive           Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
-  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
-  assignments        ManagerAssignment[]
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  assignments ManagerAssignment[]
 
   @@index([normalizedNickname])
   @@index([userId])
@@ -733,10 +771,10 @@ model ManagerAssignment {
   createdAt        DateTime                @default(now())
   updatedAt        DateTime                @updatedAt
 
-  managerProfile   ManagerProfile          @relation(fields: [managerProfileId], references: [id], onDelete: Cascade)
-  match            Match                   @relation(fields: [matchId], references: [id], onDelete: Cascade)
-  team             Team                    @relation(fields: [teamId], references: [id], onDelete: Cascade)
-  assignedByUser   User                    @relation("AssignedBy", fields: [assignedByUserId], references: [id])
+  managerProfile ManagerProfile @relation(fields: [managerProfileId], references: [id], onDelete: Cascade)
+  match          Match          @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  team           Team           @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  assignedByUser User           @relation("AssignedBy", fields: [assignedByUserId], references: [id])
 
   @@index([managerProfileId])
   @@index([matchId])
@@ -747,3 +785,47 @@ model ManagerAssignment {
   @@index([matchId, managerProfileId, status])
 }
 
+model BadmintonMatchState {
+  id                String      @id @default(uuid())
+  matchId           String      @unique
+  currentGame       Int         @default(1)
+  teamASetsWon      Int         @default(0)
+  teamBSetsWon      Int         @default(0)
+  teamAPointsGame1  Int         @default(0)
+  teamBPointsGame1  Int         @default(0)
+  teamAPointsGame2  Int         @default(0)
+  teamBPointsGame2  Int         @default(0)
+  teamAPointsGame3  Int         @default(0)
+  teamBPointsGame3  Int         @default(0)
+  currentServerId   String?
+  currentReceiverId String?
+  servingTeamId     String?
+  status            MatchStatus @default(UPCOMING)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  match  Match            @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  points BadmintonPoint[]
+
+  @@index([status])
+}
+
+model BadmintonPoint {
+  id                    String   @id @default(uuid())
+  badmintonMatchStateId String
+  gameNumber            Int
+  rallyNumber           Int
+  scoringTeamId         String
+  servingTeamId         String
+  serverId              String?
+  receiverId            String?
+  scoreTeamA            Int
+  scoreTeamB            Int
+  commentary            String?
+  createdAt             DateTime @default(now())
+
+  matchState BadmintonMatchState @relation(fields: [badmintonMatchStateId], references: [id], onDelete: Cascade)
+
+  @@index([badmintonMatchStateId])
+  @@index([badmintonMatchStateId, gameNumber])
+}
