@@ -75,9 +75,11 @@ export default function App() {
                 }
               />
 
-              {/* Dedicated Guest Match Scorer Console (Token Authenticated) */}
+              {/* Dedicated Guest Match Scorer Console (Token / Scoring Code Authenticated) */}
               <Route path="/score/:token" element={<DedicatedScorerConsole />} />
+              <Route path="/score/:scoringCode" element={<DedicatedScorerConsole />} />
               <Route path="/score-match/:token" element={<DedicatedScorerConsole />} />
+              <Route path="/score-match/:scoringCode" element={<DedicatedScorerConsole />} />
               <Route
                 path="/apply-organizer"
                 element={

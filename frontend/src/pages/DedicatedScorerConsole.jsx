@@ -34,7 +34,9 @@ import {
 import Skeleton from '../components/Skeleton';
 
 export default function DedicatedScorerConsole() {
-  const { token } = useParams();
+  const { token, scoringCode } = useParams();
+  const rawToken = token || scoringCode || '';
+  const activeToken = rawToken ? decodeURIComponent(rawToken.trim()) : '';
 
   const [loading, setLoading] = useState(true);
   const [sessionData, setSessionData] = useState(null);
@@ -74,16 +76,20 @@ export default function DedicatedScorerConsole() {
 
   // Save scoring token to session storage so all requests send x-scoring-token
   useEffect(() => {
-    if (token) {
-      sessionStorage.setItem('activeScoringToken', token);
+    if (activeToken) {
+      sessionStorage.setItem('activeScoringToken', activeToken);
     }
-  }, [token]);
+  }, [activeToken]);
 
   const loadSession = useCallback(async () => {
-    if (!token) return;
+    if (!activeToken) {
+      setErrorMsg('No scoring access token provided.');
+      setLoading(false);
+      return;
+    }
     try {
       setErrorMsg(null);
-      const res = await api.get(`/matches/score-session/${token}`);
+      const res = await api.get(`/matches/score-session/${encodeURIComponent(activeToken)}`);
       const data = res.data.data;
       setSessionData(data);
 
@@ -125,7 +131,7 @@ export default function DedicatedScorerConsole() {
     } finally {
       setLoading(false);
     }
-  }, [token]);
+  }, [activeToken]);
 
   useEffect(() => {
     loadSession();
@@ -175,7 +181,7 @@ export default function DedicatedScorerConsole() {
             winnerTeamId: tossWinnerId,
             decision: tossDecision
           },
-          { headers: { 'x-scoring-token': token } }
+          { headers: { 'x-scoring-token': activeToken } }
         );
       }
 
@@ -187,7 +193,7 @@ export default function DedicatedScorerConsole() {
           nonStrikerId,
           bowlerId
         },
-        { headers: { 'x-scoring-token': token } }
+        { headers: { 'x-scoring-token': activeToken } }
       );
 
       setStatusMsg({ type: 'success', text: 'Match started successfully! Live scoring is now active.' });
@@ -265,7 +271,7 @@ export default function DedicatedScorerConsole() {
       };
 
       await api.post(`/innings/${inningsId}/balls`, payload, {
-        headers: { 'x-scoring-token': token }
+        headers: { 'x-scoring-token': activeToken }
       });
 
       setStatusMsg({
@@ -307,7 +313,7 @@ export default function DedicatedScorerConsole() {
       await api.post(
         `/innings/${inningsId}/end`,
         {},
-        { headers: { 'x-scoring-token': token } }
+        { headers: { 'x-scoring-token': activeToken } }
       );
       setStatusMsg({ type: 'success', text: 'Innings concluded successfully.' });
       await loadSession();
@@ -335,7 +341,7 @@ export default function DedicatedScorerConsole() {
       await api.post(
         `/matches/${matchId}/undo-last-ball`,
         {},
-        { headers: { 'x-scoring-token': token } }
+        { headers: { 'x-scoring-token': activeToken } }
       );
       setStatusMsg({
         type: 'success',
