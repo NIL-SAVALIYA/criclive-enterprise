@@ -52,9 +52,15 @@ export default function LiveMatchCenter() {
     }
   }
 
-  if (matchDetails?.match?.tournament?.sport?.code === 'BADMINTON') {
+  const isBadmintonMatch =
+    matchDetails?.match?.tournament?.sport?.code === 'BADMINTON' ||
+    matchDetails?.sport === 'BADMINTON' ||
+    Boolean(matchDetails?.matchState);
+
+  if (isBadmintonMatch) {
     return <BadmintonLiveMatchCenter matchId={matchId} />;
   }
+
 
   // Merge Socket data with initial fetch
   const match = matchDetails?.match || {};

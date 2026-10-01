@@ -57,12 +57,13 @@ export default function Navbar() {
     setSportDropdownOpen(false);
   }, [location.pathname]);
 
+  const sportPrefix = `/${currentSport.toLowerCase()}`;
   const navLinks = [
-    { name: 'Live Center', path: '/', icon: Radio },
-    { name: 'Fixtures', path: '/fixtures', icon: Calendar },
-    { name: 'Tournaments', path: '/tournaments', icon: Trophy },
-    { name: 'Teams', path: '/teams', icon: Users },
-    { name: 'Players', path: '/players', icon: User }
+    { name: 'Live Center', path: `${sportPrefix}/live`, aliases: ['/', '/cricket/live', '/badminton/live'], icon: Radio },
+    { name: 'Fixtures', path: `${sportPrefix}/fixtures`, aliases: ['/fixtures', '/cricket/fixtures', '/badminton/fixtures'], icon: Calendar },
+    { name: 'Tournaments', path: `${sportPrefix}/tournaments`, aliases: ['/tournaments', '/cricket/tournaments', '/badminton/tournaments'], icon: Trophy },
+    { name: 'Teams', path: `${sportPrefix}/teams`, aliases: ['/teams', '/cricket/teams', '/badminton/teams'], icon: Users },
+    { name: 'Players', path: `${sportPrefix}/players`, aliases: ['/players', '/cricket/players', '/badminton/players'], icon: User }
   ];
 
   const managerProfile = user?.managerProfile;
@@ -71,8 +72,9 @@ export default function Navbar() {
     <nav className="glass-panel sticky top-0 z-50 border-b border-gray-800 px-4 lg:px-8 py-3 flex items-center justify-between shadow-xl backdrop-blur-md bg-gray-950/80">
       {/* Brand Logo & Sport Selector */}
       <div className="flex items-center gap-3 md:gap-4">
-        <Link to="/" className="flex items-center gap-2.5 group">
+        <Link to={`${sportPrefix}/live`} className="flex items-center gap-2.5 group">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-400 flex items-center justify-center text-white font-black text-xl shadow-lg glow-emerald group-hover:scale-105 transition-transform">
+
             ⚡
           </div>
           <div className="hidden sm:block">
@@ -111,7 +113,7 @@ export default function Navbar() {
                     key={s.code}
                     type="button"
                     onClick={() => {
-                      setSport(s.code);
+                      setSport(s.code, { redirect: true });
                       setSportDropdownOpen(false);
                     }}
                     className={`w-full flex items-center justify-between px-3 py-2 text-xs font-semibold transition-colors ${
@@ -137,7 +139,7 @@ export default function Navbar() {
       <div className="hidden md:flex items-center gap-1 bg-gray-900/60 p-1 rounded-xl border border-gray-800/80">
         {navLinks.map((link) => {
           const Icon = link.icon;
-          const isActive = location.pathname === link.path;
+          const isActive = location.pathname === link.path || link.aliases?.includes(location.pathname);
           return (
             <Link
               key={link.path}
@@ -148,6 +150,7 @@ export default function Navbar() {
                   : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/60'
               }`}
             >
+
               <Icon className="w-3.5 h-3.5" />
               {link.name}
             </Link>
@@ -400,8 +403,9 @@ export default function Navbar() {
           <div className="space-y-1">
             {navLinks.map((link) => {
               const Icon = link.icon;
-              const isActive = location.pathname === link.path;
+              const isActive = location.pathname === link.path || link.aliases?.includes(location.pathname);
               return (
+
                 <Link
                   key={link.path}
                   to={link.path}

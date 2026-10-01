@@ -36,6 +36,18 @@ export async function undoLastBallService({ matchId, inningsId }) {
                 throw error;
             }
 
+            const fullMatch = await tx.match.findUnique({
+                where: { id: innings.matchId },
+                include: { tournament: { include: { sport: true } } }
+            });
+            const sportCode = fullMatch?.tournament?.sport?.code;
+            if (sportCode && sportCode !== "CRICKET") {
+                const error = new Error(`Match belongs to ${sportCode} and cannot perform Cricket ball undo.`);
+                error.statusCode = 400;
+                throw error;
+            }
+
+
             // Find the latest delivery of this innings
             const lastBall = await tx.ball.findFirst({
                 where: { inningsId: innings.id },

@@ -11,7 +11,15 @@ export async function createToss(matchId, winnerTeamId, decision) {
         throw new Error("Match not found");
     }
 
+    const sportCode = match.tournament?.sport?.code;
+    if (sportCode && sportCode !== "CRICKET") {
+        const error = new Error(`Match belongs to ${sportCode} and does not use Cricket toss decisions.`);
+        error.statusCode = 400;
+        throw error;
+    }
+
     if (match.tossWinnerId) {
+
         throw new Error("Toss has already been recorded");
     }
 

@@ -62,27 +62,22 @@ export async function getAllInnings( db = prisma) {
 */
 
 export async function getInningsById(id, db = prisma) {
-
     return db.innings.findUnique({
-
         where: {
-
             id
-
         },
-
         include: {
-
-            match: true,
-
+            match: {
+                include: {
+                    tournament: {
+                        include: { sport: true }
+                    }
+                }
+            },
             battingTeam: true,
-
             bowlingTeam: true
-
         }
-
     });
-
 }
 
 /*

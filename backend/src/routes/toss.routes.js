@@ -3,14 +3,16 @@ import { recordToss } from "../controllers/toss.controller.js";
 import { validate } from "../middleware/validate.middleware.js";
 import { createTossSchema } from "../validators/toss.validator.js";
 import { authorizeScorer } from "../middleware/authorizeScorer.middleware.js";
+import { requireSport } from "../middleware/sportGuard.middleware.js";
 
 const router = express.Router();
 
 router.post(
     "/:matchId/toss",
     authorizeScorer,
+    requireSport("CRICKET"),
     validate(createTossSchema),
     recordToss
 );
 
-export default router;
+export default router;

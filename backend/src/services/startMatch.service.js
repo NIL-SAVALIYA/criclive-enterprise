@@ -7,7 +7,7 @@ export async function startMatch(matchId, strikerId, nonStrikerId, bowlerId, use
         const match = await tx.match.findUnique({
             where: { id: matchId },
             include: {
-                tournament: true,
+                tournament: { include: { sport: true } },
                 teamA: true,
                 teamB: true
             }
@@ -18,6 +18,14 @@ export async function startMatch(matchId, strikerId, nonStrikerId, bowlerId, use
             error.statusCode = 404;
             throw error;
         }
+
+        const sportCode = match.tournament?.sport?.code;
+        if (sportCode && sportCode !== "CRICKET") {
+            const error = new Error(`Match belongs to ${sportCode} and cannot be started with Cricket match start procedure.`);
+            error.statusCode = 400;
+            throw error;
+        }
+
 
         // Authorization check for non-ADMIN users
         if (user && user.role !== Roles.ADMIN) {

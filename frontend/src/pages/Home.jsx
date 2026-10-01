@@ -3,14 +3,15 @@ import { Link } from 'react-router-dom';
 import api from '../api/client';
 import { useSport } from '../context/SportContext';
 import LiveTicker from '../components/LiveTicker';
-import { Trophy, Flame, Play, ChevronRight, Activity, Calendar, Award } from 'lucide-react';
+import { Trophy, Flame, Play, ChevronRight, Activity, Calendar, Award, Zap } from 'lucide-react';
 
 export default function Home() {
   const [matches, setMatches] = useState([]);
   const [caps, setCaps] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const { currentSport } = useSport();
+  const { currentSport, isBadminton, terminology, sportConfig } = useSport();
+  const sportPrefix = `/${currentSport.toLowerCase()}`;
 
   useEffect(() => {
     async function fetchData() {
@@ -19,7 +20,7 @@ export default function Home() {
           api.get('/matches', { params: { sport: currentSport } })
         ];
         if (currentSport === 'CRICKET') {
-          promises.push(api.get('/records/caps-and-leaders'));
+          promises.push(api.get('/records/caps-and-leaders').catch(() => ({ data: { data: null } })));
         }
         const [matchRes, capRes] = await Promise.all(promises);
         setMatches(matchRes.data.data || []);
@@ -46,25 +47,26 @@ export default function Home() {
         <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
         <div className="relative z-10 max-w-3xl space-y-4">
           <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider">
-            <Flame className="w-3.5 h-3.5" /> {currentSport === 'BADMINTON' ? '🏸 Next-Gen Enterprise Badminton Engine' : '🏏 Next-Gen Enterprise Cricket Engine'}
+            <Flame className="w-3.5 h-3.5" /> {terminology.heroBadge || (isBadminton ? '🏸 Next-Gen Enterprise Badminton Engine' : '🏏 Next-Gen Enterprise Cricket Engine')}
           </span>
           <h1 className="text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
-            Real-Time Scoring, Deep Analytics & Tournament League Engine
+            {terminology.heroHeadline || (isBadminton ? 'Real-Time Rally Scoring, Match Analytics & Tournament Management' : 'Real-Time Scoring, Deep Analytics & Tournament League Engine')}
           </h1>
           <p className="text-gray-300 text-sm lg:text-base leading-relaxed">
-            {currentSport === 'BADMINTON' 
+            {terminology.heroSubline || (isBadminton
               ? 'Experience live rally-by-rally updates, set-by-set scoring statistics, player match history, and comprehensive league tournament standings.'
-              : 'Experience Cricbuzz-grade live ball-by-ball updates, Wagon Wheel shot analysis, Pitch Map heatmaps, win probability predictions, and comprehensive tournament standings.'}
+              : 'Experience Cricbuzz-grade live ball-by-ball updates, Wagon Wheel shot analysis, Pitch Map heatmaps, win probability predictions, and comprehensive tournament standings.')}
           </p>
           <div className="flex flex-wrap gap-4 pt-2">
             <Link
-              to="/admin/scorer"
+              to={`${sportPrefix}/admin/scorer`}
               className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-2 shadow-lg glow-emerald transition-all"
             >
-              <Play className="w-4 h-4 fill-white" /> Open Ball-by-Ball Scorer Console
+              <Play className="w-4 h-4 fill-white" />
+              {terminology.scorerCta || (isBadminton ? 'Open Rally Scoring Console' : 'Open Ball-by-Ball Scorer Console')}
             </Link>
             <Link
-              to="/tournaments"
+              to={`${sportPrefix}/tournaments`}
               className="px-6 py-3 rounded-xl bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-200 font-bold text-sm flex items-center gap-2 transition-all"
             >
               View Tournaments & Standings <ChevronRight className="w-4 h-4" />
@@ -76,7 +78,7 @@ export default function Home() {
       {/* Main Grid: Live & Upcoming Matches */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left 2 Cols: Live & Matches */}
-        <div className={`${currentSport === 'BADMINTON' ? 'lg:col-span-3' : 'lg:col-span-2'} space-y-6`}>
+        <div className={`${isBadminton ? 'lg:col-span-3' : 'lg:col-span-2'} space-y-6`}>
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-bold flex items-center gap-2 text-white">
               <Activity className="w-5 h-5 text-emerald-400" /> Active & Live Matches
@@ -86,38 +88,70 @@ export default function Home() {
           {liveMatches.length === 0 ? (
             <div className="glass-panel p-8 rounded-xl text-center text-gray-400 space-y-2 border border-gray-800">
               <p className="font-semibold text-lg">No matches currently LIVE</p>
-              <p className="text-xs">Schedule a match in the Admin Scorer Console to start live ball scoring.</p>
+              <p className="text-xs">
+                Schedule a match in the Admin Scorer Console to start live {isBadminton ? 'rally' : 'ball'} scoring.
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {liveMatches.map((m) => (
-                <div key={m.id} className="glass-panel p-5 rounded-xl border border-emerald-500/30 hover:border-emerald-400 transition-all space-y-4 shadow-lg">
-                  <div className="flex justify-between items-center text-xs text-gray-400">
-                    <span className="bg-emerald-500/20 text-emerald-400 font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/30">
-                      LIVE
-                    </span>
-                    <span>{m.venue || 'Stadium Venue'}</span>
-                  </div>
+              {liveMatches.map((m) => {
+                const bState = m.badmintonMatchState;
+                const isBadmintonMatch = isBadminton || m.tournament?.sport?.code === 'BADMINTON' || Boolean(bState);
 
-                  <div className="space-y-3 my-2">
-                    <div className="flex justify-between items-center font-bold text-base">
-                      <span className="text-white">{m.teamA?.name}</span>
-                      <span className="text-emerald-400 font-mono">Inning 1</span>
+                return (
+                  <div key={m.id} className="glass-panel p-5 rounded-xl border border-emerald-500/30 hover:border-emerald-400 transition-all space-y-4 shadow-lg">
+                    <div className="flex justify-between items-center text-xs text-gray-400">
+                      <span className="bg-emerald-500/20 text-emerald-400 font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/30">
+                        LIVE
+                      </span>
+                      <span>{m.venue || (isBadminton ? 'Badminton Indoor Arena' : 'Stadium Venue')}</span>
                     </div>
-                    <div className="flex justify-between items-center font-bold text-base">
-                      <span className="text-white">{m.teamB?.name}</span>
-                      <span className="text-gray-400 font-mono">-</span>
-                    </div>
-                  </div>
 
-                  <Link
-                    to={`/matches/${m.id}`}
-                    className="w-full py-2 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white font-bold text-xs rounded-lg flex justify-center items-center gap-1.5 border border-emerald-500/40 transition-all"
-                  >
-                    Match Center & Analytics <ChevronRight className="w-3.5 h-3.5" />
-                  </Link>
-                </div>
-              ))}
+                    {isBadmintonMatch && bState ? (
+                      <div className="space-y-2 my-2">
+                        <div className="flex justify-between items-center text-xs text-gray-400">
+                          <span className="font-semibold text-emerald-400">Game {bState.currentGame}</span>
+                          <span className="font-mono text-gray-300">Sets: {bState.teamASetsWon} - {bState.teamBSetsWon}</span>
+                        </div>
+                        <div className="flex justify-between items-center font-bold text-base">
+                          <span className="text-white">{m.teamA?.name}</span>
+                          <span className="text-emerald-400 font-mono">
+                            {bState[`teamAPointsGame${bState.currentGame}`] ?? 0} pts
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center font-bold text-base">
+                          <span className="text-white">{m.teamB?.name}</span>
+                          <span className="text-emerald-400 font-mono">
+                            {bState[`teamBPointsGame${bState.currentGame}`] ?? 0} pts
+                          </span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-3 my-2">
+                        <div className="flex justify-between items-center font-bold text-base">
+                          <span className="text-white">{m.teamA?.name}</span>
+                          <span className="text-emerald-400 font-mono">
+                            {m.innings?.[0] ? `${m.innings[0].totalRuns}/${m.innings[0].wickets}` : 'Innings 1'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center font-bold text-base">
+                          <span className="text-white">{m.teamB?.name}</span>
+                          <span className="text-gray-400 font-mono">
+                            {m.innings?.[1] ? `${m.innings[1].totalRuns}/${m.innings[1].wickets}` : '-'}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    <Link
+                      to={`${sportPrefix}/matches/${m.id}`}
+                      className="w-full py-2 bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white font-bold text-xs rounded-lg flex justify-center items-center gap-1.5 border border-emerald-500/40 transition-all"
+                    >
+                      Match Center & Analytics <ChevronRight className="w-3.5 h-3.5" />
+                    </Link>
+                  </div>
+                );
+              })}
             </div>
           )}
 
@@ -129,7 +163,7 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {upcomingMatches.slice(0, 4).map((m) => (
                 <div key={m.id} className="glass-panel p-4 rounded-xl border border-gray-800 space-y-2">
-                  <div className="text-xs text-blue-400 font-semibold">{m.tournament?.name || 'League Match'}</div>
+                  <div className="text-xs text-blue-400 font-semibold">{m.tournament?.name || 'Championship'}</div>
                   <div className="font-bold text-sm text-gray-200">
                     {m.teamA?.name} vs {m.teamB?.name}
                   </div>
@@ -143,8 +177,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Right 1 Col: Leaderboards */}
-        {currentSport !== 'BADMINTON' && (
+        {/* Right 1 Col: Cricket Leaderboards (Hidden for Badminton) */}
+        {!isBadminton && (
           <div className="space-y-6">
             <h2 className="text-xl font-bold flex items-center gap-2 text-white">
               <Award className="w-5 h-5 text-amber-400" /> Leaders & Cap Holders

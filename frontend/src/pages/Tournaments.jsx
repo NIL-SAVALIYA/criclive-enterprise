@@ -37,7 +37,7 @@ import { Link } from 'react-router-dom';
 
 export default function Tournaments() {
   const { user, hasRole, isOrganizer, isAdmin } = useAuth();
-  const { currentSport } = useSport();
+  const { currentSport, sportConfig, isCricket } = useSport();
 
   const [tournaments, setTournaments] = useState([]);
   const [selectedTournament, setSelectedTournament] = useState(null);
@@ -68,7 +68,7 @@ export default function Tournaments() {
   const [manageTab, setManageTab] = useState('overview'); // overview, teams, managers, fixtures, scorers, standings, staff
   const [selectedTeamToAdd, setSelectedTeamToAdd] = useState('');
   const [selectedFormat, setSelectedFormat] = useState('LEAGUE');
-  const [fixtureVenue, setFixtureVenue] = useState('National Cricket Stadium');
+  const [fixtureVenue, setFixtureVenue] = useState(sportConfig?.defaultVenue || (isCricket ? 'National Cricket Stadium' : 'Badminton Indoor Arena'));
   const [fixtureStartDate, setFixtureStartDate] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [copiedMatchId, setCopiedMatchId] = useState(null);
@@ -98,6 +98,12 @@ export default function Tournaments() {
   useEffect(() => {
     fetchTournaments();
   }, [currentSport]);
+
+  useEffect(() => {
+    if (sportConfig?.defaultVenue) {
+      setFixtureVenue(sportConfig.defaultVenue);
+    }
+  }, [sportConfig]);
 
   async function fetchTournaments(preferredSelectedId = null) {
     setLoading(true);
@@ -151,6 +157,9 @@ export default function Tournaments() {
           ? new Date(res.data.data.tournament.startDate).toISOString().slice(0, 16)
           : ''
       );
+      const tournamentSportCode = res.data.data?.tournament?.sport?.code || currentSport;
+      const defaultSportVenue = tournamentSportCode === 'BADMINTON' ? 'Badminton Indoor Arena' : 'National Cricket Stadium';
+      setFixtureVenue(res.data.data?.tournament?.venue || defaultSportVenue);
     } catch (err) {
       console.error('Failed to fetch tournament dashboard:', err);
       setErrorMsg(err.response?.data?.message || 'Failed to open tournament management workspace.');
@@ -436,7 +445,7 @@ export default function Tournaments() {
     setErrorMsg(null);
     try {
       const res = await api.post(`/fixtures/generate/${manageDashboard.tournament.id}`, {
-        venue: fixtureVenue || 'National Cricket Stadium',
+        venue: fixtureVenue || sportConfig?.defaultVenue || (isCricket ? 'National Cricket Stadium' : 'Badminton Indoor Arena'),
         startDate: fixtureStartDate ? new Date(fixtureStartDate).toISOString() : undefined,
         format: selectedFormat,
         regenerate: true
@@ -821,14 +830,14 @@ export default function Tournaments() {
                         <th className="p-2">Team</th>
                         <th className="p-2">P</th>
                         <th className="p-2">W</th>
-                        <th className="p-2">NRR</th>
+                        {isCricket && <th className="p-2">NRR</th>}
                         <th className="p-2 text-emerald-400 font-bold">Pts</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-800">
                       {pointsTable.length === 0 ? (
                         <tr>
-                          <td colSpan="5" className="p-3 text-center text-gray-500 font-sans">
+                          <td colSpan={isCricket ? 5 : 4} className="p-3 text-center text-gray-500 font-sans">
                             No points logged.
                           </td>
                         </tr>
@@ -840,7 +849,11 @@ export default function Tournaments() {
                             </td>
                             <td className="p-2 text-gray-300">{row.played}</td>
                             <td className="p-2 text-emerald-400">{row.won}</td>
-                            <td className="p-2 text-gray-400">{Number(row.netRunRate || 0).toFixed(3)}</td>
+                            {isCricket && (
+                              <td className="p-2 text-gray-400">
+                                {Number(row.netRunRate || 0).toFixed(3)}
+                              </td>
+                            )}
                             <td className="p-2 font-bold text-emerald-400">{row.points}</td>
                           </tr>
                         ))
@@ -1707,7 +1720,7 @@ export default function Tournaments() {
                         Official Points Table Standings
                       </h4>
                       <p className="text-[11px] text-gray-400 mt-0.5">
-                        Points & Net Run Rate (NRR) updated automatically upon match conclusion.
+                        Points {isCricket ? '& Net Run Rate (NRR)' : ''} updated automatically upon match conclusion.
                       </p>
                     </div>
 
@@ -1722,14 +1735,14 @@ export default function Tournaments() {
                               <th className="p-3">W</th>
                               <th className="p-3">L</th>
                               <th className="p-3">T/NR</th>
-                              <th className="p-3">NRR</th>
+                              {isCricket && <th className="p-3">NRR</th>}
                               <th className="p-3 text-emerald-400 font-bold">Pts</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-800">
                             {manageDashboard?.standings?.length === 0 ? (
                               <tr>
-                                <td colSpan="8" className="p-6 text-center text-gray-500 font-sans">
+                                <td colSpan={isCricket ? 8 : 7} className="p-6 text-center text-gray-500 font-sans">
                                   No standing records initialized.
                                 </td>
                               </tr>
@@ -1744,9 +1757,11 @@ export default function Tournaments() {
                                   <td className="p-3 text-emerald-400 font-bold">{row.won}</td>
                                   <td className="p-3 text-red-400">{row.lost}</td>
                                   <td className="p-3 text-gray-400">{row.tied + (row.noResult || 0)}</td>
-                                  <td className="p-3 text-gray-300">
-                                    {Number(row.netRunRate || 0).toFixed(3)}
-                                  </td>
+                                  {isCricket && (
+                                    <td className="p-3 text-gray-300">
+                                      {Number(row.netRunRate || 0).toFixed(3)}
+                                    </td>
+                                  )}
                                   <td className="p-3 text-emerald-400 font-black text-sm">
                                     {row.points}
                                   </td>

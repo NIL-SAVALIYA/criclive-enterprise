@@ -42,11 +42,13 @@ export default function Fixtures() {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  const { currentSport } = useSport();
+  const { currentSport, isBadminton, sportConfig, terminology } = useSport();
+  const sportPrefix = `/${currentSport.toLowerCase()}`;
 
   useEffect(() => {
     fetchData();
   }, [currentSport]);
+
 
   async function fetchData() {
     setLoading(true);
@@ -142,10 +144,11 @@ export default function Fixtures() {
       tournamentId: tournaments[0]?.id || '',
       teamAId: teams[0]?.id || '',
       teamBId: teams[1]?.id || '',
-      venue: 'National Cricket Stadium',
+      venue: sportConfig.defaultVenue || (isBadminton ? 'Badminton Indoor Arena' : 'National Cricket Stadium'),
       matchDate: defaultDate,
       status: 'UPCOMING'
     });
+
     setShowCreateModal(true);
   };
 
@@ -399,7 +402,7 @@ export default function Fixtures() {
 
                     <div className="pt-2 border-t border-gray-800 flex justify-between items-center text-xs">
                       <Link
-                        to={`/matches/${m.id}`}
+                        to={`${sportPrefix}/matches/${m.id}`}
                         onClick={(e) => e.stopPropagation()}
                         className="text-emerald-400 hover:underline font-bold flex items-center gap-1"
                       >
@@ -477,7 +480,7 @@ export default function Fixtures() {
               <div className="space-y-2 text-xs text-gray-300 border-t border-gray-800 pt-3">
                 <div>Venue: <span className="text-white font-semibold">{selectedMatch.venue}</span></div>
                 <div>Scheduled: <span className="text-white font-semibold">{new Date(selectedMatch.matchDate).toLocaleString()}</span></div>
-                {selectedMatch.tossWinner && (
+                {selectedMatch.tossWinner && !isBadminton && (
                   <div>Toss Winner: <span className="text-amber-400 font-bold">{selectedMatch.tossWinner?.name}</span> (Chose to {selectedMatch.tossDecision})</div>
                 )}
                 {selectedMatch.result && (
@@ -488,18 +491,19 @@ export default function Fixtures() {
               </div>
 
               <Link
-                to={`/matches/${selectedMatch.id}`}
+                to={`${sportPrefix}/matches/${selectedMatch.id}`}
                 className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl flex justify-center items-center gap-1.5 shadow-lg glow-emerald transition-all"
               >
-                Open Full Match Center & Live Scorecard
+                Open Full Match Center & {isBadminton ? 'Rally Analytics' : 'Live Scorecard'}
               </Link>
             </div>
           ) : (
             <div className="glass-panel p-6 rounded-2xl border border-gray-800 text-center text-xs text-gray-400">
-              Select a fixture to view match overview & toss details.
+              Select a fixture to view match overview.
             </div>
           )}
         </div>
+
       </div>
 
       {/* SCHEDULE MATCH MODAL */}

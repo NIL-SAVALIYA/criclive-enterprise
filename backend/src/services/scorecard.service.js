@@ -6,6 +6,7 @@ import { getBowlingScorecardsByInnings } from "../repositories/bowlingScorecard.
 import { getFallOfWicketsByInnings } from "../repositories/fallOfWicket.repository.js";
 import { getPartnershipsByInnings } from "../repositories/partnership.repository.js";
 import { resolveBattingStatus, filterDeliveredBowlers } from "../engine/scorecardStatus.engine.js";
+import { getBadmintonMatchStateService } from "./badmintonMatch.service.js";
 
 function formatOvers(balls) {
     return `${Math.floor(balls / 6)}.${balls % 6}`;
@@ -18,7 +19,17 @@ export async function getScorecardService(matchId) {
         throw new Error("Match not found.");
     }
 
+    if (match.tournament?.sport?.code === "BADMINTON") {
+        const badmintonData = await getBadmintonMatchStateService(matchId);
+        return {
+            sport: "BADMINTON",
+            match: badmintonData.match,
+            matchState: badmintonData.matchState
+        };
+    }
+
     const inningsList = await getInningsByMatch(matchId);
+
 
     if (!inningsList || inningsList.length === 0) {
         return {

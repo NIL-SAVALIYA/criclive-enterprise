@@ -66,6 +66,7 @@ export async function getAllMatches(params = {}, db = prisma) {
       tossWinner: { select: { id: true, name: true, shortName: true } },
       winnerTeam: { select: { id: true, name: true, shortName: true } },
       scorer: { select: { id: true, firstName: true, lastName: true, email: true } },
+      badmintonMatchState: true,
       _count: {
         select: {
           innings: true,
@@ -74,6 +75,7 @@ export async function getAllMatches(params = {}, db = prisma) {
       }
     }
   };
+
 
   const isPaginated = Boolean(page && limit);
   if (isPaginated) {
@@ -132,6 +134,7 @@ export async function getMatchById(id, db = prisma) {
         },
         orderBy: { inningsNumber: "asc" }
       },
+      badmintonMatchState: true,
       _count: {
         select: {
           playingXI: true,
@@ -140,6 +143,7 @@ export async function getMatchById(id, db = prisma) {
       }
     }
   });
+
 }
 
 /**

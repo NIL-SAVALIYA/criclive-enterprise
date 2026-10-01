@@ -116,7 +116,15 @@ export async function createBallService(data) {
                 throw new Error("Innings not found.");
             }
 
+            const sportCode = innings.match?.tournament?.sport?.code;
+            if (sportCode && sportCode !== "CRICKET") {
+                const error = new Error(`Match belongs to ${sportCode} and cannot record Cricket ball deliveries.`);
+                error.statusCode = 400;
+                throw error;
+            }
+
             if (innings.status === "COMPLETED") {
+
                 throw new Error("Cannot record ball for a completed innings.");
             }
 

@@ -15,8 +15,10 @@ import { authorize } from "../middleware/authorize.middleware.js";
 import { authorizeScorer } from "../middleware/authorizeScorer.middleware.js";
 import { undoLastBall } from "../controllers/undoBall.controller.js";
 import { Roles } from "../constants/roles.js";
+import { requireSport } from "../middleware/sportGuard.middleware.js";
 
 const router = Router();
+
 
 /*
 |--------------------------------------------------------------------------
@@ -95,12 +97,14 @@ router.delete(
 router.post(
   "/:matchId/undo-last-ball",
   authorizeScorer,
+  requireSport("CRICKET"),
   undoLastBall
 );
 
 router.post(
   "/:id/undo-last-ball",
   authorizeScorer,
+  requireSport("CRICKET"),
   undoLastBall
 );
 

@@ -181,12 +181,11 @@ export default function Signup() {
                   type="text"
                   name="firstName"
                   required
-                  placeholder="John"
+                  placeholder="First Name"
                   value={formData.firstName}
                   onChange={handleChange}
-                  className={`w-full bg-gray-900 border ${
-                    fieldErrors.firstName ? 'border-red-500' : 'border-gray-700'
-                  } text-white rounded-xl pl-9 pr-3 py-2.5 text-xs font-semibold focus:border-emerald-500 focus:outline-none`}
+                  className={`w-full bg-gray-900 border ${fieldErrors.firstName ? 'border-red-500' : 'border-gray-700'
+                    } text-white rounded-xl pl-9 pr-3 py-2.5 text-xs font-semibold focus:border-emerald-500 focus:outline-none`}
                 />
               </div>
               {fieldErrors.firstName && (
@@ -204,12 +203,11 @@ export default function Signup() {
                   type="text"
                   name="lastName"
                   required
-                  placeholder="Doe"
+                  placeholder="Last Name"
                   value={formData.lastName}
                   onChange={handleChange}
-                  className={`w-full bg-gray-900 border ${
-                    fieldErrors.lastName ? 'border-red-500' : 'border-gray-700'
-                  } text-white rounded-xl pl-9 pr-3 py-2.5 text-xs font-semibold focus:border-emerald-500 focus:outline-none`}
+                  className={`w-full bg-gray-900 border ${fieldErrors.lastName ? 'border-red-500' : 'border-gray-700'
+                    } text-white rounded-xl pl-9 pr-3 py-2.5 text-xs font-semibold focus:border-emerald-500 focus:outline-none`}
                 />
               </div>
               {fieldErrors.lastName && (
@@ -229,12 +227,11 @@ export default function Signup() {
                 type="email"
                 name="email"
                 required
-                placeholder="john.doe@criclive.com"
+                placeholder="e.g. [EMAIL_ADDRESS]"
                 value={formData.email}
                 onChange={handleChange}
-                className={`w-full bg-gray-900 border ${
-                  fieldErrors.email ? 'border-red-500' : 'border-gray-700'
-                } text-white rounded-xl pl-9 pr-3 py-2.5 text-xs font-semibold focus:border-emerald-500 focus:outline-none`}
+                className={`w-full bg-gray-900 border ${fieldErrors.email ? 'border-red-500' : 'border-gray-700'
+                  } text-white rounded-xl pl-9 pr-3 py-2.5 text-xs font-semibold focus:border-emerald-500 focus:outline-none`}
               />
             </div>
             {fieldErrors.email && (
@@ -256,9 +253,8 @@ export default function Signup() {
                 placeholder="••••••••"
                 value={formData.password}
                 onChange={handleChange}
-                className={`w-full bg-gray-900 border ${
-                  fieldErrors.password ? 'border-red-500' : 'border-gray-700'
-                } text-white rounded-xl pl-9 pr-3 py-2.5 text-xs font-semibold focus:border-emerald-500 focus:outline-none`}
+                className={`w-full bg-gray-900 border ${fieldErrors.password ? 'border-red-500' : 'border-gray-700'
+                  } text-white rounded-xl pl-9 pr-3 py-2.5 text-xs font-semibold focus:border-emerald-500 focus:outline-none`}
               />
             </div>
             {fieldErrors.password ? (
@@ -284,9 +280,8 @@ export default function Signup() {
                 placeholder="••••••••"
                 value={formData.confirmPassword}
                 onChange={handleChange}
-                className={`w-full bg-gray-900 border ${
-                  fieldErrors.confirmPassword ? 'border-red-500' : 'border-gray-700'
-                } text-white rounded-xl pl-9 pr-3 py-2.5 text-xs font-semibold focus:border-emerald-500 focus:outline-none`}
+                className={`w-full bg-gray-900 border ${fieldErrors.confirmPassword ? 'border-red-500' : 'border-gray-700'
+                  } text-white rounded-xl pl-9 pr-3 py-2.5 text-xs font-semibold focus:border-emerald-500 focus:outline-none`}
               />
             </div>
             {fieldErrors.confirmPassword && (
@@ -298,11 +293,10 @@ export default function Signup() {
           <button
             type="submit"
             disabled={submitting || registered}
-            className={`w-full py-3.5 rounded-xl text-white font-extrabold text-xs uppercase tracking-wider shadow-lg transition-all flex justify-center items-center gap-2 mt-2 ${
-              submitting || registered
-                ? 'bg-gray-700 cursor-not-allowed opacity-75'
-                : 'bg-emerald-600 hover:bg-emerald-500 glow-emerald'
-            }`}
+            className={`w-full py-3.5 rounded-xl text-white font-extrabold text-xs uppercase tracking-wider shadow-lg transition-all flex justify-center items-center gap-2 mt-2 ${submitting || registered
+              ? 'bg-gray-700 cursor-not-allowed opacity-75'
+              : 'bg-emerald-600 hover:bg-emerald-500 glow-emerald'
+              }`}
           >
             <UserPlus className="w-4 h-4" /> {submitting ? 'Creating Account...' : 'Create Account'}
           </button>

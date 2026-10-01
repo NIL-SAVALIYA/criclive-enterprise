@@ -94,11 +94,17 @@ export default function DedicatedScorerConsole() {
       setSessionData(data);
 
       if (data?.match?.id) {
+        if (data.match.tournament?.sport?.code === 'BADMINTON') {
+          setLoading(false);
+          return;
+        }
+
         // Also fetch live match scorecard & live details
         const [liveRes, cardRes] = await Promise.all([
           api.get(`/matches/${data.match.id}/live`).catch(() => ({ data: { data: null } })),
           api.get(`/matches/${data.match.id}/scorecard`).catch(() => ({ data: { data: null } }))
         ]);
+
 
         const live = liveRes.data.data;
         const card = cardRes.data.data;
@@ -487,8 +493,32 @@ export default function DedicatedScorerConsole() {
   }
 
   if (match.tournament?.sport?.code === 'BADMINTON') {
-    return <BadmintonScoringConsole matchId={match.id} />;
+    return (
+      <div className="space-y-6 pb-16 max-w-7xl mx-auto">
+        <div className="glass-panel p-4 rounded-2xl border border-gray-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 rounded-full font-mono text-[10px] font-bold flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3" /> SECURE BADMINTON SCORER LINK
+              </span>
+              <span className="text-[11px] text-gray-400 font-mono">
+                Tournament: {match.tournament?.name || 'Badminton Championship'}
+              </span>
+            </div>
+            <div className="text-lg font-black text-white">
+              🏸 {match.teamA?.name} vs {match.teamB?.name}
+            </div>
+          </div>
+          <div className="flex items-center gap-3 text-xs text-gray-400 font-mono">
+            <span>Status: <strong className="text-emerald-400 font-sans">{match.status}</strong></span>
+            <span>• Venue: {match.venue || 'Indoor Arena'}</span>
+          </div>
+        </div>
+        <BadmintonScoringConsole matchId={match.id} />
+      </div>
+    );
   }
+
 
   return (
     <div className="space-y-6 pb-16 max-w-7xl mx-auto">

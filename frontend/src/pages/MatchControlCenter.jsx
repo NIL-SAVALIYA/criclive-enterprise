@@ -45,10 +45,16 @@ export default function MatchControlCenter() {
       setMatch(matchData);
       setPlayers(playersRes.data.data);
 
+      if (matchData.tournament?.sport?.code === 'BADMINTON') {
+        setLoading(false);
+        return;
+      }
+
       if (matchData.tossWinnerId) {
         setTossWinnerId(matchData.tossWinnerId);
         setTossDecision(matchData.tossDecision || 'BAT');
       }
+
 
       const xiData = playingXIRes?.data?.data;
       if (xiData) {
@@ -166,8 +172,21 @@ export default function MatchControlCenter() {
   }
 
   if (match.tournament?.sport?.code === 'BADMINTON') {
-    return <BadmintonScoringConsole matchId={matchId} />;
+    return (
+      <div className="max-w-5xl mx-auto space-y-6 pb-12">
+        <div className="glass-panel p-5 rounded-2xl border border-gray-800">
+          <h1 className="text-2xl font-extrabold text-white flex items-center gap-2">
+            🏸 Badminton Match Control & Scoring
+          </h1>
+          <p className="text-gray-400 text-xs mt-1">
+            {match.teamA?.name} vs {match.teamB?.name} • Tournament: {match.tournament?.name || 'Badminton League'}
+          </p>
+        </div>
+        <BadmintonScoringConsole matchId={matchId} />
+      </div>
+    );
   }
+
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-12">
