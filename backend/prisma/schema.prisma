@@ -20,6 +20,7 @@ enum SportCode {
   CRICKET
   BADMINTON
   FOOTBALL
+  TABLE_TENNIS
 }
 
 model Sport {
@@ -324,6 +325,8 @@ model Match {
   badmintonMatchState BadmintonMatchState?
 
   footballMatchState FootballMatchState?
+
+  tableTennisMatchState TableTennisMatchState?
 
   createdAt DateTime @default(now())
 
@@ -878,4 +881,83 @@ model FootballEvent {
 
   @@index([footballMatchStateId])
   @@index([footballMatchStateId, minute])
+}
+
+enum TableTennisFormat {
+  SINGLES
+  DOUBLES
+}
+
+enum TableTennisGameStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+model TableTennisMatchState {
+  id                String            @id @default(uuid())
+  matchId           String            @unique
+  format            TableTennisFormat @default(SINGLES)
+  bestOf            Int               @default(3) // 3 or 5
+  status            MatchStatus       @default(UPCOMING)
+  
+  teamAGamesWon     Int               @default(0)
+  teamBGamesWon     Int               @default(0)
+
+  currentGameNumber Int               @default(1)
+  currentServerId   String?
+  currentReceiverId String?
+  servingTeamId     String?
+
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  match             Match             @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  games             TableTennisGame[]
+
+  @@index([status])
+}
+
+model TableTennisGame {
+  id                      String                @id @default(uuid())
+  tableTennisMatchStateId String
+  gameNumber              Int
+  status                  TableTennisGameStatus @default(IN_PROGRESS)
+  
+  teamAScore              Int                   @default(0)
+  teamBScore              Int                   @default(0)
+
+  initialServerId         String?
+  initialReceiverId       String?
+
+  createdAt               DateTime              @default(now())
+  updatedAt               DateTime              @updatedAt
+
+  matchState              TableTennisMatchState @relation(fields: [tableTennisMatchStateId], references: [id], onDelete: Cascade)
+  points                  TableTennisPoint[]
+
+  @@unique([tableTennisMatchStateId, gameNumber])
+}
+
+model TableTennisPoint {
+  id                  String   @id @default(uuid())
+  tableTennisGameId   String
+  pointNumber         Int
+  
+  scoringTeamId       String
+  servingTeamId       String
+  serverId            String?
+  receiverId          String?
+  
+  scoreTeamA          Int
+  scoreTeamB          Int
+  
+  isGamePoint         Boolean  @default(false)
+  isMatchPoint        Boolean  @default(false)
+  
+  commentary          String?
+  createdAt           DateTime @default(now())
+
+  game                TableTennisGame @relation(fields: [tableTennisGameId], references: [id], onDelete: Cascade)
+
+  @@unique([tableTennisGameId, pointNumber])
 }

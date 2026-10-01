@@ -4,6 +4,7 @@ import api from '../api/client';
 import { getSportPrefixForMatch } from '../sports/sportsRegistry';
 import BadmintonScoringConsole from '../components/BadmintonScoringConsole';
 import FootballScoringConsole from '../components/FootballScoringConsole';
+import TableTennisScoringConsole from '../components/TableTennisScoringConsole';
 import WagonWheelSVG, { CANONICAL_ZONES, CANONICAL_ZONE_COORDS } from '../components/WagonWheelSVG';
 import PitchMapCanvas from '../components/PitchMapCanvas';
 import { useCricketSocket } from '../socket/useCricketSocket';
@@ -99,7 +100,7 @@ export default function DedicatedScorerConsole() {
 
       if (data?.match?.id) {
         const sportCode = data.match.tournament?.sport?.code;
-        if (sportCode === 'BADMINTON' || sportCode === 'FOOTBALL') {
+        if (sportCode === 'BADMINTON' || sportCode === 'FOOTBALL' || sportCode === 'TABLE_TENNIS') {
           setLoading(false);
           return;
         }
@@ -547,6 +548,33 @@ export default function DedicatedScorerConsole() {
           </div>
         </div>
         <FootballScoringConsole matchId={match.id} token={activeToken} />
+      </div>
+    );
+  }
+
+  if (match.tournament?.sport?.code === 'TABLE_TENNIS') {
+    return (
+      <div className="space-y-6 pb-16 max-w-7xl mx-auto">
+        <div className="glass-panel p-4 rounded-2xl border border-gray-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="px-2.5 py-0.5 bg-indigo-500/20 text-indigo-400 border border-indigo-500/40 rounded-full font-mono text-[10px] font-bold flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3" /> SECURE TABLE TENNIS SCORER LINK
+              </span>
+              <span className="text-[11px] text-gray-400 font-mono">
+                Tournament: {match.tournament?.name || 'Table Tennis Championship'}
+              </span>
+            </div>
+            <div className="text-lg font-black text-white">
+              🏓 {match.teamA?.name} vs {match.teamB?.name}
+            </div>
+          </div>
+          <div className="flex items-center gap-3 text-xs text-gray-400 font-mono">
+            <span>Status: <strong className="text-indigo-400 font-sans">{match.status}</strong></span>
+            <span>• Venue: {match.venue || 'Indoor Arena'}</span>
+          </div>
+        </div>
+        <TableTennisScoringConsole matchId={match.id} token={activeToken} />
       </div>
     );
   }

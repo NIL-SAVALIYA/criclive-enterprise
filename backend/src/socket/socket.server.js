@@ -245,3 +245,29 @@ export function emitBadmintonPointUndone(matchId, payload) {
 }
 
 
+/**
+ * Emit Table Tennis Point Scored Event
+ */
+export function emitTableTennisPointScored(matchId, payload) {
+  if (!io) return;
+  io.to(match_).emit("TABLE_TENNIS_POINT_SCORED", payload);
+  io.emit("GLOBAL_TABLE_TENNIS_POINT_SCORED", { matchId, ...payload });
+}
+
+/**
+ * Emit Table Tennis Point Undone Event
+ */
+export function emitTableTennisPointUndone(matchId, payload) {
+  if (!io) return;
+  io.to(match_).emit("TABLE_TENNIS_POINT_UNDONE", payload);
+  io.emit("GLOBAL_TABLE_TENNIS_POINT_UNDONE", { matchId, ...payload });
+}
+
+/**
+ * Emit Table Tennis Match Updated Event
+ */
+export function emitTableTennisMatchUpdated(matchId, payload) {
+  if (!io) return;
+  io.to(match_).emit("TABLE_TENNIS_MATCH_UPDATED", payload);
+  io.emit("GLOBAL_TABLE_TENNIS_MATCH_UPDATED", { matchId, ...payload });
+}

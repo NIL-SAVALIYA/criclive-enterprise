@@ -40,6 +40,7 @@ import managerAssignmentRoutes from "./routes/managerAssignment.routes.js";
 import sportsRoutes from "./routes/sports.routes.js";
 import badmintonRoutes from "./routes/badminton.routes.js";
 import footballRoutes from "./routes/football.routes.js";
+import tableTennisRoutes from "./routes/tableTennis.routes.js";
 
 const app = express();
 
@@ -90,6 +91,7 @@ app.use("/api/v1", healthRoutes);
 app.use("/api/v1/sports", sportsRoutes);
 app.use("/api/v1/badminton", badmintonRoutes);
 app.use("/api/v1/football", footballRoutes);
+app.use("/api/v1/table-tennis", tableTennisRoutes);
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/roles", roleRoutes);
 app.use("/api/v1/users", userRoutes);

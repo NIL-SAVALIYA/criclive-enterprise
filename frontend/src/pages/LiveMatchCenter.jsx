@@ -4,6 +4,7 @@ import api from '../api/client';
 import { useCricketSocket } from '../socket/useCricketSocket';
 import BadmintonLiveMatchCenter from '../components/BadmintonLiveMatchCenter';
 import FootballLiveMatchCenter from '../components/FootballLiveMatchCenter';
+import TableTennisLiveMatchCenter from '../components/TableTennisLiveMatchCenter';
 import WagonWheelSVG from '../components/WagonWheelSVG';
 import PitchMapCanvas from '../components/PitchMapCanvas';
 import WinProbabilityMeter from '../components/WinProbabilityMeter';
@@ -89,6 +90,10 @@ export default function LiveMatchCenter() {
     return <FootballLiveMatchCenter matchId={matchId} />;
   }
 
+  if (urlSportCode === 'TABLE_TENNIS') {
+    return <TableTennisLiveMatchCenter matchId={matchId} />;
+  }
+
   // ─── API-BASED DISPATCH (legacy /matches/:id route) ─────────────────────────
   // Only reached when URL has no sport prefix. Wait for data to load before dispatch.
   if (!loading) {
@@ -97,6 +102,9 @@ export default function LiveMatchCenter() {
     }
     if (apiSportCode === 'FOOTBALL') {
       return <FootballLiveMatchCenter matchId={matchId} />;
+    }
+    if (apiSportCode === 'TABLE_TENNIS') {
+      return <TableTennisLiveMatchCenter matchId={matchId} />;
     }
     // Explicit unknown-sport guard: if sport is not null but also not one we recognise,
     // show a clear error rather than silently rendering the cricket scorecard.

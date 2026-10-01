@@ -4,6 +4,7 @@ import api from '../api/client';
 import { useSport } from '../context/SportContext';
 import BadmintonScoringConsole from '../components/BadmintonScoringConsole';
 import FootballScoringConsole from '../components/FootballScoringConsole';
+import TableTennisScoringConsole from '../components/TableTennisScoringConsole';
 import CricketScoringConsole from '../components/CricketScoringConsole';
 import { Settings, Play, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 
@@ -13,6 +14,7 @@ export default function AdminScoringConsole() {
   const urlToken = searchParams.get('token') || searchParams.get('scoringToken') || searchParams.get('accessToken');
 
   const { currentSport, isBadminton, isFootball, terminology } = useSport();
+  const isTableTennis = currentSport === 'TABLE_TENNIS';
 
   const [matches, setMatches] = useState([]);
   const [selectedMatchId, setSelectedMatchId] = useState('');
@@ -63,6 +65,8 @@ export default function AdminScoringConsole() {
               ? '🏸 Official Rally Scoring Console'
               : isFootball
               ? '⚽ Official Match Event Console'
+              : isTableTennis
+              ? '🏓 Official Match Event Console'
               : '🏏 Official Ball-by-Ball Scorer Console'}
           </h1>
           <p className="text-gray-400 text-xs mt-1">
@@ -70,6 +74,8 @@ export default function AdminScoringConsole() {
               ? 'Real-time BWF rally point entry, service court determination, and game tracking'
               : isFootball
               ? 'Real-time match event entry (goals, cards, substitutions, penalties, match clock)'
+              : isTableTennis
+              ? 'Real-time Table Tennis rally point entry and game tracking'
               : 'Real-time match scoring terminal with Wagon Wheel & Pitch Map vector entry'}
           </p>
         </div>
@@ -103,7 +109,7 @@ export default function AdminScoringConsole() {
       {!loadingMatches && matches.length === 0 && (
         <div className="glass-panel p-12 rounded-2xl border border-gray-800 text-center space-y-3">
           <p className="text-gray-300 font-bold text-base">
-            No {currentSport === 'BADMINTON' ? 'Badminton' : 'Cricket'} fixtures available for scoring.
+            No {currentSport === 'BADMINTON' ? 'Badminton' : currentSport === 'TABLE_TENNIS' ? 'Table Tennis' : 'Cricket'} fixtures available for scoring.
           </p>
           <p className="text-xs text-gray-500">
             Create or schedule a fixture in the Tournaments or Fixtures section to begin scoring.
@@ -117,6 +123,8 @@ export default function AdminScoringConsole() {
           <BadmintonScoringConsole matchId={selectedMatchId} token={urlToken} />
         ) : currentSport === 'FOOTBALL' ? (
           <FootballScoringConsole matchId={selectedMatchId} token={urlToken} />
+        ) : currentSport === 'TABLE_TENNIS' ? (
+          <TableTennisScoringConsole matchId={selectedMatchId} token={urlToken} />
         ) : (
           <CricketScoringConsole matchId={selectedMatchId} initialMatch={selectedMatch} />
         )

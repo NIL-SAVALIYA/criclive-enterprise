@@ -72,9 +72,9 @@ export function SportProvider({ children }) {
     localStorage.setItem('selectedSport', cleanCode);
 
     // If options.redirect is requested or if user is on a sport-specific route, transition route
-    if (options.redirect || location.pathname.startsWith('/cricket') || location.pathname.startsWith('/badminton') || location.pathname.startsWith('/football')) {
-      const targetPrefix = `/${cleanCode.toLowerCase()}`;
-      let suffix = location.pathname.replace(/^\/(cricket|badminton|football)/, '');
+    if (options.redirect || location.pathname.startsWith('/cricket') || location.pathname.startsWith('/badminton') || location.pathname.startsWith('/football') || location.pathname.startsWith('/table-tennis')) {
+      const targetPrefix = `/${cleanCode.toLowerCase().replace('_', '-')}`;
+      let suffix = location.pathname.replace(/^\/(cricket|badminton|football|table-tennis)/, '');
       if (!suffix || suffix === '/') suffix = '/live';
       navigate(`${targetPrefix}${suffix}`);
     }
@@ -84,6 +84,7 @@ export function SportProvider({ children }) {
   const isCricket = currentSport === 'CRICKET';
   const isBadminton = currentSport === 'BADMINTON';
   const isFootball = currentSport === 'FOOTBALL';
+  const isTableTennis = currentSport === 'TABLE_TENNIS';
 
   return (
     <SportContext.Provider
@@ -98,6 +99,7 @@ export function SportProvider({ children }) {
         isCricket,
         isBadminton,
         isFootball,
+        isTableTennis,
         hasCap: (cap) => hasCapability(currentSport, cap)
       }}
     >

@@ -172,6 +172,68 @@ export const SPORTS_REGISTRY = {
       players: '/football/players',
       scorer: '/football/admin/scorer'
     }
+  },
+
+  TABLE_TENNIS: {
+    id: 'table-tennis',
+    code: 'TABLE_TENNIS',
+    name: 'Table Tennis',
+    icon: '🏓',
+    scoringModel: 'rally',
+    matchModel: 'table_tennis',
+    capabilities: {
+      singles: true,
+      doubles: true,
+      games: true,
+      points: true,
+      service: true,
+      undo: true,
+      liveScoring: true,
+      ballByBallScoring: false,
+      rallyScoring: true,
+      wickets: false,
+      overs: false,
+      innings: false,
+      strikeRotation: false,
+      toss: false,
+      tossDecision: false,
+      sets: false,
+      serverReceiver: true,
+      wagonWheel: false,
+      pitchMap: false,
+      winProbability: false,
+      orangePurpleCaps: false
+    },
+    terminology: {
+      score: 'Points',
+      subScore: 'Games',
+      period: 'Game',
+      unit: 'Rallies',
+      team: 'Team / Side',
+      player: 'Player',
+      courtOrPitch: 'Table',
+      roundOrInnings: 'Game',
+      server: 'Server',
+      receiver: 'Receiver',
+      scorerTitle: 'Table Tennis Scoring Console',
+      scorerCta: 'Open Table Tennis Console',
+      heroBadge: '🏓 Live Table Tennis Engine',
+      heroHeadline: 'Real-Time Table Tennis Match Scoring',
+      heroSubline: 'Experience live point tracking, service rotations, and multi-game match tracking.'
+    },
+    defaultVenue: 'Table Tennis Arena',
+    positions: [
+      { id: 'PLAYER', label: 'Player', short: 'PLY' }
+    ],
+    routes: {
+      base: '/table-tennis',
+      live: '/table-tennis/live',
+      fixtures: '/table-tennis/fixtures',
+      tournaments: '/table-tennis/tournaments',
+      teams: '/table-tennis/teams',
+      players: '/table-tennis/players',
+      scorer: '/table-tennis/admin/scorer'
+    }
   }
 };
 
@@ -208,6 +270,7 @@ export function getSportFromPath(pathname) {
   if (lower.startsWith('/cricket')) return 'CRICKET';
   if (lower.startsWith('/badminton')) return 'BADMINTON';
   if (lower.startsWith('/football')) return 'FOOTBALL';
+  if (lower.startsWith('/table-tennis')) return 'TABLE_TENNIS';
   return null;
 }
 
