@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import api from '../api/client';
+import { useAuth } from '../context/AuthContext';
 import { useFootballSocket } from '../socket/useFootballSocket';
 import Skeleton from './Skeleton';
 import {
@@ -18,6 +19,17 @@ import {
 } from 'lucide-react';
 
 export default function FootballLiveMatchCenter({ matchId }) {
+  const [searchParams] = useSearchParams();
+  const { user, hasRole } = useAuth();
+
+  const queryToken = searchParams.get('token') || searchParams.get('scoringToken') || searchParams.get('accessToken');
+
+  useEffect(() => {
+    if (queryToken) {
+      sessionStorage.setItem('activeScoringToken', queryToken);
+    }
+  }, [queryToken]);
+
   const [matchData, setMatchData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState(null);
@@ -109,6 +121,9 @@ export default function FootballLiveMatchCenter({ matchId }) {
   const isLive = state.status === 'LIVE' || match.status === 'LIVE';
   const isCompleted = state.status === 'COMPLETED' || match.status === 'COMPLETED';
 
+  const scoringToken = queryToken || match.scoringToken || sessionStorage.getItem('activeScoringToken');
+  const canScore = hasRole(['ADMIN', 'ORGANIZER', 'SCORER']) || Boolean(scoringToken);
+
   // Group events for quick inspection
   const goals = events.filter((e) => e.eventType === 'GOAL');
   const cards = events.filter((e) => e.eventType === 'YELLOW_CARD' || e.eventType === 'RED_CARD');
@@ -131,6 +146,19 @@ export default function FootballLiveMatchCenter({ matchId }) {
           </div>
 
           <div className="flex items-center gap-3">
+            {canScore && (
+              <Link
+                to={
+                  scoringToken
+                    ? `/football/score/${encodeURIComponent(scoringToken)}`
+                    : `/football/admin/scorer?matchId=${matchId}`
+                }
+                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-bold text-[11px] flex items-center gap-1.5 shadow glow-emerald transition-all"
+                title="Open Football Scoring Console"
+              >
+                ⚽ Scoring Console
+              </Link>
+            )}
             <span className="flex items-center gap-1 text-[11px] text-gray-400">
               <MapPin className="w-3.5 h-3.5 text-gray-500" />
               {match.venue || 'Football Stadium'}

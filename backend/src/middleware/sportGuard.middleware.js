@@ -11,8 +11,8 @@ export function requireSport(expectedSportCode) {
 
   return async (req, res, next) => {
     try {
-      const matchId = req.params.matchId || req.body?.matchId;
-      const inningsId = req.params.inningsId || req.body?.inningsId;
+      const matchId = req.params.matchId || req.params.id || req.body?.matchId || req.body?.match_id;
+      const inningsId = req.params.inningsId || req.body?.inningsId || req.body?.innings_id;
 
       let resolvedSportCode = null;
 

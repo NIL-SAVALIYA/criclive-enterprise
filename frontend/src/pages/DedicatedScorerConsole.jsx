@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useSearchParams, Link } from 'react-router-dom';
 import api from '../api/client';
 import { getSportPrefixForMatch } from '../sports/sportsRegistry';
 import BadmintonScoringConsole from '../components/BadmintonScoringConsole';
@@ -37,7 +37,9 @@ import Skeleton from '../components/Skeleton';
 
 export default function DedicatedScorerConsole() {
   const { token, scoringCode } = useParams();
-  const rawToken = token || scoringCode || '';
+  const [searchParams] = useSearchParams();
+  const queryToken = searchParams.get('token') || searchParams.get('scoringToken') || searchParams.get('accessToken');
+  const rawToken = token || scoringCode || queryToken || '';
   const activeToken = rawToken ? decodeURIComponent(rawToken.trim()) : '';
 
   const [loading, setLoading] = useState(true);
@@ -517,7 +519,7 @@ export default function DedicatedScorerConsole() {
             <span>• Venue: {match.venue || 'Indoor Arena'}</span>
           </div>
         </div>
-        <BadmintonScoringConsole matchId={match.id} />
+        <BadmintonScoringConsole matchId={match.id} token={activeToken} />
       </div>
     );
   }
@@ -544,7 +546,7 @@ export default function DedicatedScorerConsole() {
             <span>• Venue: {match.venue || 'Football Stadium'}</span>
           </div>
         </div>
-        <FootballScoringConsole matchId={match.id} />
+        <FootballScoringConsole matchId={match.id} token={activeToken} />
       </div>
     );
   }

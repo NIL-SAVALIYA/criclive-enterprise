@@ -200,7 +200,7 @@ export default function MatchControlCenter() {
             {match.teamA?.name} vs {match.teamB?.name} • Tournament: {match.tournament?.name || 'Football League'}
           </p>
         </div>
-        <FootballScoringConsole matchId={matchId} />
+        <FootballScoringConsole matchId={matchId} token={match.scoringToken} />
       </div>
     );
   }

@@ -13,6 +13,7 @@ import {
   recordFullTime,
   undoEvent
 } from "../controllers/football.controller.js";
+import { getScoreSessionByToken } from "../controllers/match.controller.js";
 import { authorizeScorer } from "../middleware/authorizeScorer.middleware.js";
 import { requireSport } from "../middleware/sportGuard.middleware.js";
 
@@ -23,6 +24,10 @@ const router = Router();
 | Football Scoring API Routes
 |--------------------------------------------------------------------------
 */
+
+// Guest Score Session Validation Route aliases under football namespace
+router.get("/score-session/:token", getScoreSessionByToken);
+router.get("/matches/score-session/:token", getScoreSessionByToken);
 
 // GET /api/v1/football/matches/:matchId/state - Public view of Football match state & timeline
 router.get("/matches/:matchId/state", requireSport("FOOTBALL"), getMatchState);

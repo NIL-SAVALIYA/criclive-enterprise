@@ -10,6 +10,7 @@ import { Settings, Play, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react
 export default function AdminScoringConsole() {
   const [searchParams] = useSearchParams();
   const urlMatchId = searchParams.get('matchId');
+  const urlToken = searchParams.get('token') || searchParams.get('scoringToken') || searchParams.get('accessToken');
 
   const { currentSport, isBadminton, isFootball, terminology } = useSport();
 
@@ -113,9 +114,9 @@ export default function AdminScoringConsole() {
       {/* Render Dedicated Sport Scorer */}
       {selectedMatchId && (
         currentSport === 'BADMINTON' ? (
-          <BadmintonScoringConsole matchId={selectedMatchId} />
+          <BadmintonScoringConsole matchId={selectedMatchId} token={urlToken} />
         ) : currentSport === 'FOOTBALL' ? (
-          <FootballScoringConsole matchId={selectedMatchId} />
+          <FootballScoringConsole matchId={selectedMatchId} token={urlToken} />
         ) : (
           <CricketScoringConsole matchId={selectedMatchId} initialMatch={selectedMatch} />
         )

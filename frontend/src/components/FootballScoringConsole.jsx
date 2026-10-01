@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import api from '../api/client';
 import { useFootballSocket } from '../socket/useFootballSocket';
 import Skeleton from './Skeleton';
@@ -18,7 +19,25 @@ import {
   Loader2
 } from 'lucide-react';
 
-export default function FootballScoringConsole({ matchId }) {
+export default function FootballScoringConsole({ matchId, token: propToken }) {
+  const [searchParams] = useSearchParams();
+  const queryToken = searchParams.get('token') || searchParams.get('scoringToken') || searchParams.get('accessToken');
+  const activeToken = propToken || queryToken || sessionStorage.getItem('activeScoringToken') || '';
+
+  useEffect(() => {
+    if (activeToken) {
+      sessionStorage.setItem('activeScoringToken', activeToken);
+    }
+  }, [activeToken]);
+
+  const getRequestConfig = useCallback(() => {
+    const config = {};
+    if (activeToken) {
+      config.headers = { 'x-scoring-token': activeToken };
+    }
+    return config;
+  }, [activeToken]);
+
   const [matchData, setMatchData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -142,9 +161,14 @@ export default function FootballScoringConsole({ matchId }) {
     setSubmitting(true);
     setErrorMsg(null);
     try {
-      const res = await api.post(`/football/matches/${matchId}/start`, {
-        kickoffTeamId: match.teamA?.id
-      });
+      const res = await api.post(
+        `/football/matches/${matchId}/start`,
+        {
+          kickoffTeamId: match.teamA?.id,
+          scoringToken: activeToken || undefined
+        },
+        getRequestConfig()
+      );
       setMatchData((prev) => ({
         ...prev,
         match: res.data.data.match,
@@ -163,9 +187,14 @@ export default function FootballScoringConsole({ matchId }) {
     setSubmitting(true);
     setErrorMsg(null);
     try {
-      const res = await api.post(`/football/matches/${matchId}/half-time`, {
-        minute: Number(eventMinute) || 45
-      });
+      const res = await api.post(
+        `/football/matches/${matchId}/half-time`,
+        {
+          minute: Number(eventMinute) || 45,
+          scoringToken: activeToken || undefined
+        },
+        getRequestConfig()
+      );
       setMatchData((prev) => ({
         ...prev,
         matchState: res.data.data.matchState,
@@ -183,9 +212,14 @@ export default function FootballScoringConsole({ matchId }) {
     setSubmitting(true);
     setErrorMsg(null);
     try {
-      const res = await api.post(`/football/matches/${matchId}/second-half`, {
-        minute: Number(eventMinute) || 45
-      });
+      const res = await api.post(
+        `/football/matches/${matchId}/second-half`,
+        {
+          minute: Number(eventMinute) || 45,
+          scoringToken: activeToken || undefined
+        },
+        getRequestConfig()
+      );
       setMatchData((prev) => ({
         ...prev,
         matchState: res.data.data.matchState,
@@ -204,9 +238,14 @@ export default function FootballScoringConsole({ matchId }) {
     setSubmitting(true);
     setErrorMsg(null);
     try {
-      const res = await api.post(`/football/matches/${matchId}/full-time`, {
-        minute: Number(eventMinute) || 90
-      });
+      const res = await api.post(
+        `/football/matches/${matchId}/full-time`,
+        {
+          minute: Number(eventMinute) || 90,
+          scoringToken: activeToken || undefined
+        },
+        getRequestConfig()
+      );
       setMatchData((prev) => ({
         ...prev,
         match: { ...prev.match, ...res.data.data.match },
@@ -226,7 +265,11 @@ export default function FootballScoringConsole({ matchId }) {
     setSubmitting(true);
     setErrorMsg(null);
     try {
-      const res = await api.post(`/football/matches/${matchId}/undo-event`);
+      const res = await api.post(
+        `/football/matches/${matchId}/undo-event`,
+        { scoringToken: activeToken || undefined },
+        getRequestConfig()
+      );
       setMatchData((prev) => ({
         ...prev,
         matchState: res.data.data.matchState,
@@ -250,16 +293,22 @@ export default function FootballScoringConsole({ matchId }) {
 
     const targetTeamId = eventTeamId || match.teamA?.id;
     const parsedMinute = Number(eventMinute) || 0;
+    const authConfig = getRequestConfig();
 
     try {
       if (activeTab === 'GOAL') {
-        const res = await api.post(`/football/matches/${matchId}/events/goal`, {
-          scoringTeamId: targetTeamId,
-          playerId: selectedPlayerId || null,
-          secondaryPlayerId: secondaryPlayerId || null,
-          minute: parsedMinute,
-          detail: eventDetail || 'Goal'
-        });
+        const res = await api.post(
+          `/football/matches/${matchId}/events/goal`,
+          {
+            scoringTeamId: targetTeamId,
+            playerId: selectedPlayerId || null,
+            secondaryPlayerId: secondaryPlayerId || null,
+            minute: parsedMinute,
+            detail: eventDetail || 'Goal',
+            scoringToken: activeToken || undefined
+          },
+          authConfig
+        );
         setMatchData((prev) => ({
           ...prev,
           matchState: res.data.data.matchState,
@@ -267,13 +316,18 @@ export default function FootballScoringConsole({ matchId }) {
         }));
         setSuccessMsg('Goal recorded successfully! ⚽');
       } else if (activeTab === 'CARD') {
-        const res = await api.post(`/football/matches/${matchId}/events/card`, {
-          cardType,
-          teamId: targetTeamId,
-          playerId: selectedPlayerId || null,
-          minute: parsedMinute,
-          detail: eventDetail || (cardType === 'YELLOW_CARD' ? 'Yellow Card' : 'Red Card')
-        });
+        const res = await api.post(
+          `/football/matches/${matchId}/events/card`,
+          {
+            cardType,
+            teamId: targetTeamId,
+            playerId: selectedPlayerId || null,
+            minute: parsedMinute,
+            detail: eventDetail || (cardType === 'YELLOW_CARD' ? 'Yellow Card' : 'Red Card'),
+            scoringToken: activeToken || undefined
+          },
+          authConfig
+        );
         setMatchData((prev) => ({
           ...prev,
           matchState: res.data.data.matchState,
@@ -281,13 +335,18 @@ export default function FootballScoringConsole({ matchId }) {
         }));
         setSuccessMsg(`${cardType === 'YELLOW_CARD' ? 'Yellow' : 'Red'} card recorded.`);
       } else if (activeTab === 'SUB') {
-        const res = await api.post(`/football/matches/${matchId}/events/substitution`, {
-          teamId: targetTeamId,
-          playerLeavingId: selectedPlayerId || null,
-          playerEnteringId: secondaryPlayerId || null,
-          minute: parsedMinute,
-          detail: eventDetail || 'Substitution'
-        });
+        const res = await api.post(
+          `/football/matches/${matchId}/events/substitution`,
+          {
+            teamId: targetTeamId,
+            playerLeavingId: selectedPlayerId || null,
+            playerEnteringId: secondaryPlayerId || null,
+            minute: parsedMinute,
+            detail: eventDetail || 'Substitution',
+            scoringToken: activeToken || undefined
+          },
+          authConfig
+        );
         setMatchData((prev) => ({
           ...prev,
           matchState: res.data.data.matchState,
@@ -295,13 +354,18 @@ export default function FootballScoringConsole({ matchId }) {
         }));
         setSuccessMsg('Substitution recorded successfully.');
       } else if (activeTab === 'PENALTY') {
-        const res = await api.post(`/football/matches/${matchId}/events/penalty`, {
-          teamId: targetTeamId,
-          playerId: selectedPlayerId || null,
-          minute: parsedMinute,
-          isScored: Boolean(penaltyScored),
-          detail: eventDetail || (penaltyScored ? 'Penalty Goal' : 'Penalty Saved / Missed')
-        });
+        const res = await api.post(
+          `/football/matches/${matchId}/events/penalty`,
+          {
+            teamId: targetTeamId,
+            playerId: selectedPlayerId || null,
+            minute: parsedMinute,
+            isScored: Boolean(penaltyScored),
+            detail: eventDetail || (penaltyScored ? 'Penalty Goal' : 'Penalty Saved / Missed'),
+            scoringToken: activeToken || undefined
+          },
+          authConfig
+        );
         setMatchData((prev) => ({
           ...prev,
           matchState: res.data.data.matchState,
@@ -309,11 +373,16 @@ export default function FootballScoringConsole({ matchId }) {
         }));
         setSuccessMsg(penaltyScored ? 'Penalty Goal recorded! ⚽' : 'Penalty missed/saved recorded.');
       } else if (activeTab === 'KICKOFF') {
-        const res = await api.post(`/football/matches/${matchId}/events/kickoff`, {
-          teamId: targetTeamId,
-          minute: parsedMinute,
-          detail: eventDetail || 'Kickoff'
-        });
+        const res = await api.post(
+          `/football/matches/${matchId}/events/kickoff`,
+          {
+            teamId: targetTeamId,
+            minute: parsedMinute,
+            detail: eventDetail || 'Kickoff',
+            scoringToken: activeToken || undefined
+          },
+          authConfig
+        );
         setMatchData((prev) => ({
           ...prev,
           matchState: res.data.data.matchState,
