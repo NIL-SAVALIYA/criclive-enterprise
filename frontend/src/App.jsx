@@ -10,6 +10,7 @@ import Signup from './pages/Signup';
 import LiveMatchCenter from './pages/LiveMatchCenter';
 import Tournaments from './pages/Tournaments';
 import TeamsAndPlayers from './pages/TeamsAndPlayers';
+import CreateTeam from './pages/CreateTeam';
 import Players from './pages/Players';
 import BecomeOrganizer from './pages/BecomeOrganizer';
 import AdminScoringConsole from './pages/AdminScoringConsole';
@@ -47,6 +48,14 @@ export default function App() {
                 <Route path="/cricket/fixtures" element={<Fixtures />} />
                 <Route path="/cricket/tournaments" element={<Tournaments />} />
                 <Route path="/cricket/teams" element={<TeamsAndPlayers />} />
+                <Route
+                  path="/cricket/teams/create"
+                  element={
+                    <ProtectedRoute allowedRoles={['ADMIN', 'ORGANIZER']}>
+                      <CreateTeam />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route path="/cricket/players" element={<Players />} />
                 <Route path="/cricket/matches/:matchId" element={<LiveMatchCenter />} />
                 <Route path="/cricket/score/:token" element={<DedicatedScorerConsole />} />
@@ -73,6 +82,14 @@ export default function App() {
                 <Route path="/badminton/fixtures" element={<Fixtures />} />
                 <Route path="/badminton/tournaments" element={<Tournaments />} />
                 <Route path="/badminton/teams" element={<TeamsAndPlayers />} />
+                <Route
+                  path="/badminton/teams/create"
+                  element={
+                    <ProtectedRoute allowedRoles={['ADMIN', 'ORGANIZER']}>
+                      <CreateTeam />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route path="/badminton/players" element={<Players />} />
                 <Route path="/badminton/matches/:matchId" element={<LiveMatchCenter />} />
                 <Route path="/badminton/score/:token" element={<DedicatedScorerConsole />} />
@@ -99,6 +116,14 @@ export default function App() {
                 <Route path="/football/fixtures" element={<Fixtures />} />
                 <Route path="/football/tournaments" element={<Tournaments />} />
                 <Route path="/football/teams" element={<TeamsAndPlayers />} />
+                <Route
+                  path="/football/teams/create"
+                  element={
+                    <ProtectedRoute allowedRoles={['ADMIN', 'ORGANIZER']}>
+                      <CreateTeam />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route path="/football/players" element={<Players />} />
                 <Route path="/football/matches/:matchId" element={<LiveMatchCenter />} />
                 <Route path="/football/score/:token" element={<DedicatedScorerConsole />} />

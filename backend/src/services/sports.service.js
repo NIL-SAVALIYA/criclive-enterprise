@@ -33,9 +33,9 @@ export async function validateAndGetSportByCode(sportCode, db = prisma) {
 
   const cleanCode = sportCode.trim().toUpperCase();
 
-  const VALID_SPORT_CODES = ["CRICKET", "BADMINTON"];
+  const VALID_SPORT_CODES = ["CRICKET", "BADMINTON", "FOOTBALL"];
   if (!VALID_SPORT_CODES.includes(cleanCode)) {
-    const error = new Error(`Invalid or unsupported sport code '${cleanCode}'. Supported sports: CRICKET, BADMINTON.`);
+    const error = new Error(`Invalid or unsupported sport code '${cleanCode}'. Supported sports: CRICKET, BADMINTON, FOOTBALL.`);
     error.statusCode = 400;
     throw error;
   }
@@ -45,7 +45,7 @@ export async function validateAndGetSportByCode(sportCode, db = prisma) {
   });
 
   if (!sport || !sport.isActive) {
-    const error = new Error(`Invalid or unsupported sport code '${cleanCode}'. Supported sports: CRICKET, BADMINTON.`);
+    const error = new Error(`Invalid or unsupported sport code '${cleanCode}'. Supported sports: CRICKET, BADMINTON, FOOTBALL.`);
     error.statusCode = 400;
     throw error;
   }

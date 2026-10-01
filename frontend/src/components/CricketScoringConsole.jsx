@@ -11,7 +11,18 @@ import {
   getEligibleNonStrikers,
   getEligibleIncomingBatters
 } from '../utils/battingEligibility';
-import { Play, Settings, Target, PieChart, CheckCircle2, AlertCircle, User, Activity, Loader2, RotateCcw } from 'lucide-react';
+import {
+  Play,
+  Settings,
+  Target,
+  PieChart,
+  CheckCircle2,
+  AlertCircle,
+  User,
+  Activity,
+  Loader2,
+  RotateCcw
+} from 'lucide-react';
 
 export default function CricketScoringConsole({ matchId, initialMatch }) {
   const [matchDetails, setMatchDetails] = useState(null);
@@ -94,19 +105,39 @@ export default function CricketScoringConsole({ matchId, initialMatch }) {
     }
   }
 
-  async function handleUndoDelivery() {
-    if (!matchId) return;
+  const handleShotZoneSelect = ({ zone, x = 0, y = 0 }) => {
+    setShotZone(zone);
+    setShotX(x);
+    setShotY(y);
+  };
+
+  const handlePitchSelect = ({ pitchLength: len, pitchLine: line }) => {
+    if (len) setPitchLength(len);
+    if (line) setPitchLine(line);
+  };
+
+  async function handleUndoLastBall() {
+    if (loading || !matchId) return;
+
+    const confirmUndo = window.confirm(
+      "Undo Last Delivery?\nThis will revert the latest delivery and all dependent match statistics."
+    );
+    if (!confirmUndo) return;
+
     setLoading(true);
     setStatusMsg(null);
     try {
       await api.post(`/matches/${matchId}/undo-last-ball`);
-      setStatusMsg({ type: 'success', text: 'Most recent delivery undone successfully!' });
+      setStatusMsg({
+        type: 'success',
+        text: 'Last delivery undone successfully ✓'
+      });
       await loadMatchData(matchId);
     } catch (err) {
-      console.error('Undo delivery failed:', err);
+      console.error('Failed to undo ball:', err);
       setStatusMsg({
         type: 'error',
-        text: err.response?.data?.message || 'Failed to undo last delivery.'
+        text: err.response?.data?.message || 'Error undoing delivery.'
       });
     } finally {
       setLoading(false);
@@ -114,48 +145,71 @@ export default function CricketScoringConsole({ matchId, initialMatch }) {
   }
 
   async function handleRecordBall(e) {
-    e.preventDefault();
+    if (e) e.preventDefault();
+
+    if (loading) return; // Prevent double submission
+
+    if (!matchDetails || !matchDetails.innings) {
+      setStatusMsg({
+        type: 'error',
+        text: 'No active live innings found for this match.'
+      });
+      return;
+    }
+
+    const inningsId = matchDetails.innings.id;
+    const strikerId = activeStrikerId || matchDetails.currentBatters?.striker?.id;
+    const nonStrikerId = activeNonStrikerId || matchDetails.currentBatters?.nonStriker?.id;
+    const bowlerId = activeBowlerId || matchDetails.currentBowling?.id;
+
+    if (!strikerId || !bowlerId) {
+      setStatusMsg({ type: 'error', text: 'Please ensure Striker and Bowler are selected.' });
+      return;
+    }
+
     setLoading(true);
     setStatusMsg(null);
 
     try {
-      const inningsId = matchDetails?.innings?.id || scorecardDetails?.innings?.id;
-      if (!inningsId) {
-        setStatusMsg({ type: 'error', text: 'No active innings found for scoring.' });
-        setLoading(false);
-        return;
-      }
+      const isByeType = extraType === 'BYE' || extraType === 'LEG_BYE' || extraType === 'WIDE';
+      const actualBatRuns = isByeType ? 0 : Number(batRuns) || 0;
+      const actualExtraRuns = Number(extraRuns) || 0;
 
       const payload = {
-        batsmanId: effectiveStrikerId,
-        nonStrikerId: effectiveNonStrikerId,
-        bowlerId: activeBowlerId || matchDetails?.currentBowling?.id,
-        batRuns: Number(batRuns),
-        extraRuns: Number(extraRuns),
+        inningsId,
+        batsmanId: strikerId,
+        nonStrikerId: nonStrikerId || strikerId,
+        bowlerId,
+        batRuns: actualBatRuns,
+        extraRuns: actualExtraRuns,
         extraType,
-        isWicket: Boolean(isWicket),
-        wicketType: isWicket ? wicketType : undefined,
-        dismissedPlayerId: isWicket ? (dismissedPlayerId || effectiveStrikerId) : undefined,
-        newBatsmanId: isWicket ? (newBatsmanId || undefined) : undefined,
-        fielderId: isWicket && ['CAUGHT', 'RUN_OUT', 'STUMPED'].includes(wicketType) && fielderId ? fielderId : undefined,
-        commentary: commentary.trim() || undefined,
+        isFreeHit: Boolean(isFreeHit),
+        isWicket,
+        wicketType: isWicket ? wicketType : null,
+        dismissedPlayerId: isWicket ? (dismissedPlayerId || strikerId) : null,
+        newBatsmanId: isWicket ? (newBatsmanId || null) : null,
+        fielderId: (isWicket && fielderId) ? fielderId : null,
+        commentary: commentary || (
+          extraType === 'BYE'
+            ? `${actualExtraRuns} Bye runs`
+            : extraType === 'LEG_BYE'
+            ? `${actualExtraRuns} Leg Bye runs`
+            : `${actualBatRuns} run${actualBatRuns === 1 ? '' : 's'} scored to ${shotZone}`
+        ),
         shotZone,
-        shotX: Number(shotX),
-        shotY: Number(shotY),
+        shotX,
+        shotY,
         pitchLength,
         pitchLine
       };
 
-      if (!payload.batsmanId || !payload.nonStrikerId || !payload.bowlerId) {
-        setStatusMsg({ type: 'error', text: 'Please ensure Striker, Non-Striker and Bowler are assigned.' });
-        setLoading(false);
-        return;
-      }
-
       await api.post(`/innings/${inningsId}/balls`, payload);
-      setStatusMsg({ type: 'success', text: 'Ball recorded successfully!' });
+      setStatusMsg({
+        type: 'success',
+        text: `Ball recorded successfully! (${extraType === 'BYE' ? `${actualExtraRuns}B` : extraType === 'LEG_BYE' ? `${actualExtraRuns}LB` : `${actualBatRuns}r`} to ${shotZone}${isWicket ? ' - WICKET!' : ''})`
+      });
 
-      // Reset Ball Specific Inputs
+      // Reset Form Defaults
       setBatRuns(0);
       setExtraRuns(0);
       setExtraType('NONE');
@@ -164,6 +218,7 @@ export default function CricketScoringConsole({ matchId, initialMatch }) {
       setFielderId('');
       setCommentary('');
 
+      // Refresh Live State
       await loadMatchData(matchId);
     } catch (err) {
       console.error('Failed to record ball:', err);
@@ -252,270 +307,473 @@ export default function CricketScoringConsole({ matchId, initialMatch }) {
                   <Activity className="w-3.5 h-3.5" /> Innings {innings.inningsNumber || 1} • {innings.battingTeam?.name || (battingTeamId === selectedMatch?.teamAId ? selectedMatch?.teamA?.name : selectedMatch?.teamB?.name) || 'Batting'}
                 </span>
                 <div className="text-2xl font-black text-white font-mono mt-1">
-                  {score.runs ?? 0}/{score.wickets ?? 0}
-                  <span className="text-sm text-gray-400 font-sans ml-2">({score.overs ?? 0} Overs)</span>
+                  {score.runs || 0}/{score.wickets || 0}
+                  <span className="text-sm font-normal text-gray-400 ml-2">({score.overs || "0.0"} Overs)</span>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="text-left sm:text-right text-xs font-mono">
+                <div className="text-gray-300 font-bold">CRR: {score.currentRunRate || '0.00'}</div>
+                {score.target && (
+                  <div className="text-amber-400 font-bold">Target: {score.target} (RRR: {score.requiredRunRate || '0.00'})</div>
+                )}
+                {matchDetails?.currentBowling && (
+                  <div className="text-gray-400 text-[11px] mt-0.5">
+                    Bowler: <span className="text-white font-bold">{matchDetails.currentBowling.name}</span> ({matchDetails.currentBowling.overs || '0.0'} Ov | {matchDetails.currentBowling.wickets || 0} W | {matchDetails.currentBowling.runs || 0} R | {matchDetails.currentBowling.noBalls || 0} NB)
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* FREE HIT Alert Banner */}
+            {isFreeHit && (
+              <div className="p-3.5 bg-gradient-to-r from-emerald-950/90 via-emerald-900/60 to-emerald-950/90 border-2 border-emerald-500/80 rounded-xl text-emerald-300 flex items-center justify-between shadow-lg glow-emerald animate-pulse">
+                <div className="flex items-center gap-2.5">
+                  <span className="w-3 h-3 rounded-full bg-emerald-400 animate-ping"></span>
+                  <span className="font-extrabold text-xs tracking-wider uppercase text-white flex items-center gap-1.5">
+                    🟢 FREE HIT — Next delivery
+                  </span>
+                </div>
+                <span className="text-[10px] font-mono font-bold bg-emerald-900/90 text-emerald-200 px-2.5 py-0.5 rounded-full border border-emerald-400/40 uppercase">
+                  Free Hit Active
+                </span>
+              </div>
+            )}
+
+            {/* Active Players Selector Strip */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-gray-950/60 rounded-xl border border-gray-800">
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-emerald-400 mb-1 flex items-center gap-1">
+                  <User className="w-3 h-3" /> Striker (*)
+                </label>
+                <select
+                  value={activeStrikerId}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setActiveStrikerId(val);
+                    setDismissedPlayerId(val);
+                  }}
+                  className="w-full bg-gray-900 border border-gray-700 text-white rounded p-1.5 text-xs font-semibold focus:border-emerald-500"
+                >
+                  {eligibleStrikers.length > 0 ? (
+                    eligibleStrikers.map((b) => (
+                      <option key={b.id || b.playerId} value={b.id || b.playerId}>
+                        {b.name || `${b.firstName || ''} ${b.lastName || ''}`.trim()} ({b.runs || 0}r, {b.balls || 0}b)
+                      </option>
+                    ))
+                  ) : (
+                    <option value={activeStrikerId || ''}>
+                      {matchDetails?.currentBatters?.striker?.name || 'No eligible striker'}
+                    </option>
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-gray-400 mb-1 flex items-center gap-1">
+                  <User className="w-3 h-3" /> Non-Striker (*)
+                </label>
+                <select
+                  value={activeNonStrikerId}
+                  onChange={(e) => setActiveNonStrikerId(e.target.value)}
+                  className="w-full bg-gray-900 border border-gray-700 text-white rounded p-1.5 text-xs font-semibold focus:border-gray-500"
+                >
+                  {eligibleNonStrikers.length > 0 ? (
+                    eligibleNonStrikers.map((b) => (
+                      <option key={b.id || b.playerId} value={b.id || b.playerId}>
+                        {b.name || `${b.firstName || ''} ${b.lastName || ''}`.trim()} ({b.runs || 0}r, {b.balls || 0}b)
+                      </option>
+                    ))
+                  ) : (
+                    <option value={activeNonStrikerId || ''}>
+                      {matchDetails?.currentBatters?.nonStriker?.name || 'No eligible non-striker'}
+                    </option>
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-amber-400 mb-1 flex items-center gap-1">
+                  <Activity className="w-3 h-3" /> Bowler (*)
+                </label>
+                <select
+                  value={activeBowlerId}
+                  onChange={(e) => setActiveBowlerId(e.target.value)}
+                  className="w-full bg-gray-900 border border-gray-700 text-white rounded p-1.5 text-xs font-semibold focus:border-amber-500"
+                >
+                  <option value="">-- Select Eligible Bowler --</option>
+                  {availableBowlers.length > 0 ? (
+                    availableBowlers.map((b) => {
+                      const bId = b.id || b.playerId || b.bowlerId || b.player?.id;
+                      const bName = b.name || `${b.player?.firstName || b.firstName || ''} ${b.player?.lastName || b.lastName || ''}`.trim() || 'Bowler';
+                      const isPrev = Boolean(previousBowlerId && bId === previousBowlerId);
+                      return (
+                        <option key={bId} value={bId} disabled={isPrev}>
+                          {bName} ({b.overs || '0.0'} ov, {b.wickets || 0}w, {b.runs || 0}r){isPrev ? ' (Consecutive - cannot bowl)' : ''}
+                        </option>
+                      );
+                    })
+                  ) : (
+                    <option value={matchDetails?.currentBowling?.id || ''}>
+                      {matchDetails?.currentBowling?.name || 'Bowler'}
+                    </option>
+                  )}
+                </select>
+              </div>
+            </div>
+
+            {/* Extras Selection */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider">
+                  Extras
+                </label>
                 {isFreeHit && (
-                  <span className="px-3 py-1 bg-emerald-600 border border-emerald-400 text-white font-mono font-bold text-xs rounded-full shadow-lg glow-emerald animate-pulse">
-                    🟢 FREE HIT NEXT
+                  <span className="text-[10px] font-bold text-emerald-400 bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-500/40 animate-pulse">
+                    FREE HIT ACTIVE
                   </span>
                 )}
-                <button
-                  type="button"
-                  onClick={handleUndoDelivery}
-                  disabled={loading}
-                  className="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 rounded-lg text-xs font-bold flex items-center gap-1.5 transition-all shadow-md active:scale-95"
-                  title="Undo last recorded delivery"
-                >
-                  <RotateCcw className="w-3.5 h-3.5 text-amber-400" /> Undo Last Ball
-                </button>
               </div>
-            </div>
-
-            {/* Active Players Assignment Row */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 p-4 rounded-xl bg-gray-950/40 border border-gray-800/80">
-              {/* Striker Select */}
-              <div className="space-y-1">
-                <label className="text-[11px] font-bold text-emerald-400 flex items-center gap-1">
-                  ⚡ Striker Batter
-                </label>
-                <select
-                  value={effectiveStrikerId || ''}
-                  onChange={(e) => setActiveStrikerId(e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs font-semibold text-white focus:border-emerald-500"
-                >
-                  {eligibleStrikers.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.firstName} {p.lastName} {p.jerseyNumber ? `(#${p.jerseyNumber})` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Non-Striker Select */}
-              <div className="space-y-1">
-                <label className="text-[11px] font-bold text-blue-400 flex items-center gap-1">
-                  🛡️ Non-Striker Batter
-                </label>
-                <select
-                  value={effectiveNonStrikerId || ''}
-                  onChange={(e) => setActiveNonStrikerId(e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs font-semibold text-white focus:border-blue-500"
-                >
-                  {eligibleNonStrikers.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.firstName} {p.lastName} {p.jerseyNumber ? `(#${p.jerseyNumber})` : ''}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Active Bowler Select */}
-              <div className="space-y-1">
-                <label className="text-[11px] font-bold text-amber-400 flex items-center gap-1">
-                  🎯 Active Bowler
-                </label>
-                <select
-                  value={activeBowlerId || matchDetails?.currentBowling?.id || ''}
-                  onChange={(e) => setActiveBowlerId(e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs font-semibold text-white focus:border-amber-500"
-                >
-                  {availableBowlers.map((b) => {
-                    const bPlayer = b.player || b;
-                    const isPrev = previousBowlerId === bPlayer.id;
-                    return (
-                      <option key={bPlayer.id} value={bPlayer.id} disabled={isPrev}>
-                        {bPlayer.firstName} {bPlayer.lastName} {isPrev ? '(Just Bowled)' : ''}
-                      </option>
-                    );
-                  })}
-                </select>
-              </div>
-            </div>
-
-            {/* Runs & Boundaries Fast Buttons */}
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-gray-300">Bat Runs Off Delivery</label>
-              <div className="grid grid-cols-7 gap-2">
-                {[0, 1, 2, 3, 4, 5, 6].map((num) => (
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                {[
+                  { type: 'NONE', label: 'None' },
+                  { type: 'WIDE', label: 'Wide (+1)' },
+                  { type: 'NO_BALL', label: 'No Ball (+1)' },
+                  { type: 'BYE', label: 'Bye' },
+                  { type: 'LEG_BYE', label: 'Leg Bye' }
+                ].map((ext) => (
                   <button
-                    key={num}
                     type="button"
-                    onClick={() => setBatRuns(num)}
-                    className={`py-3 rounded-xl font-mono text-sm font-bold border transition-all ${
-                      batRuns === num
-                        ? 'bg-emerald-600 border-emerald-400 text-white shadow-lg glow-emerald scale-105'
-                        : 'bg-gray-900/80 border-gray-800 text-gray-300 hover:bg-gray-800'
+                    key={ext.type}
+                    onClick={() => {
+                      setExtraType(ext.type);
+                      if (ext.type === 'WIDE') {
+                        setBatRuns(0);
+                        setExtraRuns(1);
+                      } else if (ext.type === 'NO_BALL') {
+                        setExtraRuns(1);
+                      } else if (ext.type === 'BYE' || ext.type === 'LEG_BYE') {
+                        setBatRuns(0);
+                        if (!extraRuns || Number(extraRuns) === 0) setExtraRuns(1);
+                      } else {
+                        setExtraRuns(0);
+                      }
+                    }}
+                    className={`py-2 px-2.5 rounded-xl font-bold text-xs transition-all ${
+                      extraType === ext.type
+                        ? 'bg-amber-600 text-white shadow-lg glow-amber'
+                        : 'bg-gray-900 text-gray-400 border border-gray-800 hover:text-white'
                     }`}
                   >
-                    {num}
+                    {ext.label}
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Extras Selection */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-300">Extra Type</label>
-                <select
-                  value={extraType}
-                  onChange={(e) => setExtraType(e.target.value)}
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2.5 text-xs text-white"
-                >
-                  <option value="NONE">None</option>
-                  <option value="WIDE">Wide</option>
-                  <option value="NO_BALL">No Ball</option>
-                  <option value="BYE">Bye</option>
-                  <option value="LEG_BYE">Leg Bye</option>
-                  <option value="PENALTY">Penalty</option>
-                </select>
-              </div>
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-300">Extra Runs</label>
-                <input
-                  type="number"
-                  min="0"
-                  max="10"
-                  value={extraRuns}
-                  onChange={(e) => setExtraRuns(Number(e.target.value))}
-                  className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2.5 text-xs text-white"
-                />
-              </div>
+            {/* Dynamic Run Keypad Based on Extra Type */}
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider">
+                {extraType === 'NONE'
+                  ? 'Runs Scored Off Bat:'
+                  : extraType === 'BYE'
+                  ? 'Bye Runs (Extras):'
+                  : extraType === 'LEG_BYE'
+                  ? 'Leg Bye Runs (Extras):'
+                  : extraType === 'WIDE'
+                  ? 'Wide Runs (Penalty + Extras):'
+                  : 'No Ball Runs (Bat Runs + 1 Nb):'}
+              </label>
+
+              {extraType === 'NONE' && (
+                <div className="grid grid-cols-6 gap-2">
+                  {[0, 1, 2, 3, 4, 6].map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => {
+                        setBatRuns(r);
+                        setExtraRuns(0);
+                      }}
+                      className={`py-3 rounded-xl font-mono font-black text-base border transition-all ${
+                        batRuns === r
+                          ? r === 4 || r === 6
+                            ? 'bg-amber-500 border-amber-400 text-black shadow-lg scale-105'
+                            : 'bg-emerald-600 border-emerald-400 text-white shadow-lg scale-105'
+                          : 'bg-gray-900 border-gray-800 text-gray-300 hover:border-gray-700'
+                      }`}
+                    >
+                      {r}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {extraType === 'BYE' && (
+                <div className="grid grid-cols-6 gap-2">
+                  {[1, 2, 3, 4, 5, 6].map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => {
+                        setBatRuns(0);
+                        setExtraRuns(r);
+                      }}
+                      className={`py-3 rounded-xl font-mono font-black text-base border transition-all ${
+                        Number(extraRuns) === r
+                          ? 'bg-cyan-600 border-cyan-400 text-white shadow-lg scale-105'
+                          : 'bg-gray-900 border-gray-800 text-cyan-400 hover:border-cyan-700'
+                      }`}
+                    >
+                      {r}B
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {extraType === 'LEG_BYE' && (
+                <div className="grid grid-cols-6 gap-2">
+                  {[1, 2, 3, 4, 5, 6].map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => {
+                        setBatRuns(0);
+                        setExtraRuns(r);
+                      }}
+                      className={`py-3 rounded-xl font-mono font-black text-base border transition-all ${
+                        Number(extraRuns) === r
+                          ? 'bg-cyan-600 border-cyan-400 text-white shadow-lg scale-105'
+                          : 'bg-gray-900 border-gray-800 text-cyan-400 hover:border-cyan-700'
+                      }`}
+                    >
+                      {r}LB
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {extraType === 'WIDE' && (
+                <div className="grid grid-cols-5 gap-2">
+                  {[1, 2, 3, 4, 5].map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => {
+                        setBatRuns(0);
+                        setExtraRuns(r);
+                      }}
+                      className={`py-3 rounded-xl font-mono font-black text-base border transition-all ${
+                        Number(extraRuns) === r
+                          ? 'bg-purple-600 border-purple-400 text-white shadow-lg scale-105'
+                          : 'bg-gray-900 border-gray-800 text-purple-400 hover:border-purple-700'
+                      }`}
+                    >
+                      {r === 1 ? '1Wd' : `${r}Wd`}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {extraType === 'NO_BALL' && (
+                <div className="grid grid-cols-6 gap-2">
+                  {[0, 1, 2, 3, 4, 6].map((r) => (
+                    <button
+                      key={r}
+                      type="button"
+                      onClick={() => {
+                        setBatRuns(r);
+                        setExtraRuns(1);
+                      }}
+                      className={`py-3 rounded-xl font-mono font-black text-base border transition-all ${
+                        batRuns === r
+                          ? 'bg-purple-600 border-purple-400 text-white shadow-lg scale-105'
+                          : 'bg-gray-900 border-gray-800 text-purple-400 hover:border-purple-700'
+                      }`}
+                    >
+                      {r === 0 ? 'Nb' : `${r + 1}Nb`}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Dismissal Toggle & Options */}
-            <div className="p-4 rounded-xl border border-gray-800 bg-gray-900/40 space-y-4">
-              <div className="flex items-center gap-3">
+            {/* Wicket Toggle & Details */}
+            <div className="p-4 bg-red-950/20 rounded-xl border border-red-500/30 space-y-3">
+              <label className="flex items-center gap-2 cursor-pointer">
                 <input
                   type="checkbox"
-                  id="wicket-toggle"
                   checked={isWicket}
-                  onChange={(e) => setIsWicket(e.target.checked)}
-                  className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 bg-gray-800 border-gray-700"
+                  onChange={(e) => {
+                    setIsWicket(e.target.checked);
+                    if (!e.target.checked) {
+                      setNewBatsmanId('');
+                    }
+                  }}
+                  className="w-4 h-4 accent-red-500 rounded"
                 />
-                <label htmlFor="wicket-toggle" className="text-xs font-bold text-red-400 cursor-pointer">
-                  Wicket Dismissal Occurred on Delivery
-                </label>
-              </div>
+                <span className="text-xs font-extrabold text-red-400 uppercase tracking-wider">Is Delivery A Wicket?</span>
+              </label>
 
               {isWicket && (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-gray-400">Dismissal Type</label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-2">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-300 mb-1">Dismissal Type</label>
                     <select
                       value={wicketType}
                       onChange={(e) => setWicketType(e.target.value)}
-                      className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-white"
+                      className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2 text-xs font-semibold"
                     >
-                      <option value="BOWLED">Bowled</option>
-                      <option value="CAUGHT">Caught</option>
+                      <option value="BOWLED">BOWLED</option>
+                      <option value="CAUGHT">CAUGHT</option>
                       <option value="LBW">LBW</option>
-                      <option value="RUN_OUT">Run Out</option>
-                      <option value="STUMPED">Stumped</option>
-                      <option value="HIT_WICKET">Hit Wicket</option>
+                      <option value="RUN_OUT">RUN OUT</option>
+                      <option value="STUMPED">STUMPED</option>
+                      <option value="HIT_WICKET">HIT WICKET</option>
                     </select>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-gray-400">Dismissed Batter</label>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-300 mb-1">Dismissed Player</label>
                     <select
-                      value={dismissedPlayerId || effectiveStrikerId || ''}
+                      value={dismissedPlayerId}
                       onChange={(e) => setDismissedPlayerId(e.target.value)}
-                      className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-white"
+                      className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2 text-xs font-semibold"
                     >
-                      <option value={effectiveStrikerId}>Striker</option>
-                      <option value={effectiveNonStrikerId}>Non-Striker</option>
+                      <option value={effectiveStrikerId}>
+                        Striker ({eligibleStrikers.find((b) => (b.id || b.playerId) === effectiveStrikerId)?.name || 'Active'})
+                      </option>
+                      {effectiveNonStrikerId && (
+                        <option value={effectiveNonStrikerId}>
+                          Non-Striker ({eligibleNonStrikers.find((b) => (b.id || b.playerId) === effectiveNonStrikerId)?.name || 'Active'})
+                        </option>
+                      )}
                     </select>
                   </div>
 
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-gray-400">Incoming Batter</label>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-300 mb-1">Incoming Next Batter</label>
                     <select
                       value={newBatsmanId}
                       onChange={(e) => setNewBatsmanId(e.target.value)}
-                      className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2 text-xs text-white"
+                      className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2 text-xs font-semibold focus:border-emerald-500"
                     >
-                      <option value="">Select Next Batter...</option>
-                      {eligibleIncomingBatters.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.firstName} {p.lastName}
-                        </option>
-                      ))}
+                      <option value="">-- Select Next Batter --</option>
+                      {eligibleIncomingBatters.length > 0 ? (
+                        eligibleIncomingBatters.map((b) => (
+                          <option key={b.id || b.playerId} value={b.id || b.playerId}>
+                            {b.name} (#{b.jerseyNumber || b.battingOrder})
+                          </option>
+                        ))
+                      ) : (
+                        <option value="" disabled>No eligible batters available (All Out)</option>
+                      )}
                     </select>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Commentary */}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-300">Live Commentary Line</label>
+            {/* Commentary Field */}
+            <div>
+              <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1">Custom Commentary Text</label>
               <input
                 type="text"
-                placeholder="e.g. Edged and taken! Magnificent delivery outside off stump."
+                placeholder="e.g. Smashed over deep mid-wicket for a massive SIX!"
                 value={commentary}
                 onChange={(e) => setCommentary(e.target.value)}
-                className="w-full bg-gray-900 border border-gray-700 rounded-lg p-2.5 text-xs text-white placeholder-gray-500 focus:border-emerald-500"
+                className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2.5 text-xs font-semibold"
               />
             </div>
 
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 shadow-lg glow-emerald transition-all"
-            >
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-white" />} Record Delivery
-            </button>
+            {/* Action Buttons: Submit Delivery & Undo Last Delivery */}
+            <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <button
+                type="submit"
+                disabled={loading}
+                className={`flex-1 py-4 rounded-xl text-white font-extrabold text-sm uppercase tracking-wider shadow-lg transition-all flex justify-center items-center gap-2 ${loading
+                  ? 'bg-gray-700 cursor-not-allowed opacity-70'
+                  : 'bg-emerald-600 hover:bg-emerald-500 glow-emerald'
+                  }`}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" /> Recording Ball...
+                  </>
+                ) : (
+                  <>
+                    <Play className="w-4 h-4 fill-white" /> Submit & Broadcast Delivery
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleUndoLastBall}
+                disabled={loading || !(score.totalBalls > 0 || (matchDetails?.recentBalls && matchDetails.recentBalls.length > 0))}
+                className="px-5 py-4 rounded-xl text-amber-300 hover:text-white bg-amber-950/60 hover:bg-amber-900/80 border border-amber-500/40 hover:border-amber-400 font-extrabold text-xs uppercase tracking-wider transition-all flex justify-center items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Undo the most recent ball delivery"
+              >
+                <RotateCcw className="w-4 h-4" /> Undo Last Delivery
+              </button>
+            </div>
           </form>
         </div>
 
-        {/* Right 1 Col: Vector Mapping Inputs (Wagon Wheel & Pitch Map) */}
+        {/* Right 1 Col: Wagon Wheel & Pitch Map Vector Pickers */}
         <div className="space-y-6">
-          <div className="glass-panel p-5 rounded-2xl border border-gray-800 space-y-4">
-            <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-              <Target className="w-4 h-4 text-emerald-400" /> Wagon Wheel Vector Input
-            </h3>
-            <div className="flex justify-center">
-              <WagonWheelSVG
-                interactive={true}
-                selectedZone={shotZone}
-                selectedCoords={{ x: shotX, y: shotY }}
-                onSelectCoord={({ zone, x, y }) => {
-                  setShotZone(zone);
-                  setShotX(Math.round(x));
-                  setShotY(Math.round(y));
+          <div className="glass-panel p-5 rounded-2xl border border-gray-800 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-emerald-400 flex items-center gap-1.5 uppercase">
+                <PieChart className="w-4 h-4" /> Interactive Wagon Wheel
+              </h3>
+              {shotZone && (
+                <span className="text-[11px] font-bold text-emerald-400 font-mono bg-emerald-950/60 px-2.5 py-0.5 rounded border border-emerald-500/30">
+                  {shotZone}
+                </span>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-300 uppercase tracking-wider mb-1">
+                Shot Placement / Wagon Wheel Zone
+              </label>
+              <select
+                value={shotZone}
+                onChange={(e) => {
+                  const zone = e.target.value;
+                  const coords = CANONICAL_ZONE_COORDS[zone] || { x: 0, y: 0 };
+                  handleShotZoneSelect({ zone, x: coords.x, y: coords.y });
                 }}
-              />
+                className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2.5 text-xs font-semibold focus:border-emerald-500"
+              >
+                <option value="">-- Select Zone --</option>
+                {CANONICAL_ZONES.map((z) => (
+                  <option key={z} value={z}>
+                    {z}
+                  </option>
+                ))}
+              </select>
             </div>
-            <div className="text-[11px] text-gray-400 flex justify-between font-mono bg-gray-900/60 p-2 rounded-lg border border-gray-800">
-              <span>Zone: <strong className="text-emerald-400 font-sans">{shotZone}</strong></span>
-              <span>Coord: [{shotX}, {shotY}]</span>
-            </div>
+
+            <WagonWheelSVG
+              selectedZone={shotZone}
+              selectedX={shotX}
+              selectedY={shotY}
+              onSelectZone={handleShotZoneSelect}
+              isInteractive={true}
+            />
           </div>
 
-          <div className="glass-panel p-5 rounded-2xl border border-gray-800 space-y-4">
-            <h3 className="text-sm font-bold text-white flex items-center gap-1.5">
-              <PieChart className="w-4 h-4 text-blue-400" /> Pitch Map Vector Input
+          <div className="glass-panel p-5 rounded-2xl border border-gray-800 space-y-3">
+            <h3 className="text-sm font-bold text-amber-400 flex items-center gap-1.5 uppercase">
+              <Target className="w-4 h-4" /> Pitch Length & Line Vector
             </h3>
-            <div className="flex justify-center">
-              <PitchMapCanvas
-                interactive={true}
-                selectedLength={pitchLength}
-                selectedLine={pitchLine}
-                onSelectLocation={({ length, line }) => {
-                  setPitchLength(length);
-                  setPitchLine(line);
-                }}
-              />
-            </div>
-            <div className="text-[11px] text-gray-400 flex justify-between font-mono bg-gray-900/60 p-2 rounded-lg border border-gray-800">
-              <span>Length: <strong className="text-blue-400 font-sans">{pitchLength}</strong></span>
-              <span>Line: <strong className="text-blue-400 font-sans">{pitchLine}</strong></span>
-            </div>
+            <PitchMapCanvas
+              selectedLength={pitchLength}
+              selectedLine={pitchLine}
+              onSelectPitch={handlePitchSelect}
+              isInteractive={true}
+            />
           </div>
         </div>
       </div>

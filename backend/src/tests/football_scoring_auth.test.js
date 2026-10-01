@@ -251,13 +251,13 @@ async function runFootballScoringAuthTests() {
         matchDate: new Date(),
         venue: "Allianz Arena",
         status: "COMPLETED",
-        scoringToken: "completed-token-123"
+        scoringToken: `completed-token-${ts}`
       }
     });
 
     const { req, res, next, getResult } = mockReqRes({
       params: { matchId: completedMatch.id },
-      headers: { "x-scoring-token": "completed-token-123" }
+      headers: { "x-scoring-token": `completed-token-${ts}` }
     });
 
     await authorizeScorer(req, res, next);

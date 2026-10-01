@@ -22,7 +22,6 @@ export default function TeamsAndPlayers() {
   const itemsPerPage = 6;
 
   // Modals State
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
@@ -123,17 +122,6 @@ export default function TeamsAndPlayers() {
   }, [currentPage, totalPages]);
 
   // Modal Handlers
-  const handleOpenCreate = () => {
-    setFormData({
-      id: '',
-      name: '',
-      shortName: '',
-      city: '',
-      description: '',
-      logoUrl: ''
-    });
-    setShowCreateModal(true);
-  };
 
   const handleOpenEdit = (t) => {
     setFormData({
@@ -152,33 +140,7 @@ export default function TeamsAndPlayers() {
     setShowDeleteModal(true);
   };
 
-  async function handleCreateSubmit(e) {
-    e.preventDefault();
-    setSubmitting(true);
-    setErrorMsg(null);
-    try {
-      const payload = {
-        name: formData.name,
-        shortName: formData.shortName.toUpperCase(),
-        city: formData.city,
-        description: formData.description || undefined,
-        logoUrl: formData.logoUrl || undefined,
-        sport: currentSport
-      };
-      const res = await api.post('/teams', payload);
-      setSuccessMsg('Team created successfully!');
-      setShowCreateModal(false);
-      setSearchQuery('');
-      setCurrentPage(1);
-      const createdTeam = res.data.data;
-      await fetchTeams(createdTeam?.id);
-    } catch (err) {
-      console.error('Create team error:', err);
-      setErrorMsg(err.response?.data?.message || 'Failed to create team.');
-    } finally {
-      setSubmitting(false);
-    }
-  }
+
 
   async function handleEditSubmit(e) {
     e.preventDefault();
@@ -243,12 +205,12 @@ export default function TeamsAndPlayers() {
 
           {/* Create Team Action for Authorized Roles */}
           {hasRole(['ADMIN', 'ORGANIZER']) && (
-            <button
-              onClick={handleOpenCreate}
+            <Link
+              to={`/${currentSport.toLowerCase()}/teams/create`}
               className="px-5 py-2.5 rounded-xl bg-gray-900 hover:bg-gray-800 border border-gray-700 text-white font-bold text-xs flex items-center gap-2 shadow-md transition-all"
             >
               <Plus className="w-4 h-4" /> Create New Team
-            </button>
+            </Link>
           )}
         </div>
       </div>
@@ -535,72 +497,6 @@ export default function TeamsAndPlayers() {
         </div>
       </div>
 
-      {/* CREATE TEAM MODAL */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-panel p-6 rounded-2xl border border-gray-800 w-full max-w-lg space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-lg font-bold text-white">Create New Team</h2>
-              <button onClick={() => setShowCreateModal(false)}><X className="w-5 h-5 text-gray-400" /></button>
-            </div>
-            <form onSubmit={handleCreateSubmit} className="space-y-4 text-xs font-semibold">
-              <div>
-                <label className="block text-gray-300 mb-1">Team Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Royal Challengers"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2.5"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-300 mb-1">Short Name *</label>
-                  <input
-                    type="text"
-                    required
-                    maxLength="10"
-                    placeholder="e.g. RCB"
-                    value={formData.shortName}
-                    onChange={(e) => setFormData({ ...formData, shortName: e.target.value })}
-                    className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2.5 uppercase"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-300 mb-1">City *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Bengaluru"
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2.5"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-gray-300 mb-1">Description</label>
-                <textarea
-                  rows="2"
-                  placeholder="Franchise description..."
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2.5"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg glow-emerald"
-              >
-                {submitting ? 'Creating...' : 'Create Team'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* EDIT TEAM MODAL */}
       {showEditModal && (
