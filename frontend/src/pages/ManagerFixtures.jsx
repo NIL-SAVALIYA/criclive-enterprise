@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import api from '../api/client';
+import { getSportPrefixForMatch } from '../sports/sportsRegistry';
 import { useAuth } from '../context/AuthContext';
 import Skeleton from '../components/Skeleton';
 import {
@@ -690,7 +691,7 @@ export default function ManagerFixtures() {
                     </button>
                   ) : (
                     <Link
-                      to={`/matches/${match.id}`}
+                      to={getSportPrefixForMatch(match)}
                       className="px-4 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors"
                     >
                       <ExternalLink className="w-3.5 h-3.5 text-emerald-400" /> View Live Match Center

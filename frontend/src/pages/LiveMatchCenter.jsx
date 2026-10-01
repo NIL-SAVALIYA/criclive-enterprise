@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useLocation, Link } from 'react-router-dom';
 import api from '../api/client';
 import { useCricketSocket } from '../socket/useCricketSocket';
 import BadmintonLiveMatchCenter from '../components/BadmintonLiveMatchCenter';
@@ -8,11 +8,22 @@ import WagonWheelSVG from '../components/WagonWheelSVG';
 import PitchMapCanvas from '../components/PitchMapCanvas';
 import WinProbabilityMeter from '../components/WinProbabilityMeter';
 import Skeleton from '../components/Skeleton';
+import { getSportFromPath } from '../sports/sportsRegistry';
 import { ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip } from 'recharts';
-import { Radio, Activity, MessageSquare, PieChart, Target, Shield, Flame, Award, ChevronRight, MapPin, Clock } from 'lucide-react';
+import { Radio, Activity, MessageSquare, PieChart, Target, Shield, Flame, Award, ChevronRight, MapPin, Clock, AlertTriangle } from 'lucide-react';
 
 export default function LiveMatchCenter() {
   const { matchId } = useParams();
+  const location = useLocation();
+
+  // ─── SPORT DETECTION ────────────────────────────────────────────────────────
+  // Primary signal: URL path (immediate, reliable, no API round-trip required).
+  // e.g. /badminton/matches/:id  → BADMINTON
+  //      /football/matches/:id   → FOOTBALL
+  //      /cricket/matches/:id    → CRICKET
+  //      /matches/:id            → null (legacy, resolved from API data below)
+  const urlSportCode = getSportFromPath(location.pathname);
+
   const {
     connected,
     liveScore: socketScore,
@@ -53,16 +64,61 @@ export default function LiveMatchCenter() {
     }
   }
 
-  const sportCode = matchDetails?.sport || matchDetails?.match?.tournament?.sport?.code;
-  const isBadmintonMatch = sportCode === 'BADMINTON';
-  const isFootballMatch = sportCode === 'FOOTBALL';
+  // ─── SPORT RESOLUTION ───────────────────────────────────────────────────────
+  // URL-first: if the route is sport-prefixed, trust it immediately.
+  // API-fallback: once data loads, cross-check from the match's tournament.sport.
+  // This two-layer resolution ensures correctness even for legacy /matches/:id URLs.
+  const apiSportCode = (
+    matchDetails?.sport ||
+    matchDetails?.match?.tournament?.sport?.code ||
+    matchDetails?.match?.sport ||
+    matchDetails?.tournament?.sport?.code
+  )?.toUpperCase();
 
-  if (isBadmintonMatch) {
+  // Effective sport: URL wins, API supplements (or catches mis-routed legacy links).
+  const effectiveSportCode = urlSportCode || apiSportCode;
+
+  // ─── EARLY SPORT DISPATCH (URL-based, before loading) ───────────────────────
+  // If the URL already tells us the sport, we can dispatch immediately.
+  // This prevents any flash of cricket UI for badminton/football matches.
+  if (urlSportCode === 'BADMINTON') {
     return <BadmintonLiveMatchCenter matchId={matchId} />;
   }
 
-  if (isFootballMatch) {
+  if (urlSportCode === 'FOOTBALL') {
     return <FootballLiveMatchCenter matchId={matchId} />;
+  }
+
+  // ─── API-BASED DISPATCH (legacy /matches/:id route) ─────────────────────────
+  // Only reached when URL has no sport prefix. Wait for data to load before dispatch.
+  if (!loading) {
+    if (apiSportCode === 'BADMINTON') {
+      return <BadmintonLiveMatchCenter matchId={matchId} />;
+    }
+    if (apiSportCode === 'FOOTBALL') {
+      return <FootballLiveMatchCenter matchId={matchId} />;
+    }
+    // Explicit unknown-sport guard: if sport is not null but also not one we recognise,
+    // show a clear error rather than silently rendering the cricket scorecard.
+    if (apiSportCode && apiSportCode !== 'CRICKET') {
+      console.error('[LiveMatchCenter] Unknown sport code:', apiSportCode, 'matchId:', matchId);
+      return (
+        <div className="glass-panel p-10 rounded-2xl border border-amber-500/30 text-center space-y-4 max-w-xl mx-auto mt-12">
+          <AlertTriangle className="w-14 h-14 text-amber-400 mx-auto" />
+          <h2 className="text-xl font-bold text-white">Unsupported Sport</h2>
+          <p className="text-sm text-gray-400">
+            This match uses sport <span className="font-mono text-amber-400">{apiSportCode}</span> which
+            does not have a dedicated match center yet. Please check the sport routing configuration.
+          </p>
+          <p className="text-xs text-gray-600 font-mono">matchId: {matchId}</p>
+        </div>
+      );
+    }
+    // If sport is null after load, log a warning but still show cricket as a last resort
+    // (legacy cricket matches stored before sport field was added).
+    if (!apiSportCode) {
+      console.warn('[LiveMatchCenter] Sport code could not be resolved from API for matchId:', matchId, '— rendering cricket scorecard as last resort. Fix the match record to include sport.');
+    }
   }
 
 

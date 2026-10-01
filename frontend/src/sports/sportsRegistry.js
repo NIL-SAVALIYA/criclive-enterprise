@@ -210,3 +210,29 @@ export function getSportFromPath(pathname) {
   if (lower.startsWith('/football')) return 'FOOTBALL';
   return null;
 }
+
+/**
+ * Resolves the sport-prefixed match center URL for a given match object.
+ * Reads sport from:
+ *   1. match.tournament.sport.code  (primary, most reliable)
+ *   2. match.sport                  (denormalized shortcut some endpoints expose)
+ *   3. match.tournament.sportCode   (alternate field name)
+ *
+ * If sport cannot be resolved returns /matches/:id (root route, triggers
+ * the explicit unknown-sport state in LiveMatchCenter).
+ *
+ * @param {object} match  The match object (must have at least {id}).
+ * @returns {string}      Sport-prefixed path, e.g. '/badminton/matches/abc-123'.
+ */
+export function getSportPrefixForMatch(match) {
+  if (!match?.id) return '/';
+  const code = (
+    match.tournament?.sport?.code ||
+    match.sport ||
+    match.tournament?.sportCode ||
+    ''
+  ).toUpperCase();
+  const config = SPORTS_REGISTRY[code];
+  if (!config) return `/matches/${match.id}`;
+  return `${config.routes.base}/matches/${match.id}`;
+}

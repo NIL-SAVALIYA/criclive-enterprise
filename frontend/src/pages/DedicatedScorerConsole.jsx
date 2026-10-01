@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import api from '../api/client';
+import { getSportPrefixForMatch } from '../sports/sportsRegistry';
 import BadmintonScoringConsole from '../components/BadmintonScoringConsole';
 import FootballScoringConsole from '../components/FootballScoringConsole';
 import WagonWheelSVG, { CANONICAL_ZONES, CANONICAL_ZONE_COORDS } from '../components/WagonWheelSVG';
@@ -1414,7 +1415,7 @@ export default function DedicatedScorerConsole() {
                 Viewers are watching this match live on CricLive Match Center.
               </p>
               <Link
-                to={`/matches/${match.id}`}
+                to={getSportPrefixForMatch(match)}
                 target="_blank"
                 className="w-full py-2.5 bg-gray-900 hover:bg-gray-800 text-emerald-400 border border-gray-700 text-xs font-bold rounded-xl flex items-center justify-center gap-1.5"
               >
@@ -1437,10 +1438,10 @@ export default function DedicatedScorerConsole() {
           </p>
           <div className="pt-4">
             <Link
-              to={`/matches/${match.id}`}
+              to={getSportPrefixForMatch(match)}
               className="px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl shadow glow-emerald inline-flex items-center gap-2"
             >
-              View Full Match Scorecard & Standings
+              View Full Match Scorecard &amp; Standings
             </Link>
           </div>
         </div>

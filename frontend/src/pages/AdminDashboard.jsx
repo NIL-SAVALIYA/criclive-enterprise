@@ -4,6 +4,7 @@ import Skeleton from '../components/Skeleton';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, PieChart, Pie, Cell } from 'recharts';
 import { BarChart3, Trophy, Users, Shield, Calendar, Activity, Bell, Radio, CheckCircle2, Award, Zap, AlertCircle, Plus, ChevronRight } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getSportPrefixForMatch } from '../sports/sportsRegistry';
 
 const COLORS = ['#10B981', '#3B82F6', '#F59E0B', '#8B5CF6', '#EC4899'];
 
@@ -220,7 +221,7 @@ export default function AdminDashboard() {
                       <div className="text-xs text-emerald-400 font-semibold">{m.venue}</div>
                     </div>
                     <Link
-                      to={`/matches/${m.id}`}
+                      to={getSportPrefixForMatch(m)}
                       className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-lg flex items-center gap-1"
                     >
                       Open Live Scorecard <ChevronRight className="w-3.5 h-3.5" />
@@ -314,7 +315,7 @@ export default function AdminDashboard() {
                         )}
                         {m.status === 'COMPLETED' && (
                           <Link 
-                            to={`/matches/${m.id}`}
+                            to={getSportPrefixForMatch(m)}
                             className="inline-flex items-center justify-center min-w-[105px] px-3 py-1.5 bg-gray-800 text-gray-300 hover:bg-gray-700 border border-gray-700 rounded-lg text-xs font-semibold transition-all"
                           >
                             View Scorecard
