@@ -1,6 +1,11 @@
 import prisma from "../config/db.js";
 import { FootballEventType, MatchStatus } from "@prisma/client";
 
+const TX_OPTIONS = { timeout: 20000, maxWait: 10000 };
+function safeTx(fn) {
+  return prisma.$transaction(fn, TX_OPTIONS);
+}
+
 /**
  * Validates that a match exists and belongs to the FOOTBALL sport.
  * Throws 400 if match belongs to Cricket or Badminton.
@@ -44,7 +49,7 @@ export async function validateFootballMatch(matchId, db = prisma) {
  * Initializes/Starts a Football match.
  */
 export async function startFootballMatchService(matchId, options = {}, user = null) {
-  return prisma.$transaction(async (tx) => {
+  return safeTx(async (tx) => {
     const match = await validateFootballMatch(matchId, tx);
 
     if (match.status === MatchStatus.COMPLETED) {
@@ -199,7 +204,7 @@ export async function getFootballEventsService(matchId) {
 export async function recordGoalService(matchId, goalInput, user = null) {
   const { scoringTeamId, playerId, secondaryPlayerId, minute, detail, isPenalty } = goalInput;
 
-  return prisma.$transaction(async (tx) => {
+  return safeTx(async (tx) => {
     const match = await validateFootballMatch(matchId, tx);
 
     if (match.status === MatchStatus.COMPLETED) {
@@ -279,7 +284,7 @@ export async function recordGoalService(matchId, goalInput, user = null) {
 export async function recordCardService(matchId, cardInput, user = null) {
   const { cardType, teamId, playerId, minute, detail } = cardInput;
 
-  return prisma.$transaction(async (tx) => {
+  return safeTx(async (tx) => {
     const match = await validateFootballMatch(matchId, tx);
 
     if (match.status === MatchStatus.COMPLETED) {
@@ -357,7 +362,7 @@ export async function recordCardService(matchId, cardInput, user = null) {
 export async function recordSubstitutionService(matchId, subInput, user = null) {
   const { teamId, playerLeavingId, playerEnteringId, minute, detail } = subInput;
 
-  return prisma.$transaction(async (tx) => {
+  return safeTx(async (tx) => {
     const match = await validateFootballMatch(matchId, tx);
 
     if (match.status === MatchStatus.COMPLETED) {
@@ -445,7 +450,7 @@ export async function recordPenaltyService(matchId, penaltyInput, user = null) {
     );
   }
 
-  return prisma.$transaction(async (tx) => {
+  return safeTx(async (tx) => {
     const match = await validateFootballMatch(matchId, tx);
 
     if (match.status === MatchStatus.COMPLETED) {
@@ -517,7 +522,7 @@ export async function recordPenaltyService(matchId, penaltyInput, user = null) {
 export async function recordKickoffService(matchId, kickoffInput = {}, user = null) {
   const { minute = 0, teamId = null, detail = "Kickoff" } = kickoffInput;
 
-  return prisma.$transaction(async (tx) => {
+  return safeTx(async (tx) => {
     const match = await validateFootballMatch(matchId, tx);
 
     if (match.status === MatchStatus.COMPLETED) {
@@ -570,7 +575,7 @@ export async function recordKickoffService(matchId, kickoffInput = {}, user = nu
  * Records half-time whistle.
  */
 export async function recordHalfTimeService(matchId, options = {}, user = null) {
-  return prisma.$transaction(async (tx) => {
+  return safeTx(async (tx) => {
     const match = await validateFootballMatch(matchId, tx);
 
     if (match.status === MatchStatus.COMPLETED) {
@@ -630,7 +635,7 @@ export async function recordHalfTimeService(matchId, options = {}, user = null) 
  * Starts second half.
  */
 export async function startSecondHalfService(matchId, options = {}, user = null) {
-  return prisma.$transaction(async (tx) => {
+  return safeTx(async (tx) => {
     const match = await validateFootballMatch(matchId, tx);
 
     if (match.status === MatchStatus.COMPLETED) {
@@ -691,7 +696,7 @@ export async function startSecondHalfService(matchId, options = {}, user = null)
  * Records full-time whistle and completes match.
  */
 export async function recordFullTimeService(matchId, options = {}, user = null) {
-  return prisma.$transaction(async (tx) => {
+  return safeTx(async (tx) => {
     const match = await validateFootballMatch(matchId, tx);
 
     if (match.status === MatchStatus.COMPLETED) {
@@ -780,7 +785,7 @@ export async function recordFullTimeService(matchId, options = {}, user = null) 
  * Score is never allowed to become negative.
  */
 export async function undoFootballEventService(matchId, user = null) {
-  return prisma.$transaction(async (tx) => {
+  return safeTx(async (tx) => {
     const match = await validateFootballMatch(matchId, tx);
 
     const state = await tx.footballMatchState.findUnique({

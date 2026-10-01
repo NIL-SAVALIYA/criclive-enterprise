@@ -32,10 +32,29 @@ import {
   Send
 } from 'lucide-react';
 
+import { useSport } from '../context/SportContext';
+
 export default function ManagerFixtures() {
   const { user, isManager } = useAuth();
+  const { currentSport, isCricket, isBadminton, isFootball } = useSport();
   const location = useLocation();
   const navigate = useNavigate();
+
+  function getFootballPos(p) {
+    if (p.position) return p.position;
+    if (p.footballPosition) return p.footballPosition;
+    const map = {
+      WICKET_KEEPER: 'Goalkeeper',
+      GOALKEEPER: 'Goalkeeper',
+      BOWLER: 'Defender',
+      DEFENDER: 'Defender',
+      ALL_ROUNDER: 'Midfielder',
+      MIDFIELDER: 'Midfielder',
+      BATSMAN: 'Forward',
+      FORWARD: 'Forward'
+    };
+    return map[p.playerType] || 'Forward';
+  }
 
   const [loading, setLoading] = useState(true);
   const [fixturesData, setFixturesData] = useState({
@@ -203,13 +222,15 @@ export default function ManagerFixtures() {
             selected: true,
             battingOrder: found.battingOrder || 1,
             isCaptain: Boolean(found.isCaptain),
+            isViceCaptain: Boolean(found.isViceCaptain),
             isWicketKeeper: Boolean(found.isWicketKeeper)
           };
         } else {
           initialSelection[player.id] = {
             selected: false,
             battingOrder: 1,
-            isCaptain: false,
+            isCaptain: Boolean(player.isCaptain),
+            isViceCaptain: Boolean(player.isViceCaptain),
             isWicketKeeper: false
           };
         }
@@ -229,7 +250,7 @@ export default function ManagerFixtures() {
     const currentlySelectedCount = Object.values(xiSelection).filter((s) => s.selected).length;
 
     if (!current.selected && currentlySelectedCount >= 11) {
-      setErrorMsg('You can select a maximum of 11 players for the Playing XI.');
+      setErrorMsg('You can select a maximum of 11 players for the Starting XI.');
       return;
     }
 
@@ -259,6 +280,7 @@ export default function ManagerFixtures() {
           selected: nextSelected,
           battingOrder: newBattingOrder,
           isCaptain: nextSelected ? current.isCaptain : false,
+          isViceCaptain: nextSelected ? current.isViceCaptain : false,
           isWicketKeeper: nextSelected ? current.isWicketKeeper : false
         }
       };
@@ -270,6 +292,17 @@ export default function ManagerFixtures() {
       const next = { ...prev };
       Object.keys(next).forEach((id) => {
         next[id] = { ...next[id], isCaptain: id === playerId };
+      });
+      return next;
+    });
+  }
+
+  function handleSetViceCaptain(playerId) {
+    setXiSelection((prev) => {
+      const next = { ...prev };
+      const currentVal = next[playerId]?.isViceCaptain;
+      Object.keys(next).forEach((id) => {
+        next[id] = { ...next[id], isViceCaptain: id === playerId ? !currentVal : false };
       });
       return next;
     });
@@ -299,23 +332,23 @@ export default function ManagerFixtures() {
     }));
   }
 
-  // Validate Playing XI
+  // Validate Playing XI / Match Lineup
+  const isMatchFootball = selectedMatch?.tournament?.sport?.code === 'FOOTBALL' || currentSport === 'FOOTBALL';
   const selectedPlayersList = Object.entries(xiSelection)
     .filter(([, s]) => s.selected)
     .map(([id, s]) => ({ playerId: id, ...s }));
 
   const selectedCount = selectedPlayersList.length;
   const captainCount = selectedPlayersList.filter((p) => p.isCaptain).length;
+  const vcCount = selectedPlayersList.filter((p) => p.isViceCaptain).length;
   const wkCount = selectedPlayersList.filter((p) => p.isWicketKeeper).length;
   const battingOrders = selectedPlayersList.map((p) => p.battingOrder);
   const uniqueBattingOrders = new Set(battingOrders);
   const hasDuplicateOrders = uniqueBattingOrders.size !== selectedPlayersList.length;
 
-  const isFormValid =
-    selectedCount === 11 &&
-    captainCount === 1 &&
-    wkCount <= 1 &&
-    !hasDuplicateOrders;
+  const isFormValid = isMatchFootball
+    ? selectedCount === 11 && captainCount === 1
+    : selectedCount === 11 && captainCount === 1 && wkCount <= 1 && !hasDuplicateOrders;
 
   async function handleSavePlayingXI() {
     if (!isFormValid || !selectedMatch || !selectedTeam) return;
@@ -324,23 +357,24 @@ export default function ManagerFixtures() {
 
     const payload = {
       teamId: selectedTeam.id,
-      players: selectedPlayersList.map((p) => ({
+      players: selectedPlayersList.map((p, index) => ({
         playerId: p.playerId,
-        battingOrder: p.battingOrder,
+        battingOrder: isMatchFootball ? (index + 1) : p.battingOrder,
         isCaptain: p.isCaptain,
-        isWicketKeeper: p.isWicketKeeper
+        isViceCaptain: p.isViceCaptain,
+        isWicketKeeper: isMatchFootball ? false : p.isWicketKeeper
       }))
     };
 
     try {
       await api.post(`/matches/${selectedMatch.id}/playing-xi`, payload);
-      setSuccessMsg(`Playing XI for ${selectedTeam.name} saved successfully!`);
+      setSuccessMsg(isMatchFootball ? `Starting XI for ${selectedTeam.name} saved successfully!` : `Playing XI for ${selectedTeam.name} saved successfully!`);
       setShowXIModal(false);
       setTimeout(() => setSuccessMsg(null), 4000);
       await fetchManagerFixtures();
     } catch (err) {
       console.error('Save Playing XI error:', err);
-      setErrorMsg(err.response?.data?.message || 'Failed to submit Playing XI.');
+      setErrorMsg(err.response?.data?.message || (isMatchFootball ? 'Failed to submit Starting XI.' : 'Failed to submit Playing XI.'));
     } finally {
       setSavingXI(false);
     }
@@ -745,21 +779,29 @@ export default function ManagerFixtures() {
                 <span className={`font-bold flex items-center gap-1 ${
                   selectedCount === 11 ? 'text-emerald-400' : 'text-amber-400'
                 }`}>
-                  Players Selected: {selectedCount} / 11
+                  {isMatchFootball ? `Starting XI: ${selectedCount} / 11` : `Players Selected: ${selectedCount} / 11`}
                 </span>
                 <span className={`font-semibold ${
                   captainCount === 1 ? 'text-emerald-400' : 'text-red-400'
                 }`}>
                   Captain: {captainCount === 1 ? '✓ Set' : 'Required (1)'}
                 </span>
-                <span className={`font-semibold ${
-                  wkCount === 1 ? 'text-emerald-400' : 'text-gray-400'
-                }`}>
-                  Wicketkeeper: {wkCount === 1 ? '✓ Set' : 'Optional (max 1)'}
-                </span>
+                {isMatchFootball ? (
+                  <span className={`font-semibold ${
+                    vcCount === 1 ? 'text-emerald-400' : 'text-gray-400'
+                  }`}>
+                    Vice Captain: {vcCount === 1 ? '✓ Set' : 'Optional (max 1)'}
+                  </span>
+                ) : (
+                  <span className={`font-semibold ${
+                    wkCount === 1 ? 'text-emerald-400' : 'text-gray-400'
+                  }`}>
+                    Wicketkeeper: {wkCount === 1 ? '✓ Set' : 'Optional (max 1)'}
+                  </span>
+                )}
               </div>
 
-              {hasDuplicateOrders && (
+              {!isMatchFootball && hasDuplicateOrders && (
                 <span className="text-red-400 font-bold">
                   ⚠️ Duplicate batting orders detected
                 </span>
@@ -767,14 +809,124 @@ export default function ManagerFixtures() {
             </div>
 
             {/* Player Roster Grid */}
-            <div className="p-5 max-h-[55vh] overflow-y-auto space-y-2">
+            <div className="p-5 max-h-[55vh] overflow-y-auto space-y-4">
               {rosterLoading ? (
                 <div className="py-8 text-center text-xs text-gray-400">Loading squad roster...</div>
               ) : teamRoster.length === 0 ? (
                 <div className="py-8 text-center text-xs text-amber-400">
                   No players registered for this team yet. Please ask the organizer or add players in Teams management.
                 </div>
+              ) : isMatchFootball ? (
+                /* Football Position Grouped View */
+                (() => {
+                  const groups = [
+                    { title: 'Goalkeepers', pos: 'GOALKEEPER', icon: '🧤', badgeColor: 'bg-amber-950/40 text-amber-400 border-amber-800/40' },
+                    { title: 'Defenders', pos: 'DEFENDER', icon: '🛡️', badgeColor: 'bg-blue-950/40 text-blue-400 border-blue-800/40' },
+                    { title: 'Midfielders', pos: 'MIDFIELDER', icon: '⚙️', badgeColor: 'bg-emerald-950/40 text-emerald-400 border-emerald-800/40' },
+                    { title: 'Forwards', pos: 'FORWARD', icon: '⚡', badgeColor: 'bg-rose-950/40 text-rose-400 border-rose-800/40' },
+                  ];
+
+                  return (
+                    <div className="space-y-4">
+                      {groups.map((group) => {
+                        const playersInGroup = teamRoster.filter(p => getFootballPos(p) === group.pos);
+                        if (playersInGroup.length === 0) return null;
+
+                        return (
+                          <div key={group.pos} className="space-y-1.5">
+                            <div className="flex items-center gap-2 text-xs font-bold text-gray-300 px-1">
+                              <span>{group.icon}</span>
+                              <span>{group.title}</span>
+                              <span className="text-[10px] text-gray-500 font-normal">({playersInGroup.length})</span>
+                            </div>
+
+                            <div className="space-y-1.5">
+                              {playersInGroup.map((player) => {
+                                const sel = xiSelection[player.id] || { selected: false };
+
+                                return (
+                                  <div
+                                    key={player.id}
+                                    className={`p-2.5 rounded-xl border transition-all flex items-center justify-between gap-3 ${
+                                      sel.selected
+                                        ? 'bg-emerald-950/30 border-emerald-600/50 shadow-sm'
+                                        : 'bg-gray-900/40 border-gray-800/80 opacity-70 hover:opacity-100'
+                                    }`}
+                                  >
+                                    {/* Selection Checkbox & Player Info */}
+                                    <div className="flex items-center gap-3 min-w-0">
+                                      <input
+                                        type="checkbox"
+                                        checked={sel.selected}
+                                        onChange={() => handleTogglePlayer(player.id)}
+                                        className="w-4 h-4 rounded text-emerald-600 focus:ring-emerald-500 bg-gray-950 border-gray-700 cursor-pointer"
+                                      />
+
+                                      <div>
+                                        <p className="text-xs font-bold text-white truncate">
+                                          {player.firstName} {player.lastName}
+                                          {player.jerseyNumber ? ` (#${player.jerseyNumber})` : ''}
+                                        </p>
+                                        <span className={`text-[10px] px-1.5 py-0.5 rounded border uppercase font-semibold ${group.badgeColor}`}>
+                                          {group.title.slice(0, -1)}
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    {/* Football Lineup Role Configuration */}
+                                    <div className="flex items-center gap-2">
+                                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                                        sel.selected
+                                          ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                          : 'bg-gray-800/60 text-gray-400 border border-gray-700/40'
+                                      }`}>
+                                        {sel.selected ? 'Starting XI' : 'Substitute'}
+                                      </span>
+
+                                      {sel.selected && (
+                                        <>
+                                          {/* Captain Button */}
+                                          <button
+                                            type="button"
+                                            onClick={() => handleSetCaptain(player.id)}
+                                            className={`px-2 py-1 rounded text-[10px] font-bold uppercase transition-all ${
+                                              sel.isCaptain
+                                                ? 'bg-amber-500 text-black shadow-sm font-black'
+                                                : 'bg-gray-800 text-gray-400 hover:text-white'
+                                            }`}
+                                            title="Set Captain"
+                                          >
+                                            (C)
+                                          </button>
+
+                                          {/* Vice Captain Button */}
+                                          <button
+                                            type="button"
+                                            onClick={() => handleSetViceCaptain(player.id)}
+                                            className={`px-2 py-1 rounded text-[10px] font-bold uppercase transition-all ${
+                                              sel.isViceCaptain
+                                                ? 'bg-blue-500 text-white shadow-sm font-black'
+                                                : 'bg-gray-800 text-gray-400 hover:text-white'
+                                            }`}
+                                            title="Set Vice Captain"
+                                          >
+                                            (VC)
+                                          </button>
+                                        </>
+                                      )}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()
               ) : (
+                /* Cricket View */
                 teamRoster.map((player) => {
                   const sel = xiSelection[player.id] || { selected: false };
 
@@ -859,7 +1011,9 @@ export default function ManagerFixtures() {
             {/* Modal Footer */}
             <div className="p-4 bg-gray-950/80 border-t border-gray-800 flex items-center justify-between">
               <span className="text-xs text-gray-400">
-                Playing XI will be locked once match scoring commences.
+                {isMatchFootball
+                  ? 'Football Starting XI and substitutes will be locked once kickoff begins.'
+                  : 'Playing XI will be locked once match scoring commences.'}
               </span>
 
               <div className="flex items-center gap-2.5">
@@ -878,7 +1032,7 @@ export default function ManagerFixtures() {
                   className="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold flex items-center gap-1.5 shadow-md glow-emerald transition-all"
                 >
                   <Send className="w-3.5 h-3.5" />
-                  {savingXI ? 'Saving Playing XI...' : 'Submit Playing XI'}
+                  {savingXI ? 'Saving Lineup...' : isMatchFootball ? 'Submit Starting XI' : 'Submit Playing XI'}
                 </button>
               </div>
             </div>

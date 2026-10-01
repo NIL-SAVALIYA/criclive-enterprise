@@ -4,7 +4,11 @@ export const PlayerTypeEnum = z.enum([
   "BATSMAN",
   "BOWLER",
   "ALL_ROUNDER",
-  "WICKET_KEEPER"
+  "WICKET_KEEPER",
+  "GOALKEEPER",
+  "DEFENDER",
+  "MIDFIELDER",
+  "FORWARD"
 ]);
 
 export const BattingStyleEnum = z.enum([

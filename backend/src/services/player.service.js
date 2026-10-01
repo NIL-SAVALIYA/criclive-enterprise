@@ -36,8 +36,22 @@ export async function createPlayerService(playerData) {
   const cleanData = { ...playerData };
   delete cleanData.sport;
 
+  const FOOTBALL_POSITION_TO_TYPE = {
+    GOALKEEPER: "WICKET_KEEPER",
+    DEFENDER: "BOWLER",
+    MIDFIELDER: "ALL_ROUNDER",
+    FORWARD: "BATSMAN"
+  };
+
+  let mappedPlayerType = cleanData.playerType;
+  if (targetSportCode === "FOOTBALL" && mappedPlayerType && FOOTBALL_POSITION_TO_TYPE[mappedPlayerType]) {
+    mappedPlayerType = FOOTBALL_POSITION_TO_TYPE[mappedPlayerType];
+  }
+
   const payload = {
     ...cleanData,
+    playerType: mappedPlayerType,
+    ...(targetSportCode === "FOOTBALL" && { battingStyle: null, bowlingStyle: null }),
     firstName: playerData.firstName.trim(),
     lastName: playerData.lastName.trim(),
     ...(playerData.dateOfBirth && { dateOfBirth: new Date(playerData.dateOfBirth) }),
@@ -47,15 +61,48 @@ export async function createPlayerService(playerData) {
   return prisma.$transaction(async (tx) => {
     const player = await createPlayer(payload, tx);
     console.log(`[PLAYER EVENT] Player Created | ID: ${player.id} | Name: ${player.firstName} ${player.lastName} | Team: ${team.name}`);
-    return player;
+    return formatPlayerForSport(player);
   });
+}
+
+const TYPE_TO_FOOTBALL_POSITION = {
+  WICKET_KEEPER: "GOALKEEPER",
+  BOWLER: "DEFENDER",
+  ALL_ROUNDER: "MIDFIELDER",
+  BATSMAN: "FORWARD"
+};
+
+function formatPlayerForSport(player) {
+  if (!player) return player;
+  const isFootball = player.sport?.code === "FOOTBALL";
+  if (isFootball) {
+    const pos = TYPE_TO_FOOTBALL_POSITION[player.playerType] || player.playerType;
+    return {
+      ...player,
+      position: pos,
+      footballPosition: pos,
+      battingStyle: null,
+      bowlingStyle: null
+    };
+  }
+  return player;
 }
 
 /**
  * Gets all players with search, filtering, and pagination.
  */
 export async function getAllPlayersService(params = {}) {
-  return await getAllPlayers(params);
+  const result = await getAllPlayers(params);
+  if (Array.isArray(result)) {
+    return result.map(formatPlayerForSport);
+  }
+  if (result?.players && Array.isArray(result.players)) {
+    return {
+      ...result,
+      players: result.players.map(formatPlayerForSport)
+    };
+  }
+  return result;
 }
 
 /**
@@ -68,7 +115,7 @@ export async function getPlayerByIdService(id) {
     error.statusCode = 404;
     throw error;
   }
-  return player;
+  return formatPlayerForSport(player);
 }
 
 /**
@@ -105,8 +152,16 @@ export async function updatePlayerService(id, playerData, currentUser = null) {
     }
   }
 
+  const isFootball = player.sport?.code === "FOOTBALL";
+  let mappedUpdateType = playerData.playerType;
+  if (isFootball && mappedUpdateType && FOOTBALL_POSITION_TO_TYPE[mappedUpdateType]) {
+    mappedUpdateType = FOOTBALL_POSITION_TO_TYPE[mappedUpdateType];
+  }
+
   const payload = {
     ...playerData,
+    ...(mappedUpdateType !== undefined && { playerType: mappedUpdateType }),
+    ...(isFootball && { battingStyle: null, bowlingStyle: null }),
     ...(playerData.firstName && { firstName: playerData.firstName.trim() }),
     ...(playerData.lastName && { lastName: playerData.lastName.trim() }),
     ...(playerData.dateOfBirth && { dateOfBirth: new Date(playerData.dateOfBirth) })
@@ -115,7 +170,7 @@ export async function updatePlayerService(id, playerData, currentUser = null) {
   return prisma.$transaction(async (tx) => {
     const updated = await updatePlayer(id, payload, tx);
     console.log(`[PLAYER EVENT] Player Updated | ID: ${updated.id} | Name: ${updated.firstName} ${updated.lastName}`);
-    return updated;
+    return formatPlayerForSport(updated);
   });
 }
 

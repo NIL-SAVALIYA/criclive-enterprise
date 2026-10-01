@@ -37,7 +37,7 @@ import { Link } from 'react-router-dom';
 
 export default function Tournaments() {
   const { user, hasRole, isOrganizer, isAdmin } = useAuth();
-  const { currentSport, sportConfig, isCricket } = useSport();
+  const { currentSport, sportConfig, isCricket, isBadminton, isFootball } = useSport();
 
   const [tournaments, setTournaments] = useState([]);
   const [selectedTournament, setSelectedTournament] = useState(null);
@@ -68,7 +68,9 @@ export default function Tournaments() {
   const [manageTab, setManageTab] = useState('overview'); // overview, teams, managers, fixtures, scorers, standings, staff
   const [selectedTeamToAdd, setSelectedTeamToAdd] = useState('');
   const [selectedFormat, setSelectedFormat] = useState('LEAGUE');
-  const [fixtureVenue, setFixtureVenue] = useState(sportConfig?.defaultVenue || (isCricket ? 'National Cricket Stadium' : 'Badminton Indoor Arena'));
+  const [fixtureVenue, setFixtureVenue] = useState(
+    sportConfig?.defaultVenue || (isFootball ? 'Football Stadium' : isBadminton ? 'Badminton Indoor Arena' : 'National Cricket Stadium')
+  );
   const [fixtureStartDate, setFixtureStartDate] = useState('');
   const [actionLoading, setActionLoading] = useState(false);
   const [copiedMatchId, setCopiedMatchId] = useState(null);
@@ -158,7 +160,11 @@ export default function Tournaments() {
           : ''
       );
       const tournamentSportCode = res.data.data?.tournament?.sport?.code || currentSport;
-      const defaultSportVenue = tournamentSportCode === 'BADMINTON' ? 'Badminton Indoor Arena' : 'National Cricket Stadium';
+      const defaultSportVenue = tournamentSportCode === 'FOOTBALL'
+        ? 'Football Stadium'
+        : tournamentSportCode === 'BADMINTON'
+        ? 'Badminton Indoor Arena'
+        : 'National Cricket Stadium';
       setFixtureVenue(res.data.data?.tournament?.venue || defaultSportVenue);
     } catch (err) {
       console.error('Failed to fetch tournament dashboard:', err);
@@ -445,7 +451,7 @@ export default function Tournaments() {
     setErrorMsg(null);
     try {
       const res = await api.post(`/fixtures/generate/${manageDashboard.tournament.id}`, {
-        venue: fixtureVenue || sportConfig?.defaultVenue || (isCricket ? 'National Cricket Stadium' : 'Badminton Indoor Arena'),
+        venue: fixtureVenue || sportConfig?.defaultVenue || (isFootball ? 'Football Stadium' : isBadminton ? 'Badminton Indoor Arena' : 'National Cricket Stadium'),
         startDate: fixtureStartDate ? new Date(fixtureStartDate).toISOString() : undefined,
         format: selectedFormat,
         regenerate: true

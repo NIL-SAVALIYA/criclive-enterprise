@@ -157,6 +157,12 @@ export const SPORTS_REGISTRY = {
       heroSubline: 'Experience live match clock tracking, goal event timelines, discipline cards, substitutions, and comprehensive league tournament standings.'
     },
     defaultVenue: 'Football Stadium',
+    positions: [
+      { id: 'GOALKEEPER', label: 'Goalkeeper', short: 'GK' },
+      { id: 'DEFENDER', label: 'Defender', short: 'DEF' },
+      { id: 'MIDFIELDER', label: 'Midfielder', short: 'MID' },
+      { id: 'FORWARD', label: 'Forward', short: 'FWD' }
+    ],
     routes: {
       base: '/football',
       live: '/football/live',

@@ -35,9 +35,29 @@ export default function TeamsAndPlayers() {
     description: '',
     logoUrl: ''
   });
-  const [submitting, setSubmitting] = useState(false);
+  const [startingXIIds, setStartingXIIds] = useState(new Set());
+  const [rosterTab, setRosterTab] = useState('ALL'); // 'ALL', 'STARTING_XI', 'SUBS'
 
-  const { currentSport } = useSport();
+  const { currentSport, isCricket, isBadminton, isFootball } = useSport();
+
+  function getPlayerPositionLabel(player) {
+    if (isFootball) {
+      if (player.position) return player.position;
+      if (player.footballPosition) return player.footballPosition;
+      const map = {
+        WICKET_KEEPER: 'Goalkeeper',
+        GOALKEEPER: 'Goalkeeper',
+        BOWLER: 'Defender',
+        DEFENDER: 'Defender',
+        ALL_ROUNDER: 'Midfielder',
+        MIDFIELDER: 'Midfielder',
+        BATSMAN: 'Forward',
+        FORWARD: 'Forward'
+      };
+      return map[player.playerType] || player.playerType || 'Forward';
+    }
+    return player.playerType;
+  }
 
   useEffect(() => {
     fetchTeams();
@@ -66,7 +86,11 @@ export default function TeamsAndPlayers() {
     setDetailsLoading(true);
     try {
       const res = await api.get(`/teams/${id}`);
-      setSelectedTeam(res.data.data);
+      const teamData = res.data.data;
+      setSelectedTeam(teamData);
+      const players = teamData?.players || [];
+      const initialXI = new Set(players.slice(0, 11).map(p => p.id));
+      setStartingXIIds(initialXI);
     } catch (err) {
       console.error('Failed to load team details:', err);
     } finally {
@@ -388,30 +412,105 @@ export default function TeamsAndPlayers() {
 
               {/* Roster Squad List */}
               <div className="space-y-3">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <UserCheck className="w-4 h-4 text-emerald-400" /> Squad Roster ({selectedTeam.players?.length || 0})
-                </h3>
+                <div className="flex justify-between items-center">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <UserCheck className="w-4 h-4 text-emerald-400" /> {isFootball ? 'Club Squad' : 'Squad Roster'} ({selectedTeam.players?.length || 0})
+                  </h3>
+                  {isFootball && (
+                    <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-500/30">
+                      Starting XI: {startingXIIds.size}/11
+                    </span>
+                  )}
+                </div>
+
+                {/* Football Roster Sub-tabs */}
+                {isFootball && (
+                  <div className="flex gap-1.5 p-1 bg-gray-900/90 rounded-xl border border-gray-800 text-[11px] font-bold">
+                    <button
+                      onClick={() => setRosterTab('ALL')}
+                      className={`flex-1 py-1 rounded-lg transition-all ${
+                        rosterTab === 'ALL'
+                          ? 'bg-emerald-600 text-white shadow'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      Squad ({(selectedTeam.players || []).length})
+                    </button>
+                    <button
+                      onClick={() => setRosterTab('STARTING_XI')}
+                      className={`flex-1 py-1 rounded-lg transition-all ${
+                        rosterTab === 'STARTING_XI'
+                          ? 'bg-emerald-600 text-white shadow'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      Starting XI ({startingXIIds.size}/11)
+                    </button>
+                    <button
+                      onClick={() => setRosterTab('SUBS')}
+                      className={`flex-1 py-1 rounded-lg transition-all ${
+                        rosterTab === 'SUBS'
+                          ? 'bg-emerald-600 text-white shadow'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      Substitutes ({Math.max(0, (selectedTeam.players || []).length - startingXIIds.size)})
+                    </button>
+                  </div>
+                )}
+
                 <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
                   {(selectedTeam.players || []).length === 0 ? (
-                    <p className="text-xs text-gray-500 p-2">No players assigned to this team yet.</p>
+                    <p className="text-xs text-gray-500 p-2">No players assigned to this club yet.</p>
                   ) : (
-                    selectedTeam.players.map((p) => (
-                      <div key={p.id} className="p-3 bg-gray-900/80 rounded-xl border border-gray-800 flex justify-between items-center text-xs">
-                        <div>
-                          <div className="font-bold text-white flex items-center gap-1.5">
-                            {p.firstName} {p.lastName}
-                            {p.isCaptain && <span className="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-mono font-bold">C</span>}
-                            {p.isViceCaptain && <span className="text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded font-mono font-bold">VC</span>}
+                    (selectedTeam.players || [])
+                      .filter((p) => {
+                        if (!isFootball || rosterTab === 'ALL') return true;
+                        if (rosterTab === 'STARTING_XI') return startingXIIds.has(p.id);
+                        if (rosterTab === 'SUBS') return !startingXIIds.has(p.id);
+                        return true;
+                      })
+                      .map((p) => (
+                        <div key={p.id} className="p-3 bg-gray-900/80 rounded-xl border border-gray-800 flex justify-between items-center text-xs">
+                          <div>
+                            <div className="font-bold text-white flex items-center gap-1.5">
+                              {p.firstName} {p.lastName}
+                              {p.isCaptain && <span className="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-mono font-bold">C</span>}
+                              {p.isViceCaptain && <span className="text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded font-mono font-bold">VC</span>}
+                            </div>
+                            <div className="text-[10px] text-emerald-400 font-semibold">{getPlayerPositionLabel(p)}</div>
                           </div>
-                          <div className="text-[10px] text-emerald-400">{p.playerType}</div>
+                          <div className="flex items-center gap-2">
+                            {isFootball && (
+                              <button
+                                onClick={() => {
+                                  setStartingXIIds((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(p.id)) {
+                                      next.delete(p.id);
+                                    } else {
+                                      if (next.size < 11) next.add(p.id);
+                                    }
+                                    return next;
+                                  });
+                                }}
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded transition-all ${
+                                  startingXIIds.has(p.id)
+                                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                                    : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'
+                                }`}
+                              >
+                                {startingXIIds.has(p.id) ? 'Starting XI' : 'Substitute'}
+                              </button>
+                            )}
+                            {p.jerseyNumber && (
+                              <span className="font-mono text-xs font-bold text-gray-400 bg-gray-800 px-2 py-1 rounded">
+                                #{p.jerseyNumber}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        {p.jerseyNumber && (
-                          <span className="font-mono text-xs font-bold text-gray-400 bg-gray-800 px-2 py-1 rounded">
-                            #{p.jerseyNumber}
-                          </span>
-                        )}
-                      </div>
-                    ))
+                      ))
                   )}
                 </div>
               </div>
@@ -423,7 +522,7 @@ export default function TeamsAndPlayers() {
                     to="/manager/fixtures"
                     className="w-full py-2.5 px-4 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold flex items-center justify-center gap-2 transition-all glow-emerald"
                   >
-                    <Users className="w-4 h-4" /> Go to My Fixtures & Playing XI <ArrowRight className="w-3.5 h-3.5" />
+                    <Users className="w-4 h-4" /> {isFootball ? 'Go to Fixtures & Match Lineup' : isBadminton ? 'Go to Fixtures & Roster' : 'Go to My Fixtures & Playing XI'} <ArrowRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
               )}

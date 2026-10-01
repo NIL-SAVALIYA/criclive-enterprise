@@ -46,7 +46,26 @@ export default function Players() {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  const { currentSport } = useSport();
+  const { currentSport, isCricket, isBadminton, isFootball } = useSport();
+
+  function getPlayerPositionLabel(player) {
+    if (isFootball) {
+      if (player.position) return player.position;
+      if (player.footballPosition) return player.footballPosition;
+      const map = {
+        WICKET_KEEPER: 'Goalkeeper',
+        GOALKEEPER: 'Goalkeeper',
+        BOWLER: 'Defender',
+        DEFENDER: 'Defender',
+        ALL_ROUNDER: 'Midfielder',
+        MIDFIELDER: 'Midfielder',
+        BATSMAN: 'Forward',
+        FORWARD: 'Forward'
+      };
+      return map[player.playerType] || player.playerType || 'Forward';
+    }
+    return player.playerType;
+  }
 
   useEffect(() => {
     fetchInitialData();
@@ -96,7 +115,17 @@ export default function Players() {
     const q = searchQuery.toLowerCase();
 
     const matchesSearch = fullName.includes(q) || teamName.includes(q) || (p.jerseyNumber && String(p.jerseyNumber).includes(q));
-    const matchesType = typeFilter === 'ALL' || p.playerType === typeFilter;
+    
+    let matchesType = typeFilter === 'ALL';
+    if (!matchesType) {
+      if (isFootball) {
+        const pos = getPlayerPositionLabel(p).toUpperCase();
+        matchesType = pos === typeFilter.toUpperCase() || p.playerType === typeFilter;
+      } else {
+        matchesType = p.playerType === typeFilter;
+      }
+    }
+
     const matchesTeam = teamFilter === 'ALL' || p.teamId === teamFilter;
 
     return matchesSearch && matchesType && matchesTeam;
@@ -123,7 +152,8 @@ export default function Players() {
       firstName: '',
       lastName: '',
       jerseyNumber: '',
-      playerType: 'BATSMAN',
+      playerType: isFootball ? 'FORWARD' : isBadminton ? '' : 'BATSMAN',
+      position: isFootball ? 'FORWARD' : '',
       battingStyle: 'RIGHT_HAND',
       bowlingStyle: 'RIGHT_ARM_MEDIUM',
       isCaptain: false,
@@ -134,12 +164,14 @@ export default function Players() {
   };
 
   const handleOpenEdit = (p) => {
+    const fbPos = isFootball ? (p.footballPosition || p.position || (p.playerType === 'WICKET_KEEPER' ? 'GOALKEEPER' : p.playerType === 'BOWLER' ? 'DEFENDER' : p.playerType === 'ALL_ROUNDER' ? 'MIDFIELDER' : 'FORWARD')) : p.playerType;
     setFormData({
       id: p.id,
       firstName: p.firstName,
       lastName: p.lastName,
       jerseyNumber: p.jerseyNumber || '',
-      playerType: p.playerType,
+      playerType: isFootball ? fbPos : p.playerType,
+      position: fbPos,
       battingStyle: p.battingStyle || 'RIGHT_HAND',
       bowlingStyle: p.bowlingStyle || 'RIGHT_ARM_MEDIUM',
       isCaptain: !!p.isCaptain,
@@ -163,11 +195,11 @@ export default function Players() {
         firstName: formData.firstName,
         lastName: formData.lastName,
         jerseyNumber: formData.jerseyNumber ? Number(formData.jerseyNumber) : undefined,
-        playerType: currentSport === 'BADMINTON' ? undefined : formData.playerType,
-        battingStyle: currentSport === 'BADMINTON' ? undefined : (formData.battingStyle || undefined),
-        bowlingStyle: currentSport === 'BADMINTON' ? undefined : (formData.bowlingStyle || undefined),
-        isCaptain: Boolean(formData.isCaptain),
-        isViceCaptain: Boolean(formData.isViceCaptain),
+        playerType: isBadminton ? undefined : isFootball ? (formData.position || formData.playerType) : formData.playerType,
+        battingStyle: isCricket ? (formData.battingStyle || undefined) : undefined,
+        bowlingStyle: isCricket ? (formData.bowlingStyle || undefined) : undefined,
+        isCaptain: isCricket ? Boolean(formData.isCaptain) : false,
+        isViceCaptain: isCricket ? Boolean(formData.isViceCaptain) : false,
         teamId: formData.teamId,
         sport: currentSport
       };
@@ -196,9 +228,9 @@ export default function Players() {
         firstName: formData.firstName,
         lastName: formData.lastName,
         jerseyNumber: formData.jerseyNumber ? Number(formData.jerseyNumber) : undefined,
-        playerType: currentSport === 'BADMINTON' ? undefined : formData.playerType,
-        battingStyle: currentSport === 'BADMINTON' ? undefined : (formData.battingStyle || undefined),
-        bowlingStyle: currentSport === 'BADMINTON' ? undefined : (formData.bowlingStyle || undefined),
+        playerType: isBadminton ? undefined : isFootball ? (formData.position || formData.playerType) : formData.playerType,
+        battingStyle: isCricket ? (formData.battingStyle || undefined) : undefined,
+        bowlingStyle: isCricket ? (formData.bowlingStyle || undefined) : undefined,
         isCaptain: Boolean(formData.isCaptain),
         isViceCaptain: Boolean(formData.isViceCaptain),
         teamId: formData.teamId
@@ -283,7 +315,25 @@ export default function Players() {
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          {currentSport !== 'BADMINTON' && (
+          {isFootball && (
+            <div className="flex items-center gap-2">
+              <Filter className="w-3.5 h-3.5 text-gray-400" />
+              <span className="text-xs font-bold text-gray-400">Position:</span>
+              <select
+                value={typeFilter}
+                onChange={(e) => { setTypeFilter(e.target.value); setCurrentPage(1); }}
+                className="bg-gray-900 border border-gray-700 text-white text-xs font-semibold rounded-lg p-2"
+              >
+                <option value="ALL">All Positions</option>
+                <option value="GOALKEEPER">Goalkeeper</option>
+                <option value="DEFENDER">Defender</option>
+                <option value="MIDFIELDER">Midfielder</option>
+                <option value="FORWARD">Forward</option>
+              </select>
+            </div>
+          )}
+
+          {isCricket && (
             <div className="flex items-center gap-2">
               <Filter className="w-3.5 h-3.5 text-gray-400" />
               <span className="text-xs font-bold text-gray-400">Role:</span>
@@ -302,13 +352,13 @@ export default function Players() {
           )}
 
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-gray-400">Team:</span>
+            <span className="text-xs font-bold text-gray-400">{isFootball ? 'Club:' : isBadminton ? 'Side:' : 'Team:'}</span>
             <select
               value={teamFilter}
               onChange={(e) => { setTeamFilter(e.target.value); setCurrentPage(1); }}
               className="bg-gray-900 border border-gray-700 text-white text-xs font-semibold rounded-lg p-2"
             >
-              <option value="ALL">All Teams</option>
+              <option value="ALL">{isFootball ? 'All Clubs' : isBadminton ? 'All Sides' : 'All Teams'}</option>
               {teams.map((t) => (
                 <option key={t.id} value={t.id}>{t.name}</option>
               ))}
@@ -357,7 +407,7 @@ export default function Players() {
                       )}
                     </h3>
                     <div className="text-xs text-emerald-400 font-semibold mt-0.5 flex items-center gap-1">
-                      <Shield className="w-3 h-3 text-emerald-400" /> {p.team?.name || 'Unassigned Team'}
+                      <Shield className="w-3 h-3 text-emerald-400" /> {p.team?.name || (isFootball ? 'Unassigned Club' : 'Unassigned Team')}
                     </div>
                   </div>
                   {p.jerseyNumber && (
@@ -368,10 +418,18 @@ export default function Players() {
                 </div>
 
                 <div className="text-xs text-gray-400 pt-1 space-y-1">
-                  {currentSport !== 'BADMINTON' && p.playerType && (
+                  {isFootball && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-gray-400 font-bold">Position:</span>
+                      <span className="text-emerald-400 font-semibold px-2 py-0.5 rounded bg-emerald-950/60 border border-emerald-500/30">
+                        {getPlayerPositionLabel(p)}
+                      </span>
+                    </div>
+                  )}
+                  {isCricket && p.playerType && (
                     <div>Role: <span className="text-gray-200 font-semibold">{p.playerType}</span></div>
                   )}
-                  {currentSport !== 'BADMINTON' && (
+                  {isCricket && (
                     <div className="text-[11px]">Bat: {p.battingStyle || 'Right Hand'} • Bowl: {p.bowlingStyle || 'None'}</div>
                   )}
                 </div>
@@ -445,7 +503,9 @@ export default function Players() {
                   {selectedPlayer.firstName} {selectedPlayer.lastName}
                   {selectedPlayer.jerseyNumber && <span className="text-amber-400 font-mono">#{selectedPlayer.jerseyNumber}</span>}
                 </h2>
-                <div className="text-xs text-emerald-400 font-semibold">{selectedPlayer.team?.name} • {selectedPlayer.playerType}</div>
+                <div className="text-xs text-emerald-400 font-semibold">
+                  {selectedPlayer.team?.name || 'Unassigned'} • {getPlayerPositionLabel(selectedPlayer)}
+                </div>
               </div>
               <button onClick={() => setShowStatsModal(false)}><X className="w-5 h-5 text-gray-400" /></button>
             </div>
@@ -455,7 +515,19 @@ export default function Players() {
                 <Skeleton className="h-6 w-full" />
                 <Skeleton className="h-20 w-full" />
               </div>
-            ) : playerStats ? (
+            ) : isFootball ? (
+              <div className="space-y-4 text-xs font-mono">
+                <h3 className="font-bold text-emerald-400 flex items-center gap-1.5 font-sans">⚽ Football Career Performance</h3>
+                <div className="grid grid-cols-3 gap-2 bg-gray-900 p-3 rounded-xl border border-gray-800">
+                  <div><span className="text-gray-400 block text-[10px]">Position</span> <span className="text-emerald-400 font-bold">{getPlayerPositionLabel(selectedPlayer)}</span></div>
+                  <div><span className="text-gray-400 block text-[10px]">Club</span> <span className="text-white font-bold">{selectedPlayer.team?.name || 'Free Agent'}</span></div>
+                  <div><span className="text-gray-400 block text-[10px]">Jersey #</span> <span className="text-amber-400 font-bold">{selectedPlayer.jerseyNumber ? `#${selectedPlayer.jerseyNumber}` : '-'}</span></div>
+                  <div><span className="text-gray-400 block text-[10px]">Squad Status</span> <span className="text-emerald-400 font-bold">Active Squad</span></div>
+                  <div><span className="text-gray-400 block text-[10px]">Discipline</span> <span className="text-white font-bold">0 Yellow / 0 Red</span></div>
+                  <div><span className="text-gray-400 block text-[10px]">Goals / Assists</span> <span className="text-blue-400 font-bold">0 / 0</span></div>
+                </div>
+              </div>
+            ) : isCricket && playerStats ? (
               <div className="space-y-6 text-xs font-mono">
                 {/* Batting Stats */}
                 <div className="space-y-2">
@@ -524,7 +596,7 @@ export default function Players() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-gray-300 mb-1">Assigned Team *</label>
+                  <label className="block text-gray-300 mb-1">{isFootball ? 'Assigned Club *' : isBadminton ? 'Assigned Side *' : 'Assigned Team *'}</label>
                   <select
                     value={formData.teamId}
                     onChange={(e) => setFormData({ ...formData, teamId: e.target.value })}
@@ -548,7 +620,23 @@ export default function Players() {
                 </div>
               </div>
 
-              {currentSport !== 'BADMINTON' && (
+              {isFootball && (
+                <div>
+                  <label className="block text-gray-300 mb-1">Position *</label>
+                  <select
+                    value={formData.position || formData.playerType}
+                    onChange={(e) => setFormData({ ...formData, position: e.target.value, playerType: e.target.value })}
+                    className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2.5"
+                  >
+                    <option value="GOALKEEPER">GOALKEEPER</option>
+                    <option value="DEFENDER">DEFENDER</option>
+                    <option value="MIDFIELDER">MIDFIELDER</option>
+                    <option value="FORWARD">FORWARD</option>
+                  </select>
+                </div>
+              )}
+
+              {isCricket && (
                 <div className="grid grid-cols-3 gap-2">
                   <div>
                     <label className="block text-gray-300 mb-1">Role *</label>
@@ -592,26 +680,28 @@ export default function Players() {
                 </div>
               )}
 
-              <div className="flex gap-6 pt-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.isCaptain}
-                    onChange={(e) => setFormData({ ...formData, isCaptain: e.target.checked })}
-                    className="accent-amber-500"
-                  />
-                  <span className="text-amber-400 font-bold">Team Captain (C)</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.isViceCaptain}
-                    onChange={(e) => setFormData({ ...formData, isViceCaptain: e.target.checked })}
-                    className="accent-blue-500"
-                  />
-                  <span className="text-blue-400 font-bold">Vice Captain (VC)</span>
-                </label>
-              </div>
+              {isCricket && (
+                <div className="flex gap-6 pt-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.isCaptain}
+                      onChange={(e) => setFormData({ ...formData, isCaptain: e.target.checked })}
+                      className="accent-amber-500"
+                    />
+                    <span className="text-amber-400 font-bold">Team Captain (C)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.isViceCaptain}
+                      onChange={(e) => setFormData({ ...formData, isViceCaptain: e.target.checked })}
+                      className="accent-blue-500"
+                    />
+                    <span className="text-blue-400 font-bold">Vice Captain (VC)</span>
+                  </label>
+                </div>
+              )}
 
               <button
                 type="submit"
@@ -657,7 +747,7 @@ export default function Players() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-gray-300 mb-1">Assigned Team</label>
+                  <label className="block text-gray-300 mb-1">{isFootball ? 'Assigned Club' : 'Assigned Team'}</label>
                   <select
                     value={formData.teamId}
                     onChange={(e) => setFormData({ ...formData, teamId: e.target.value })}
@@ -681,26 +771,44 @@ export default function Players() {
                 </div>
               </div>
 
-              <div className="flex gap-6 pt-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.isCaptain}
-                    onChange={(e) => setFormData({ ...formData, isCaptain: e.target.checked })}
-                    className="accent-amber-500"
-                  />
-                  <span className="text-amber-400 font-bold">Team Captain (C)</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={formData.isViceCaptain}
-                    onChange={(e) => setFormData({ ...formData, isViceCaptain: e.target.checked })}
-                    className="accent-blue-500"
-                  />
-                  <span className="text-blue-400 font-bold">Vice Captain (VC)</span>
-                </label>
-              </div>
+              {isFootball && (
+                <div>
+                  <label className="block text-gray-300 mb-1">Position</label>
+                  <select
+                    value={formData.position || formData.playerType}
+                    onChange={(e) => setFormData({ ...formData, position: e.target.value, playerType: e.target.value })}
+                    className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2.5"
+                  >
+                    <option value="GOALKEEPER">GOALKEEPER</option>
+                    <option value="DEFENDER">DEFENDER</option>
+                    <option value="MIDFIELDER">MIDFIELDER</option>
+                    <option value="FORWARD">FORWARD</option>
+                  </select>
+                </div>
+              )}
+
+              {isCricket && (
+                <div className="flex gap-6 pt-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.isCaptain}
+                      onChange={(e) => setFormData({ ...formData, isCaptain: e.target.checked })}
+                      className="accent-amber-500"
+                    />
+                    <span className="text-amber-400 font-bold">Team Captain (C)</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={formData.isViceCaptain}
+                      onChange={(e) => setFormData({ ...formData, isViceCaptain: e.target.checked })}
+                      className="accent-blue-500"
+                    />
+                    <span className="text-blue-400 font-bold">Vice Captain (VC)</span>
+                  </label>
+                </div>
+              )}
 
               <button
                 type="submit"

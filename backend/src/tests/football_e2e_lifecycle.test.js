@@ -20,6 +20,7 @@ import { createToss } from "../services/toss.service.js";
 import { recordBadmintonPointService } from "../services/badmintonMatch.service.js";
 import { getLiveMatchService } from "../services/liveMatch.service.js";
 import { getScorecardService } from "../services/scorecard.service.js";
+import { createPlayingXIService, getPlayingXIService } from "../services/playingXI.service.js";
 import crypto from "crypto";
 
 async function runE2EFootballLifecycleTests() {
@@ -151,6 +152,47 @@ async function runE2EFootballLifecycleTests() {
     assert.equal(fbMatch.innings.length, 0, "Football match must have ZERO cricket innings");
     assert.equal(fbMatch.badmintonMatchState, null, "Football match must have NULL badmintonMatchState");
     assert.equal(fbMatch.status, "UPCOMING");
+  });
+
+  // 3.5 Football Lineup: Submit 11 players for Starting XI with Captain, VC, and Substitutes
+  await test("3.5 Football Lineup: Submit 11-player Starting XI without cricket batting order or wicketkeeper constraints", async () => {
+    // Create 11 players for fbTeamA
+    const squadA = [];
+    for (let i = 1; i <= 14; i++) {
+      const p = await prisma.player.create({
+        data: {
+          firstName: `PlayerA${i}`,
+          lastName: "Test",
+          jerseyNumber: i,
+          teamId: fbTeamA.id,
+          sportId: footballSport.id,
+          playerType: i === 1 ? "WICKET_KEEPER" : i <= 5 ? "BOWLER" : i <= 9 ? "ALL_ROUNDER" : "BATSMAN"
+        }
+      });
+      squadA.push(p);
+    }
+
+    // Select 11 players for Starting XI, 1 captain, 1 vice-captain, no unique batting orders required
+    const lineupPayload = squadA.slice(0, 11).map((p, idx) => ({
+      playerId: p.id,
+      isCaptain: idx === 0,
+      isViceCaptain: idx === 1,
+      battingOrder: 1 // In football, order doesn't have to be unique 1-11
+    }));
+
+    await createPlayingXIService(
+      fbMatch.id,
+      fbTeamA.id,
+      lineupPayload,
+      null
+    );
+
+    const matchXI = await getPlayingXIService(fbMatch.id);
+    const teamAXI = matchXI.playingXI.filter(p => p.teamId === fbTeamA.id);
+
+    assert.equal(teamAXI.length, 11);
+    assert.equal(teamAXI.filter(p => p.isCaptain).length, 1);
+    assert.equal(teamAXI.find(p => p.playerId === squadA[0].id).isCaptain, true);
   });
 
   // 4. Complete Scoring Lifecycle Flow
@@ -406,12 +448,16 @@ async function runE2EFootballLifecycleTests() {
   });
 
   // Cleanup
+  const matchIds = [fbMatch?.id, cricketMatch?.id, badmintonMatch?.id].filter(Boolean);
   const tourneyIds = [fbTournament?.id, cricketMatch?.tournamentId, badmintonMatch?.tournamentId].filter(Boolean);
+  await prisma.playingXI.deleteMany({
+    where: { matchId: { in: matchIds } }
+  });
   await prisma.tournamentTeam.deleteMany({
     where: { tournamentId: { in: tourneyIds } }
   });
   await prisma.match.deleteMany({
-    where: { id: { in: [fbMatch?.id, cricketMatch?.id, badmintonMatch?.id].filter(Boolean) } }
+    where: { id: { in: matchIds } }
   });
   await prisma.tournament.deleteMany({
     where: { id: { in: tourneyIds } }

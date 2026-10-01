@@ -42,7 +42,7 @@ export default function Fixtures() {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  const { currentSport, isBadminton, sportConfig, terminology } = useSport();
+  const { currentSport, isCricket, isBadminton, isFootball, sportConfig, terminology } = useSport();
   const sportPrefix = `/${currentSport.toLowerCase()}`;
 
   useEffect(() => {
@@ -144,7 +144,7 @@ export default function Fixtures() {
       tournamentId: tournaments[0]?.id || '',
       teamAId: teams[0]?.id || '',
       teamBId: teams[1]?.id || '',
-      venue: sportConfig.defaultVenue || (isBadminton ? 'Badminton Indoor Arena' : 'National Cricket Stadium'),
+      venue: sportConfig.defaultVenue || (isFootball ? 'Football Stadium' : isBadminton ? 'Badminton Indoor Arena' : 'National Cricket Stadium'),
       matchDate: defaultDate,
       status: 'UPCOMING'
     });
@@ -480,7 +480,7 @@ export default function Fixtures() {
               <div className="space-y-2 text-xs text-gray-300 border-t border-gray-800 pt-3">
                 <div>Venue: <span className="text-white font-semibold">{selectedMatch.venue}</span></div>
                 <div>Scheduled: <span className="text-white font-semibold">{new Date(selectedMatch.matchDate).toLocaleString()}</span></div>
-                {selectedMatch.tossWinner && !isBadminton && (
+                {selectedMatch.tossWinner && isCricket && (
                   <div>Toss Winner: <span className="text-amber-400 font-bold">{selectedMatch.tossWinner?.name}</span> (Chose to {selectedMatch.tossDecision})</div>
                 )}
                 {selectedMatch.result && (
@@ -494,7 +494,7 @@ export default function Fixtures() {
                 to={`${sportPrefix}/matches/${selectedMatch.id}`}
                 className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-xs uppercase tracking-wider rounded-xl flex justify-center items-center gap-1.5 shadow-lg glow-emerald transition-all"
               >
-                Open Full Match Center & {isBadminton ? 'Rally Analytics' : 'Live Scorecard'}
+                Open Full Match Center & {isBadminton ? 'Rally Analytics' : isFootball ? 'Live Match Tracker' : 'Live Scorecard'}
               </Link>
             </div>
           ) : (

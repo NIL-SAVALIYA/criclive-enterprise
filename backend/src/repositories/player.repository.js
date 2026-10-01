@@ -47,7 +47,13 @@ export async function getAllPlayers(params = {}, db = prisma) {
   }
 
   if (playerType) {
-    where.playerType = playerType;
+    const footballMap = {
+      GOALKEEPER: "WICKET_KEEPER",
+      DEFENDER: "BOWLER",
+      MIDFIELDER: "ALL_ROUNDER",
+      FORWARD: "BATSMAN"
+    };
+    where.playerType = footballMap[playerType] || playerType;
   }
 
   if (sport) {
@@ -69,6 +75,13 @@ export async function getAllPlayers(params = {}, db = prisma) {
           name: true,
           shortName: true,
           logoUrl: true
+        }
+      },
+      sport: {
+        select: {
+          id: true,
+          code: true,
+          name: true
         }
       },
       _count: {

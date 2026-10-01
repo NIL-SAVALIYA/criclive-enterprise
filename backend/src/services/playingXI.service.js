@@ -184,25 +184,29 @@ export async function createPlayingXIService(
         throw error;
     }
 
-    const battingOrders = players.map(player => player.battingOrder);
-    const uniqueBattingOrders = new Set(battingOrders);
+    const isCricket = !match.tournament?.sport?.code || match.tournament?.sport?.code === "CRICKET";
 
-    if (uniqueBattingOrders.size !== battingOrders.length) {
-        const error = new Error("Batting order must be unique.");
-        error.status = 400;
-        error.statusCode = 400;
-        throw error;
-    }
+    if (isCricket) {
+        const battingOrders = players.map(player => player.battingOrder);
+        const uniqueBattingOrders = new Set(battingOrders);
 
-    const wicketKeepers = players.filter(
-        player => player.isWicketKeeper
-    );
+        if (uniqueBattingOrders.size !== battingOrders.length) {
+            const error = new Error("Batting order must be unique.");
+            error.status = 400;
+            error.statusCode = 400;
+            throw error;
+        }
 
-    if (wicketKeepers.length > 1) {
-        const error = new Error("Playing XI can have only one wicketkeeper.");
-        error.status = 400;
-        error.statusCode = 400;
-        throw error;
+        const wicketKeepers = players.filter(
+            player => player.isWicketKeeper
+        );
+
+        if (wicketKeepers.length > 1) {
+            const error = new Error("Playing XI can have only one wicketkeeper.");
+            error.status = 400;
+            error.statusCode = 400;
+            throw error;
+        }
     }
 
     const teamPlayers = await getPlayersByIds(playerIds);
@@ -225,11 +229,11 @@ export async function createPlayingXIService(
         throw error;
     }
 
-    const playingXIData = players.map((player) => ({
+    const playingXIData = players.map((player, index) => ({
         matchId,
         teamId,
         playerId: player.playerId,
-        battingOrder: player.battingOrder,
+        battingOrder: player.battingOrder || (index + 1),
         isCaptain: player.isCaptain ?? false,
         isWicketKeeper: player.isWicketKeeper ?? false,
         isSubstitute: player.isSubstitute ?? false,
@@ -305,25 +309,29 @@ export async function updatePlayingXIService(
         throw error;
     }
 
-    const battingOrders = players.map(player => player.battingOrder);
-    const uniqueBattingOrders = new Set(battingOrders);
+    const isCricket = !match.tournament?.sport?.code || match.tournament?.sport?.code === "CRICKET";
 
-    if (uniqueBattingOrders.size !== battingOrders.length) {
-        const error = new Error("Batting order must be unique.");
-        error.status = 400;
-        error.statusCode = 400;
-        throw error;
-    }
+    if (isCricket) {
+        const battingOrders = players.map(player => player.battingOrder);
+        const uniqueBattingOrders = new Set(battingOrders);
 
-    const wicketKeepers = players.filter(
-        player => player.isWicketKeeper
-    );
+        if (uniqueBattingOrders.size !== battingOrders.length) {
+            const error = new Error("Batting order must be unique.");
+            error.status = 400;
+            error.statusCode = 400;
+            throw error;
+        }
 
-    if (wicketKeepers.length > 1) {
-        const error = new Error("Playing XI can have only one wicketkeeper.");
-        error.status = 400;
-        error.statusCode = 400;
-        throw error;
+        const wicketKeepers = players.filter(
+            player => player.isWicketKeeper
+        );
+
+        if (wicketKeepers.length > 1) {
+            const error = new Error("Playing XI can have only one wicketkeeper.");
+            error.status = 400;
+            error.statusCode = 400;
+            throw error;
+        }
     }
 
     const teamPlayers = await getPlayersByIds(playerIds);
@@ -346,11 +354,11 @@ export async function updatePlayingXIService(
         throw error;
     }
 
-    const playingXIData = players.map((player) => ({
+    const playingXIData = players.map((player, index) => ({
         matchId,
         teamId,
         playerId: player.playerId,
-        battingOrder: player.battingOrder,
+        battingOrder: player.battingOrder || (index + 1),
         isCaptain: player.isCaptain ?? false,
         isWicketKeeper: player.isWicketKeeper ?? false,
         isSubstitute: player.isSubstitute ?? false,
