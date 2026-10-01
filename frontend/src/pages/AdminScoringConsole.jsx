@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import api from '../api/client';
 import { useSport } from '../context/SportContext';
 import BadmintonScoringConsole from '../components/BadmintonScoringConsole';
+import FootballScoringConsole from '../components/FootballScoringConsole';
 import CricketScoringConsole from '../components/CricketScoringConsole';
 import { Settings, Play, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 
@@ -10,7 +11,7 @@ export default function AdminScoringConsole() {
   const [searchParams] = useSearchParams();
   const urlMatchId = searchParams.get('matchId');
 
-  const { currentSport, isBadminton, terminology } = useSport();
+  const { currentSport, isBadminton, isFootball, terminology } = useSport();
 
   const [matches, setMatches] = useState([]);
   const [selectedMatchId, setSelectedMatchId] = useState('');
@@ -57,11 +58,17 @@ export default function AdminScoringConsole() {
         <div>
           <h1 className="text-3xl font-extrabold text-white flex items-center gap-2">
             <Settings className="w-7 h-7 text-emerald-400" />
-            {isBadminton ? '🏸 Official Rally Scoring Console' : '🏏 Official Ball-by-Ball Scorer Console'}
+            {isBadminton
+              ? '🏸 Official Rally Scoring Console'
+              : isFootball
+              ? '⚽ Official Match Event Console'
+              : '🏏 Official Ball-by-Ball Scorer Console'}
           </h1>
           <p className="text-gray-400 text-xs mt-1">
             {isBadminton
               ? 'Real-time BWF rally point entry, service court determination, and game tracking'
+              : isFootball
+              ? 'Real-time match event entry (goals, cards, substitutions, penalties, match clock)'
               : 'Real-time match scoring terminal with Wagon Wheel & Pitch Map vector entry'}
           </p>
         </div>
@@ -105,8 +112,10 @@ export default function AdminScoringConsole() {
 
       {/* Render Dedicated Sport Scorer */}
       {selectedMatchId && (
-        isBadminton ? (
+        currentSport === 'BADMINTON' ? (
           <BadmintonScoringConsole matchId={selectedMatchId} />
+        ) : currentSport === 'FOOTBALL' ? (
+          <FootballScoringConsole matchId={selectedMatchId} />
         ) : (
           <CricketScoringConsole matchId={selectedMatchId} initialMatch={selectedMatch} />
         )

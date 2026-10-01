@@ -4,6 +4,7 @@ import api from '../api/client';
 import { Trophy, Users, CheckCircle, ArrowRight, Save, Flag, Activity } from 'lucide-react';
 import Skeleton from '../components/Skeleton';
 import BadmintonScoringConsole from '../components/BadmintonScoringConsole';
+import FootballScoringConsole from '../components/FootballScoringConsole';
 
 export default function MatchControlCenter() {
   const { matchId } = useParams();
@@ -45,7 +46,8 @@ export default function MatchControlCenter() {
       setMatch(matchData);
       setPlayers(playersRes.data.data);
 
-      if (matchData.tournament?.sport?.code === 'BADMINTON') {
+      const sportCode = matchData.tournament?.sport?.code;
+      if (sportCode === 'BADMINTON' || sportCode === 'FOOTBALL') {
         setLoading(false);
         return;
       }
@@ -183,6 +185,22 @@ export default function MatchControlCenter() {
           </p>
         </div>
         <BadmintonScoringConsole matchId={matchId} />
+      </div>
+    );
+  }
+
+  if (match.tournament?.sport?.code === 'FOOTBALL') {
+    return (
+      <div className="max-w-5xl mx-auto space-y-6 pb-12">
+        <div className="glass-panel p-5 rounded-2xl border border-gray-800">
+          <h1 className="text-2xl font-extrabold text-white flex items-center gap-2">
+            ⚽ Football Match Control Center
+          </h1>
+          <p className="text-gray-400 text-xs mt-1">
+            {match.teamA?.name} vs {match.teamB?.name} • Tournament: {match.tournament?.name || 'Football League'}
+          </p>
+        </div>
+        <FootballScoringConsole matchId={matchId} />
       </div>
     );
   }

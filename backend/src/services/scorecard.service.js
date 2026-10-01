@@ -7,6 +7,7 @@ import { getFallOfWicketsByInnings } from "../repositories/fallOfWicket.reposito
 import { getPartnershipsByInnings } from "../repositories/partnership.repository.js";
 import { resolveBattingStatus, filterDeliveredBowlers } from "../engine/scorecardStatus.engine.js";
 import { getBadmintonMatchStateService } from "./badmintonMatch.service.js";
+import { getFootballMatchStateService } from "./footballMatch.service.js";
 
 function formatOvers(balls) {
     return `${Math.floor(balls / 6)}.${balls % 6}`;
@@ -25,6 +26,16 @@ export async function getScorecardService(matchId) {
             sport: "BADMINTON",
             match: badmintonData.match,
             matchState: badmintonData.matchState
+        };
+    }
+
+    if (match.tournament?.sport?.code === "FOOTBALL") {
+        const footballData = await getFootballMatchStateService(matchId);
+        return {
+            sport: "FOOTBALL",
+            match: footballData.match,
+            matchState: footballData.matchState,
+            events: footballData.events
         };
     }
 

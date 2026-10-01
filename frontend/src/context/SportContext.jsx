@@ -72,9 +72,9 @@ export function SportProvider({ children }) {
     localStorage.setItem('selectedSport', cleanCode);
 
     // If options.redirect is requested or if user is on a sport-specific route, transition route
-    if (options.redirect || location.pathname.startsWith('/cricket') || location.pathname.startsWith('/badminton')) {
+    if (options.redirect || location.pathname.startsWith('/cricket') || location.pathname.startsWith('/badminton') || location.pathname.startsWith('/football')) {
       const targetPrefix = `/${cleanCode.toLowerCase()}`;
-      let suffix = location.pathname.replace(/^\/(cricket|badminton)/, '');
+      let suffix = location.pathname.replace(/^\/(cricket|badminton|football)/, '');
       if (!suffix || suffix === '/') suffix = '/live';
       navigate(`${targetPrefix}${suffix}`);
     }
@@ -83,6 +83,7 @@ export function SportProvider({ children }) {
   const activeSportMeta = sportsList.find((s) => s.code === currentSport) || sportConfig;
   const isCricket = currentSport === 'CRICKET';
   const isBadminton = currentSport === 'BADMINTON';
+  const isFootball = currentSport === 'FOOTBALL';
 
   return (
     <SportContext.Provider
@@ -96,6 +97,7 @@ export function SportProvider({ children }) {
         activeSportMeta,
         isCricket,
         isBadminton,
+        isFootball,
         hasCap: (cap) => hasCapability(currentSport, cap)
       }}
     >

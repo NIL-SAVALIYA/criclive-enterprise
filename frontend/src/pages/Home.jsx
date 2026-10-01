@@ -10,7 +10,7 @@ export default function Home() {
   const [caps, setCaps] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const { currentSport, isBadminton, terminology, sportConfig } = useSport();
+  const { currentSport, isBadminton, isCricket, isFootball, terminology, sportConfig, hasCap } = useSport();
   const sportPrefix = `/${currentSport.toLowerCase()}`;
 
   useEffect(() => {
@@ -19,7 +19,7 @@ export default function Home() {
         const promises = [
           api.get('/matches', { params: { sport: currentSport } })
         ];
-        if (currentSport === 'CRICKET') {
+        if (hasCap('orangePurpleCaps')) {
           promises.push(api.get('/records/caps-and-leaders').catch(() => ({ data: { data: null } })));
         }
         const [matchRes, capRes] = await Promise.all(promises);
@@ -78,7 +78,7 @@ export default function Home() {
       {/* Main Grid: Live & Upcoming Matches */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left 2 Cols: Live & Matches */}
-        <div className={`${isBadminton ? 'lg:col-span-3' : 'lg:col-span-2'} space-y-6`}>
+        <div className={`${hasCap('orangePurpleCaps') ? 'lg:col-span-2' : 'lg:col-span-3'} space-y-6`}>
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-bold flex items-center gap-2 text-white">
               <Activity className="w-5 h-5 text-emerald-400" /> Active & Live Matches
@@ -124,6 +124,17 @@ export default function Home() {
                           <span className="text-emerald-400 font-mono">
                             {bState[`teamBPointsGame${bState.currentGame}`] ?? 0} pts
                           </span>
+                        </div>
+                      </div>
+                    ) : (isFootball || m.tournament?.sport?.code === 'FOOTBALL') ? (
+                      <div className="space-y-3 my-2">
+                        <div className="flex justify-between items-center font-bold text-base">
+                          <span className="text-white">{m.teamA?.name}</span>
+                          <span className="text-emerald-400 font-mono">0 Goals</span>
+                        </div>
+                        <div className="flex justify-between items-center font-bold text-base">
+                          <span className="text-white">{m.teamB?.name}</span>
+                          <span className="text-emerald-400 font-mono">0 Goals</span>
                         </div>
                       </div>
                     ) : (
@@ -177,8 +188,8 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Right 1 Col: Cricket Leaderboards (Hidden for Badminton) */}
-        {!isBadminton && (
+        {/* Right 1 Col: Cricket Leaderboards (Hidden for Badminton/Football) */}
+        {hasCap('orangePurpleCaps') && (
           <div className="space-y-6">
             <h2 className="text-xl font-bold flex items-center gap-2 text-white">
               <Award className="w-5 h-5 text-amber-400" /> Leaders & Cap Holders

@@ -32,9 +32,10 @@ async function runSportIsolationTests() {
   }
 
   // 1. Central Sport Configuration tests
-  await test("1. Central Sport Registry: verifies Cricket and Badminton configurations & capabilities", () => {
+  await test("1. Central Sport Registry: verifies Cricket, Badminton, and Football configurations & capabilities", () => {
     assert.ok(SPORTS_CONFIG.CRICKET, "Cricket config must exist");
     assert.ok(SPORTS_CONFIG.BADMINTON, "Badminton config must exist");
+    assert.ok(SPORTS_CONFIG.FOOTBALL, "Football config must exist");
 
     assert.equal(hasCapability("CRICKET", "ballByBallScoring"), true);
     assert.equal(hasCapability("CRICKET", "rallyScoring"), false);
@@ -48,10 +49,19 @@ async function runSportIsolationTests() {
     assert.equal(hasCapability("BADMINTON", "sets"), true);
     assert.equal(hasCapability("BADMINTON", "games"), true);
 
+    assert.equal(hasCapability("FOOTBALL", "goalScoring"), true);
+    assert.equal(hasCapability("FOOTBALL", "halves"), true);
+    assert.equal(hasCapability("FOOTBALL", "matchClock"), true);
+    assert.equal(hasCapability("FOOTBALL", "ballByBallScoring"), false);
+    assert.equal(hasCapability("FOOTBALL", "rallyScoring"), false);
+    assert.equal(hasCapability("FOOTBALL", "wickets"), false);
+
     const cConfig = getSportConfig("CRICKET");
     const bConfig = getSportConfig("BADMINTON");
+    const fConfig = getSportConfig("FOOTBALL");
     assert.equal(cConfig.terminology.score, "Runs");
     assert.equal(bConfig.terminology.score, "Points");
+    assert.equal(fConfig.terminology.score, "Goals");
   });
 
   const ts = Date.now();

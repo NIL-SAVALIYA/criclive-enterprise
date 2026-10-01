@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import api from '../api/client';
 import { useCricketSocket } from '../socket/useCricketSocket';
 import BadmintonLiveMatchCenter from '../components/BadmintonLiveMatchCenter';
+import FootballLiveMatchCenter from '../components/FootballLiveMatchCenter';
 import WagonWheelSVG from '../components/WagonWheelSVG';
 import PitchMapCanvas from '../components/PitchMapCanvas';
 import WinProbabilityMeter from '../components/WinProbabilityMeter';
@@ -52,13 +53,16 @@ export default function LiveMatchCenter() {
     }
   }
 
-  const isBadmintonMatch =
-    matchDetails?.match?.tournament?.sport?.code === 'BADMINTON' ||
-    matchDetails?.sport === 'BADMINTON' ||
-    Boolean(matchDetails?.matchState);
+  const sportCode = matchDetails?.sport || matchDetails?.match?.tournament?.sport?.code;
+  const isBadmintonMatch = sportCode === 'BADMINTON';
+  const isFootballMatch = sportCode === 'FOOTBALL';
 
   if (isBadmintonMatch) {
     return <BadmintonLiveMatchCenter matchId={matchId} />;
+  }
+
+  if (isFootballMatch) {
+    return <FootballLiveMatchCenter matchId={matchId} />;
   }
 
 

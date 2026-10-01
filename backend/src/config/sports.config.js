@@ -82,6 +82,54 @@ export const SPORTS_CONFIG = {
       scorerCta: "Open Rally Scoring Console"
     },
     defaultVenue: "Badminton Indoor Arena"
+  },
+
+  FOOTBALL: {
+    id: "football",
+    code: "FOOTBALL",
+    name: "Football",
+    icon: "⚽",
+    scoringModel: "goal", // goal scoring
+    matchModel: "halves", // two halves of 45 minutes
+    capabilities: {
+      ballByBallScoring: false,
+      rallyScoring: false,
+      goalScoring: true,
+      matchClock: true,
+      halves: true,
+      extraTime: true,
+      penalties: true,
+      yellowCards: true,
+      redCards: true,
+      substitutions: true,
+      matchCompletion: true,
+      wickets: false,
+      overs: false,
+      innings: false,
+      strikeRotation: false,
+      toss: true,
+      tossDecision: false, // Coin toss for side / kickoff
+      sets: false,
+      games: false,
+      serverReceiver: false,
+      wagonWheel: false,
+      pitchMap: false,
+      winProbability: false,
+      orangePurpleCaps: false
+    },
+    terminology: {
+      score: "Goals",
+      subScore: "Half",
+      period: "Half",
+      unit: "Minutes",
+      team: "Club",
+      player: "Player",
+      courtOrPitch: "Pitch",
+      roundOrInnings: "Half",
+      scorerTitle: "Match Event Console",
+      scorerCta: "Open Match Event Console"
+    },
+    defaultVenue: "Football Stadium"
   }
 };
 

@@ -2,6 +2,7 @@
 import { getMatchById } from "../repositories/match.repository.js";
 import { getLiveScoreService } from "./liveScore.service.js";
 import { getBadmintonMatchStateService } from "./badmintonMatch.service.js";
+import { getFootballMatchStateService } from "./footballMatch.service.js";
 
 export async function getLiveMatchService(matchId) {
     const match = await getMatchById(matchId);
@@ -13,6 +14,10 @@ export async function getLiveMatchService(matchId) {
 
     if (match.tournament?.sport?.code === "BADMINTON") {
         return await getBadmintonMatchStateService(matchId);
+    }
+
+    if (match.tournament?.sport?.code === "FOOTBALL") {
+        return await getFootballMatchStateService(matchId);
     }
 
     return await getLiveScoreService(matchId);

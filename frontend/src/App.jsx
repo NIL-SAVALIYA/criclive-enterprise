@@ -93,6 +93,32 @@ export default function App() {
                   }
                 />
 
+                {/* Explicit Sport-Specific Routes (Football) */}
+                <Route path="/football" element={<Home />} />
+                <Route path="/football/live" element={<Home />} />
+                <Route path="/football/fixtures" element={<Fixtures />} />
+                <Route path="/football/tournaments" element={<Tournaments />} />
+                <Route path="/football/teams" element={<TeamsAndPlayers />} />
+                <Route path="/football/players" element={<Players />} />
+                <Route path="/football/matches/:matchId" element={<LiveMatchCenter />} />
+                <Route path="/football/score/:token" element={<DedicatedScorerConsole />} />
+                <Route
+                  path="/football/admin/scorer"
+                  element={
+                    <ProtectedRoute allowedRoles={['ADMIN', 'SCORER']}>
+                      <AdminScoringConsole />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/football/admin/match-control/:matchId"
+                  element={
+                    <ProtectedRoute allowedRoles={['ADMIN', 'SCORER']}>
+                      <MatchControlCenter />
+                    </ProtectedRoute>
+                  }
+                />
+
                 {/* User Profile & Capability Routes */}
                 <Route
                   path="/profile"

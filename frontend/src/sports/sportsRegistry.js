@@ -106,6 +106,66 @@ export const SPORTS_REGISTRY = {
       players: '/badminton/players',
       scorer: '/badminton/admin/scorer'
     }
+  },
+
+  FOOTBALL: {
+    id: 'football',
+    code: 'FOOTBALL',
+    name: 'Football',
+    icon: '⚽',
+    scoringModel: 'goal',
+    matchModel: 'halves',
+    capabilities: {
+      ballByBallScoring: false,
+      rallyScoring: false,
+      goalScoring: true,
+      matchClock: true,
+      halves: true,
+      extraTime: true,
+      penalties: true,
+      yellowCards: true,
+      redCards: true,
+      substitutions: true,
+      matchCompletion: true,
+      wickets: false,
+      overs: false,
+      innings: false,
+      strikeRotation: false,
+      toss: true,
+      tossDecision: false,
+      sets: false,
+      games: false,
+      serverReceiver: false,
+      wagonWheel: false,
+      pitchMap: false,
+      winProbability: false,
+      orangePurpleCaps: false
+    },
+    terminology: {
+      score: 'Goals',
+      subScore: 'Half',
+      period: 'Half',
+      unit: 'Minutes',
+      team: 'Club',
+      player: 'Player',
+      courtOrPitch: 'Pitch',
+      roundOrInnings: 'Half',
+      scorerTitle: 'Match Event Console',
+      scorerCta: 'Open Match Event Console',
+      heroBadge: '⚽ Next-Gen Enterprise Football Engine',
+      heroHeadline: 'Real-Time Match Events, Tactical Analytics & Tournament Management',
+      heroSubline: 'Experience live match clock tracking, goal event timelines, discipline cards, substitutions, and comprehensive league tournament standings.'
+    },
+    defaultVenue: 'Football Stadium',
+    routes: {
+      base: '/football',
+      live: '/football/live',
+      fixtures: '/football/fixtures',
+      tournaments: '/football/tournaments',
+      teams: '/football/teams',
+      players: '/football/players',
+      scorer: '/football/admin/scorer'
+    }
   }
 };
 
@@ -141,5 +201,6 @@ export function getSportFromPath(pathname) {
   const lower = pathname.toLowerCase();
   if (lower.startsWith('/cricket')) return 'CRICKET';
   if (lower.startsWith('/badminton')) return 'BADMINTON';
+  if (lower.startsWith('/football')) return 'FOOTBALL';
   return null;
 }
