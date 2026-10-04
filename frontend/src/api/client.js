@@ -1,9 +1,11 @@
 import axios from 'axios';
 
 const rawBaseURL = import.meta.env.VITE_API_URL || (
-  window.location.hostname === 'localhost'
+  window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
     ? 'http://localhost:5000'
-    : `http://${window.location.hostname}:5000`
+    : (window.location.hostname.includes('onrender.com')
+        ? 'https://criclive-enterprise-api.onrender.com'
+        : `http://${window.location.hostname}:5000`)
 );
 
 const baseURL = rawBaseURL.endsWith('/api/v1')

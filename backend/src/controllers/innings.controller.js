@@ -193,3 +193,33 @@ export async function remove(req, res) {
     }
 
 }
+
+/*
+|--------------------------------------------------------------------------
+| Get Eligible Incoming Batters
+|--------------------------------------------------------------------------
+*/
+export async function getEligibleBatters(req, res) {
+    try {
+        const inningsId = req.params.inningsId || req.params.id;
+        const { currentStrikerId, currentNonStrikerId, dismissedPlayerId } = req.query;
+
+        const { getEligibleIncomingBatters } = await import("../services/batterEligibility.service.js");
+        const eligible = await getEligibleIncomingBatters({
+            inningsId,
+            currentStrikerId,
+            currentNonStrikerId,
+            dismissedPlayerId
+        });
+
+        return res.status(200).json({
+            success: true,
+            data: eligible
+        });
+    } catch (error) {
+        return res.status(error.statusCode || 500).json({
+            success: false,
+            message: error.message
+        });
+    }
+}

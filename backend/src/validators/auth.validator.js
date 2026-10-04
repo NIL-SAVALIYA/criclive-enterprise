@@ -45,5 +45,9 @@ export const loginSchema = z.object({
 
   password: z
     .string()
-    .min(1, "Password is required")
+    .min(1, "Password is required"),
+
+  captchaToken: z
+    .string()
+    .min(1, "Please complete the human verification.")
 });

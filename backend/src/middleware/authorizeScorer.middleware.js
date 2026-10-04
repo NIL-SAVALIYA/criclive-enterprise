@@ -13,14 +13,32 @@ export async function authorizeScorer(req, res, next) {
   try {
     const scoringToken =
       req.headers["x-scoring-token"] ||
+      req.headers["x-access-token"] ||
       req.query.scoringToken ||
       req.query.token ||
-      req.body?.scoringToken;
+      req.query.accessToken ||
+      req.body?.scoringToken ||
+      req.body?.token ||
+      req.body?.accessToken;
 
     // 1. Resolve target match or innings
     let match = null;
-    const matchId = req.params.matchId || req.body?.matchId;
-    const inningsId = req.params.inningsId || req.body?.inningsId;
+    const matchId = req.params.matchId || req.params.id || req.body?.matchId || req.body?.match_id;
+    const inningsId = req.params.inningsId || req.body?.inningsId || req.body?.innings_id;
+
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (matchId && !UUID_REGEX.test(matchId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid format for one or more parameters. Check that all IDs are valid UUIDs."
+      });
+    }
+    if (inningsId && !UUID_REGEX.test(inningsId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid format for one or more parameters. Check that all IDs are valid UUIDs."
+      });
+    }
 
     if (matchId) {
       match = await prisma.match.findUnique({
@@ -43,6 +61,15 @@ export async function authorizeScorer(req, res, next) {
       match = innings?.match;
     }
 
+    if (!match && scoringToken && typeof scoringToken === "string") {
+      match = await prisma.match.findUnique({
+        where: { scoringToken },
+        include: {
+          tournament: { select: { organizerId: true } }
+        }
+      });
+    }
+
     if (!match) {
       return res.status(404).json({
         success: false,
@@ -53,14 +80,25 @@ export async function authorizeScorer(req, res, next) {
     // 2. Check Match Scoring Access Token
     if (scoringToken && typeof scoringToken === "string") {
       if (match.scoringToken && match.scoringToken === scoringToken) {
+        if (match.status === "COMPLETED") {
+          return res.status(403).json({
+            success: false,
+            message: "Invalid, expired, or revoked scoring access link."
+          });
+        }
         req.isTokenScorer = true;
         req.scoringMatchId = match.id;
         return next();
       }
-      return res.status(403).json({
-        success: false,
-        message: "Invalid, expired, or revoked scoring access link."
-      });
+      // If token is provided but does not match, verify if request has a user JWT authorization header.
+      // If no Bearer auth header is present, reject immediately with 403.
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(403).json({
+          success: false,
+          message: "Invalid, expired, or revoked scoring access link."
+        });
+      }
     }
 
     // 3. Fallback to User JWT Authentication
@@ -82,6 +120,12 @@ export async function authorizeScorer(req, res, next) {
     }
 
     if (!user) {
+      if (scoringToken) {
+        return res.status(403).json({
+          success: false,
+          message: "Invalid, expired, or revoked scoring access link."
+        });
+      }
       return res.status(401).json({
         success: false,
         message: "Authorization required. Please provide a valid scoring access token or sign in."

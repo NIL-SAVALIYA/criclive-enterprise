@@ -1,6 +1,7 @@
 import React from 'react';
 import { Activity, Radio } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getSportPrefixForMatch } from '../sports/sportsRegistry';
 
 export default function LiveTicker({ matches = [] }) {
   if (!matches || matches.length === 0) return null;
@@ -16,7 +17,7 @@ export default function LiveTicker({ matches = [] }) {
         {matches.map((m) => (
           <Link
             key={m.id}
-            to={`/matches/${m.id}`}
+            to={getSportPrefixForMatch(m)}
             className="flex items-center gap-3 px-3 py-1.5 rounded-lg bg-gray-900/90 border border-gray-800 hover:border-emerald-500/50 transition-all shrink-0 text-xs"
           >
             <span className="font-semibold text-gray-200">{m.teamA?.shortName || m.teamA?.name}</span>

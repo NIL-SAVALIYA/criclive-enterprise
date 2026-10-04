@@ -39,14 +39,17 @@ export const createTeamSchema = z.object({
     .uuid("Manager ID must be a valid UUID.")
     .optional()
     .nullable()
-    .or(z.literal(""))
+    .or(z.literal("")),
+
+  sport: z.string().optional()
 });
 
 export const updateTeamSchema = createTeamSchema.partial();
 
 export const teamQuerySchema = z.object({
-  page: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 1)),
-  limit: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 10)),
+  page: z.string().optional().transform((val) => (val ? parseInt(val, 10) : undefined)),
+  limit: z.string().optional().transform((val) => (val ? parseInt(val, 10) : undefined)),
   search: z.string().optional(),
-  city: z.string().optional()
+  city: z.string().optional(),
+  sport: z.string().optional()
 });

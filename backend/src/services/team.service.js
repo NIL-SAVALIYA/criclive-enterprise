@@ -11,6 +11,7 @@ import {
 } from "../repositories/team.repository.js";
 import { recordAuditLog } from "../utils/auditLogger.js";
 import { Roles } from "../constants/roles.js";
+import { validateAndGetSportByCode } from "./sports.service.js";
 
 /**
  * Creates a team with duplicate name/shortName guards and manager check.
@@ -42,13 +43,20 @@ export async function createTeamService(teamData) {
     }
   }
 
+  const targetSportCode = teamData.sport || "CRICKET";
+  const sportEntity = await validateAndGetSportByCode(targetSportCode);
+
+  const cleanData = { ...teamData };
+  delete cleanData.sport;
+
   return prisma.$transaction(
     async (tx) => {
       const team = await createTeam(
         {
-          ...teamData,
+          ...cleanData,
           name,
-          shortName
+          shortName,
+          sportId: sportEntity.id
         },
         tx
       );

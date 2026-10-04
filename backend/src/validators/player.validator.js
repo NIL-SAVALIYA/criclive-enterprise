@@ -4,7 +4,11 @@ export const PlayerTypeEnum = z.enum([
   "BATSMAN",
   "BOWLER",
   "ALL_ROUNDER",
-  "WICKET_KEEPER"
+  "WICKET_KEEPER",
+  "GOALKEEPER",
+  "DEFENDER",
+  "MIDFIELDER",
+  "FORWARD"
 ]);
 
 export const BattingStyleEnum = z.enum([
@@ -48,7 +52,7 @@ export const createPlayerSchema = z.object({
     .optional()
     .nullable(),
 
-  playerType: PlayerTypeEnum,
+  playerType: PlayerTypeEnum.optional().nullable(),
 
   battingStyle: BattingStyleEnum.optional().nullable(),
 
@@ -58,7 +62,9 @@ export const createPlayerSchema = z.object({
 
   isViceCaptain: z.boolean().optional().default(false),
 
-  teamId: z.string().uuid("Team ID must be a valid UUID.")
+  teamId: z.string().uuid("Team ID must be a valid UUID."),
+
+  sport: z.string().optional()
 });
 
 export const updatePlayerSchema = createPlayerSchema.partial();
@@ -76,5 +82,7 @@ export const playerQuerySchema = z.object({
 
   teamId: z.string().optional(),
 
-  playerType: PlayerTypeEnum.optional()
+  playerType: PlayerTypeEnum.optional(),
+
+  sport: z.string().optional()
 });

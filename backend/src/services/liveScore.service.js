@@ -54,7 +54,8 @@ export async function getLiveScoreService(matchId) {
                     status: match.status,
                     teamA: match.teamA,
                     teamB: match.teamB,
-                    tossWinner: match.tossWinner
+                    tossWinner: match.tossWinner,
+                    tournament: match.tournament
                 },
                 innings: null,
                 score: {
@@ -215,7 +216,8 @@ export async function getLiveScoreService(matchId) {
             tossWinner: match.tossWinner,
             winnerTeam: match.winnerTeam,
             result: match.result,
-            winningMargin: match.winningMargin
+            winningMargin: match.winningMargin,
+            tournament: match.tournament
         },
         innings: {
             id: innings.id,

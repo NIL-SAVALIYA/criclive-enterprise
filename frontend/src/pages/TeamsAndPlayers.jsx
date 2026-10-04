@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import api from '../api/client';
 import { useAuth } from '../context/AuthContext';
+import { useSport } from '../context/SportContext';
 import Skeleton from '../components/Skeleton';
-import { Shield, Plus, Search, Edit, Trash2, Users, MapPin, AlertCircle, X, CheckCircle2, UserCheck } from 'lucide-react';
+import { Shield, Plus, Search, Edit, Trash2, Users, MapPin, AlertCircle, X, CheckCircle2, UserCheck, ArrowRight } from 'lucide-react';
 
 export default function TeamsAndPlayers() {
   const { user, hasRole } = useAuth();
@@ -20,7 +22,6 @@ export default function TeamsAndPlayers() {
   const itemsPerPage = 6;
 
   // Modals State
-  const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
@@ -33,21 +34,44 @@ export default function TeamsAndPlayers() {
     description: '',
     logoUrl: ''
   });
-  const [submitting, setSubmitting] = useState(false);
+  const [startingXIIds, setStartingXIIds] = useState(new Set());
+  const [rosterTab, setRosterTab] = useState('ALL'); // 'ALL', 'STARTING_XI', 'SUBS'
+
+  const { currentSport, isCricket, isBadminton, isFootball } = useSport();
+
+  function getPlayerPositionLabel(player) {
+    if (isFootball) {
+      if (player.position) return player.position;
+      if (player.footballPosition) return player.footballPosition;
+      const map = {
+        WICKET_KEEPER: 'Goalkeeper',
+        GOALKEEPER: 'Goalkeeper',
+        BOWLER: 'Defender',
+        DEFENDER: 'Defender',
+        ALL_ROUNDER: 'Midfielder',
+        MIDFIELDER: 'Midfielder',
+        BATSMAN: 'Forward',
+        FORWARD: 'Forward'
+      };
+      return map[player.playerType] || player.playerType || 'Forward';
+    }
+    return player.playerType;
+  }
 
   useEffect(() => {
     fetchTeams();
-  }, []);
+  }, [currentSport]);
 
-  async function fetchTeams() {
+  async function fetchTeams(preferredSelectedId = null) {
     setLoading(true);
     setErrorMsg(null);
     try {
-      const res = await api.get('/teams');
+      const res = await api.get('/teams', { params: { sport: currentSport } });
       const list = res.data.data || [];
       setTeams(list);
-      if (list.length > 0) {
-        selectTeam(list[0].id);
+      const targetId = preferredSelectedId || (selectedTeam?.id && list.some(t => t.id === selectedTeam.id) ? selectedTeam.id : list[0]?.id);
+      if (targetId) {
+        selectTeam(targetId);
       }
     } catch (err) {
       console.error('Failed to fetch teams:', err);
@@ -61,7 +85,11 @@ export default function TeamsAndPlayers() {
     setDetailsLoading(true);
     try {
       const res = await api.get(`/teams/${id}`);
-      setSelectedTeam(res.data.data);
+      const teamData = res.data.data;
+      setSelectedTeam(teamData);
+      const players = teamData?.players || [];
+      const initialXI = new Set(players.slice(0, 11).map(p => p.id));
+      setStartingXIIds(initialXI);
     } catch (err) {
       console.error('Failed to load team details:', err);
     } finally {
@@ -81,23 +109,19 @@ export default function TeamsAndPlayers() {
 
   // Pagination Logic
   const totalPages = Math.ceil(filteredTeams.length / itemsPerPage) || 1;
+  const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedTeams = filteredTeams.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    startIndex,
+    startIndex + itemsPerPage
   );
 
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
   // Modal Handlers
-  const handleOpenCreate = () => {
-    setFormData({
-      id: '',
-      name: '',
-      shortName: '',
-      city: '',
-      description: '',
-      logoUrl: ''
-    });
-    setShowCreateModal(true);
-  };
 
   const handleOpenEdit = (t) => {
     setFormData({
@@ -116,29 +140,7 @@ export default function TeamsAndPlayers() {
     setShowDeleteModal(true);
   };
 
-  async function handleCreateSubmit(e) {
-    e.preventDefault();
-    setSubmitting(true);
-    setErrorMsg(null);
-    try {
-      const payload = {
-        name: formData.name,
-        shortName: formData.shortName.toUpperCase(),
-        city: formData.city,
-        description: formData.description || undefined,
-        logoUrl: formData.logoUrl || undefined
-      };
-      await api.post('/teams', payload);
-      setSuccessMsg('Team created successfully!');
-      setShowCreateModal(false);
-      fetchTeams();
-    } catch (err) {
-      console.error('Create team error:', err);
-      setErrorMsg(err.response?.data?.message || 'Failed to create team.');
-    } finally {
-      setSubmitting(false);
-    }
-  }
+
 
   async function handleEditSubmit(e) {
     e.preventDefault();
@@ -191,15 +193,26 @@ export default function TeamsAndPlayers() {
           <p className="text-gray-400 text-xs mt-1">Official franchise team management, player counts, and squad rosters</p>
         </div>
 
-        {/* Create Team Action for Authorized Roles */}
-        {hasRole(['ADMIN', 'ORGANIZER']) && (
-          <button
-            onClick={handleOpenCreate}
-            className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center gap-2 shadow-lg glow-emerald transition-all"
-          >
-            <Plus className="w-4 h-4" /> Create New Team
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {hasRole(['TEAM_MANAGER', 'ADMIN']) && (
+            <Link
+              to="/manager/fixtures"
+              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-black text-xs flex items-center gap-2 shadow-lg glow-emerald transition-all"
+            >
+              <Users className="w-4 h-4" /> My Fixtures & Playing XI
+            </Link>
+          )}
+
+          {/* Create Team Action for Authorized Roles */}
+          {hasRole(['ADMIN', 'ORGANIZER']) && (
+            <Link
+              to={`/${currentSport.toLowerCase().replace('_', '-')}/teams/create`}
+              className="px-5 py-2.5 rounded-xl bg-gray-900 hover:bg-gray-800 border border-gray-700 text-white font-bold text-xs flex items-center gap-2 shadow-md transition-all"
+            >
+              <Plus className="w-4 h-4" /> Create New Team
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* User Alerts */}
@@ -361,33 +374,120 @@ export default function TeamsAndPlayers() {
 
               {/* Roster Squad List */}
               <div className="space-y-3">
-                <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                  <UserCheck className="w-4 h-4 text-emerald-400" /> Squad Roster ({selectedTeam.players?.length || 0})
-                </h3>
+                <div className="flex justify-between items-center">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <UserCheck className="w-4 h-4 text-emerald-400" /> {isFootball ? 'Club Squad' : 'Squad Roster'} ({selectedTeam.players?.length || 0})
+                  </h3>
+                  {isFootball && (
+                    <span className="font-mono text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-500/30">
+                      Starting XI: {startingXIIds.size}/11
+                    </span>
+                  )}
+                </div>
+
+                {/* Football Roster Sub-tabs */}
+                {isFootball && (
+                  <div className="flex gap-1.5 p-1 bg-gray-900/90 rounded-xl border border-gray-800 text-[11px] font-bold">
+                    <button
+                      onClick={() => setRosterTab('ALL')}
+                      className={`flex-1 py-1 rounded-lg transition-all ${
+                        rosterTab === 'ALL'
+                          ? 'bg-emerald-600 text-white shadow'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      Squad ({(selectedTeam.players || []).length})
+                    </button>
+                    <button
+                      onClick={() => setRosterTab('STARTING_XI')}
+                      className={`flex-1 py-1 rounded-lg transition-all ${
+                        rosterTab === 'STARTING_XI'
+                          ? 'bg-emerald-600 text-white shadow'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      Starting XI ({startingXIIds.size}/11)
+                    </button>
+                    <button
+                      onClick={() => setRosterTab('SUBS')}
+                      className={`flex-1 py-1 rounded-lg transition-all ${
+                        rosterTab === 'SUBS'
+                          ? 'bg-emerald-600 text-white shadow'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                    >
+                      Substitutes ({Math.max(0, (selectedTeam.players || []).length - startingXIIds.size)})
+                    </button>
+                  </div>
+                )}
+
                 <div className="space-y-2 max-h-[350px] overflow-y-auto pr-1">
                   {(selectedTeam.players || []).length === 0 ? (
-                    <p className="text-xs text-gray-500 p-2">No players assigned to this team yet.</p>
+                    <p className="text-xs text-gray-500 p-2">No players assigned to this club yet.</p>
                   ) : (
-                    selectedTeam.players.map((p) => (
-                      <div key={p.id} className="p-3 bg-gray-900/80 rounded-xl border border-gray-800 flex justify-between items-center text-xs">
-                        <div>
-                          <div className="font-bold text-white flex items-center gap-1.5">
-                            {p.firstName} {p.lastName}
-                            {p.isCaptain && <span className="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-mono font-bold">C</span>}
-                            {p.isViceCaptain && <span className="text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded font-mono font-bold">VC</span>}
+                    (selectedTeam.players || [])
+                      .filter((p) => {
+                        if (!isFootball || rosterTab === 'ALL') return true;
+                        if (rosterTab === 'STARTING_XI') return startingXIIds.has(p.id);
+                        if (rosterTab === 'SUBS') return !startingXIIds.has(p.id);
+                        return true;
+                      })
+                      .map((p) => (
+                        <div key={p.id} className="p-3 bg-gray-900/80 rounded-xl border border-gray-800 flex justify-between items-center text-xs">
+                          <div>
+                            <div className="font-bold text-white flex items-center gap-1.5">
+                              {p.firstName} {p.lastName}
+                              {p.isCaptain && <span className="text-[10px] bg-amber-500/20 text-amber-400 px-1.5 py-0.5 rounded font-mono font-bold">C</span>}
+                              {p.isViceCaptain && <span className="text-[10px] bg-blue-500/20 text-blue-400 px-1.5 py-0.5 rounded font-mono font-bold">VC</span>}
+                            </div>
+                            <div className="text-[10px] text-emerald-400 font-semibold">{getPlayerPositionLabel(p)}</div>
                           </div>
-                          <div className="text-[10px] text-emerald-400">{p.playerType}</div>
+                          <div className="flex items-center gap-2">
+                            {isFootball && (
+                              <button
+                                onClick={() => {
+                                  setStartingXIIds((prev) => {
+                                    const next = new Set(prev);
+                                    if (next.has(p.id)) {
+                                      next.delete(p.id);
+                                    } else {
+                                      if (next.size < 11) next.add(p.id);
+                                    }
+                                    return next;
+                                  });
+                                }}
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded transition-all ${
+                                  startingXIIds.has(p.id)
+                                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
+                                    : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'
+                                }`}
+                              >
+                                {startingXIIds.has(p.id) ? 'Starting XI' : 'Substitute'}
+                              </button>
+                            )}
+                            {p.jerseyNumber && (
+                              <span className="font-mono text-xs font-bold text-gray-400 bg-gray-800 px-2 py-1 rounded">
+                                #{p.jerseyNumber}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                        {p.jerseyNumber && (
-                          <span className="font-mono text-xs font-bold text-gray-400 bg-gray-800 px-2 py-1 rounded">
-                            #{p.jerseyNumber}
-                          </span>
-                        )}
-                      </div>
-                    ))
+                      ))
                   )}
                 </div>
               </div>
+
+              {/* Manager Fixtures Action */}
+              {hasRole(['TEAM_MANAGER', 'ADMIN']) && (
+                <div className="pt-2 border-t border-gray-800">
+                  <Link
+                    to="/manager/fixtures"
+                    className="w-full py-2.5 px-4 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold flex items-center justify-center gap-2 transition-all glow-emerald"
+                  >
+                    <Users className="w-4 h-4" /> {isFootball ? 'Go to Fixtures & Match Lineup' : isBadminton ? 'Go to Fixtures & Roster' : 'Go to My Fixtures & Playing XI'} <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
+              )}
             </div>
           ) : (
             <div className="glass-panel p-6 rounded-2xl border border-gray-800 text-center text-xs text-gray-400">
@@ -397,72 +497,6 @@ export default function TeamsAndPlayers() {
         </div>
       </div>
 
-      {/* CREATE TEAM MODAL */}
-      {showCreateModal && (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="glass-panel p-6 rounded-2xl border border-gray-800 w-full max-w-lg space-y-4">
-            <div className="flex justify-between items-center">
-              <h2 className="text-lg font-bold text-white">Create New Team</h2>
-              <button onClick={() => setShowCreateModal(false)}><X className="w-5 h-5 text-gray-400" /></button>
-            </div>
-            <form onSubmit={handleCreateSubmit} className="space-y-4 text-xs font-semibold">
-              <div>
-                <label className="block text-gray-300 mb-1">Team Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Royal Challengers"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2.5"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-300 mb-1">Short Name *</label>
-                  <input
-                    type="text"
-                    required
-                    maxLength="10"
-                    placeholder="e.g. RCB"
-                    value={formData.shortName}
-                    onChange={(e) => setFormData({ ...formData, shortName: e.target.value })}
-                    className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2.5 uppercase"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-300 mb-1">City *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Bengaluru"
-                    value={formData.city}
-                    onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2.5"
-                  />
-                </div>
-              </div>
-              <div>
-                <label className="block text-gray-300 mb-1">Description</label>
-                <textarea
-                  rows="2"
-                  placeholder="Franchise description..."
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  className="w-full bg-gray-900 border border-gray-700 text-white rounded-lg p-2.5"
-                />
-              </div>
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-xl shadow-lg glow-emerald"
-              >
-                {submitting ? 'Creating...' : 'Create Team'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
 
       {/* EDIT TEAM MODAL */}
       {showEditModal && (

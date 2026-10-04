@@ -65,7 +65,12 @@ export async function createBall(data, db = prisma) {
             isBoundarySix: data.isBoundarySix,
             isWicket: data.isWicket,
             wicketType: data.wicketType,
-            commentary: data.commentary
+            commentary: data.commentary,
+            shotZone: data.shotZone,
+            shotX: data.shotX,
+            shotY: data.shotY,
+            pitchLength: data.pitchLength,
+            pitchLine: data.pitchLine
         },
 
         include: {

@@ -1,0 +1,21 @@
+services:
+  # CricLive Frontend (Static Site with SPA fallback rewrite)
+  - type: web
+    name: criclive-frontend
+    runtime: static
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: ./frontend/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+  # CricLive Enterprise Backend API
+  - type: web
+    name: criclive-enterprise-api
+    runtime: node
+    buildCommand: cd backend && npm install && npx prisma generate
+    startCommand: cd backend && node src/server.js
+    envVars:
+      - key: NODE_ENV
+        value: production

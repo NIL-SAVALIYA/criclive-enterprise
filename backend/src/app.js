@@ -35,6 +35,12 @@ import analyticsRoutes from "./routes/analytics.routes.js";
 import recordsRoutes from "./routes/records.routes.js";
 import notificationRoutes from "./routes/notification.routes.js";
 import organizerApplicationRoutes from "./routes/organizerApplication.routes.js";
+import managerRoutes from "./routes/manager.routes.js";
+import managerAssignmentRoutes from "./routes/managerAssignment.routes.js";
+import sportsRoutes from "./routes/sports.routes.js";
+import badmintonRoutes from "./routes/badminton.routes.js";
+import footballRoutes from "./routes/football.routes.js";
+import tableTennisRoutes from "./routes/tableTennis.routes.js";
 
 const app = express();
 
@@ -82,6 +88,10 @@ app.use("/api", healthRoutes);
 app.use("/api/v1", healthRoutes);
 
 // Register Core APIs
+app.use("/api/v1/sports", sportsRoutes);
+app.use("/api/v1/badminton", badmintonRoutes);
+app.use("/api/v1/football", footballRoutes);
+app.use("/api/v1/table-tennis", tableTennisRoutes);
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/roles", roleRoutes);
 app.use("/api/v1/users", userRoutes);
@@ -95,7 +105,7 @@ app.use("/api/v1/fixtures", fixtureRoutes);
 app.use("/api/v1/innings", inningsRoutes);
 app.use("/api/v1/innings/:inningsId/balls", ballRoutes);
 app.use("/api/matches", liveScoreRoutes);
-app.use("/api/points-table", pointsTableRoutes);
+app.use("/api/v1/points-table", pointsTableRoutes);
 app.use("/api/v1/matches", liveMatchRoutes);
 app.use("/api/v1/commentary", commentaryRoutes);
 app.use("/api/v1/matches", matchSummaryRoutes);
@@ -111,6 +121,8 @@ app.use("/api/v1/matches", analyticsRoutes);
 app.use("/api/v1/records", recordsRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/organizer-applications", organizerApplicationRoutes);
+app.use("/api/v1/managers", managerRoutes);
+app.use("/api/v1", managerAssignmentRoutes);
 
 // 404 Not Found Catch-All Handler
 app.use((req, res) => {
@@ -127,7 +139,22 @@ app.use((req, res) => {
 app.use((err, req, res, next) => {
   void next;
   console.error("🔥 Global Error Handler:", err);
-  res.status(err.status || 500).json({
+
+  const isMalformedUuid =
+    err.message?.includes("invalid input syntax for type uuid") ||
+    err.code === "P2023" ||
+    err.message?.includes("Malformed OID") ||
+    err.message?.includes("Inconsistent column data");
+
+  if (isMalformedUuid) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid format for one or more parameters. Check that all IDs are valid UUIDs."
+    });
+  }
+
+  const statusCode = err.status || err.statusCode || 500;
+  res.status(statusCode).json({
     success: false,
     message: err.message || "Internal Server Error"
   });

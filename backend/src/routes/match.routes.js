@@ -12,9 +12,13 @@ import {
 } from "../controllers/match.controller.js";
 import { authenticate } from "../middleware/auth.middleware.js";
 import { authorize } from "../middleware/authorize.middleware.js";
+import { authorizeScorer } from "../middleware/authorizeScorer.middleware.js";
+import { undoLastBall } from "../controllers/undoBall.controller.js";
 import { Roles } from "../constants/roles.js";
+import { requireSport } from "../middleware/sportGuard.middleware.js";
 
 const router = Router();
+
 
 /*
 |--------------------------------------------------------------------------
@@ -87,6 +91,21 @@ router.delete(
   authenticate,
   authorize(Roles.ADMIN),
   remove
+);
+
+// Undo Last Delivery Route (Dual-mode Scorer Token or Authenticated Session)
+router.post(
+  "/:matchId/undo-last-ball",
+  authorizeScorer,
+  requireSport("CRICKET"),
+  undoLastBall
+);
+
+router.post(
+  "/:id/undo-last-ball",
+  authorizeScorer,
+  requireSport("CRICKET"),
+  undoLastBall
 );
 
 export default router;

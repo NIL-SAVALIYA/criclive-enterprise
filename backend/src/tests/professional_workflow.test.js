@@ -79,7 +79,7 @@ async function runProfessionalWorkflowTests() {
     const adminLoginRes = await fetch(`${baseUrl}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: adminEmail, password: "Admin@12345" })
+      body: JSON.stringify({ email: adminEmail, password: "Admin@12345", captchaToken: "test-valid-token" })
     });
     const adminLoginData = await adminLoginRes.json();
     const adminToken = adminLoginData.data?.token;
@@ -151,7 +151,7 @@ async function runProfessionalWorkflowTests() {
     const loginResA = await fetch(`${baseUrl}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: viewerAEmail, password: "Password@12345" })
+      body: JSON.stringify({ email: viewerAEmail, password: "Password@12345", captchaToken: "test-valid-token" })
     });
     const loginDataA = await loginResA.json();
     const tokenA = loginDataA.data?.token;
@@ -217,7 +217,7 @@ async function runProfessionalWorkflowTests() {
     const orgALoginRes = await fetch(`${baseUrl}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: viewerAEmail, password: "Password@12345" })
+      body: JSON.stringify({ email: viewerAEmail, password: "Password@12345", captchaToken: "test-valid-token" })
     });
     const tokenOrgA = (await orgALoginRes.json()).data?.token;
 
@@ -236,7 +236,7 @@ async function runProfessionalWorkflowTests() {
     const loginResB = await fetch(`${baseUrl}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: viewerBEmail, password: "Password@12345" })
+      body: JSON.stringify({ email: viewerBEmail, password: "Password@12345", captchaToken: "test-valid-token" })
     });
     const loginDataB = await loginResB.json();
     const tokenB = loginDataB.data?.token;
@@ -260,7 +260,7 @@ async function runProfessionalWorkflowTests() {
     const orgBLoginRes = await fetch(`${baseUrl}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: viewerBEmail, password: "Password@12345" })
+      body: JSON.stringify({ email: viewerBEmail, password: "Password@12345", captchaToken: "test-valid-token" })
     });
     const orgBLoginData = await orgBLoginRes.json();
     const tokenOrgB = orgBLoginData.data?.token;
@@ -409,7 +409,7 @@ async function runProfessionalWorkflowTests() {
     const scorerLoginRes = await fetch(`${baseUrl}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: scorerEmail, password: "Admin@12345" })
+      body: JSON.stringify({ email: scorerEmail, password: "Admin@12345", captchaToken: "test-valid-token" })
     });
     const scorerToken = (await scorerLoginRes.json()).data?.token;
 
@@ -512,7 +512,7 @@ async function runProfessionalWorkflowTests() {
     const unassignedLoginRes = await fetch(`${baseUrl}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email: unassignedEmail, password: "Admin@12345" })
+      body: JSON.stringify({ email: unassignedEmail, password: "Admin@12345", captchaToken: "test-valid-token" })
     });
     const unassignedToken = (await unassignedLoginRes.json()).data?.token;
 

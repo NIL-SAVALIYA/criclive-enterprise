@@ -29,7 +29,8 @@ export async function getAllPlayers(params = {}, db = prisma) {
     limit,
     search,
     teamId,
-    playerType
+    playerType,
+    sport
   } = params;
 
   const where = {};
@@ -46,7 +47,19 @@ export async function getAllPlayers(params = {}, db = prisma) {
   }
 
   if (playerType) {
-    where.playerType = playerType;
+    const footballMap = {
+      GOALKEEPER: "WICKET_KEEPER",
+      DEFENDER: "BOWLER",
+      MIDFIELDER: "ALL_ROUNDER",
+      FORWARD: "BATSMAN"
+    };
+    where.playerType = footballMap[playerType] || playerType;
+  }
+
+  if (sport) {
+    where.sport = {
+      code: sport.trim().toUpperCase()
+    };
   }
 
   const query = {
@@ -62,6 +75,13 @@ export async function getAllPlayers(params = {}, db = prisma) {
           name: true,
           shortName: true,
           logoUrl: true
+        }
+      },
+      sport: {
+        select: {
+          id: true,
+          code: true,
+          name: true
         }
       },
       _count: {

@@ -3,6 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import { Trophy, Users, CheckCircle, ArrowRight, Save, Flag, Activity } from 'lucide-react';
 import Skeleton from '../components/Skeleton';
+import BadmintonScoringConsole from '../components/BadmintonScoringConsole';
+import FootballScoringConsole from '../components/FootballScoringConsole';
+import TableTennisScoringConsole from '../components/TableTennisScoringConsole';
 
 export default function MatchControlCenter() {
   const { matchId } = useParams();
@@ -44,10 +47,17 @@ export default function MatchControlCenter() {
       setMatch(matchData);
       setPlayers(playersRes.data.data);
 
+      const sportCode = matchData.tournament?.sport?.code;
+      if (sportCode === 'BADMINTON' || sportCode === 'FOOTBALL' || sportCode === 'TABLE_TENNIS') {
+        setLoading(false);
+        return;
+      }
+
       if (matchData.tossWinnerId) {
         setTossWinnerId(matchData.tossWinnerId);
         setTossDecision(matchData.tossDecision || 'BAT');
       }
+
 
       const xiData = playingXIRes?.data?.data;
       if (xiData) {
@@ -163,6 +173,55 @@ export default function MatchControlCenter() {
   if (!match) {
     return <div className="p-8 text-white">Match not found</div>;
   }
+
+  if (match.tournament?.sport?.code === 'BADMINTON') {
+    return (
+      <div className="max-w-5xl mx-auto space-y-6 pb-12">
+        <div className="glass-panel p-5 rounded-2xl border border-gray-800">
+          <h1 className="text-2xl font-extrabold text-white flex items-center gap-2">
+            🏸 Badminton Match Control & Scoring
+          </h1>
+          <p className="text-gray-400 text-xs mt-1">
+            {match.teamA?.name} vs {match.teamB?.name} • Tournament: {match.tournament?.name || 'Badminton League'}
+          </p>
+        </div>
+        <BadmintonScoringConsole matchId={matchId} />
+      </div>
+    );
+  }
+
+  if (match.tournament?.sport?.code === 'FOOTBALL') {
+    return (
+      <div className="max-w-5xl mx-auto space-y-6 pb-12">
+        <div className="glass-panel p-5 rounded-2xl border border-gray-800">
+          <h1 className="text-2xl font-extrabold text-white flex items-center gap-2">
+            ⚽ Football Match Control Center
+          </h1>
+          <p className="text-gray-400 text-xs mt-1">
+            {match.teamA?.name} vs {match.teamB?.name} • Tournament: {match.tournament?.name || 'Football League'}
+          </p>
+        </div>
+        <FootballScoringConsole matchId={matchId} token={match.scoringToken} />
+      </div>
+    );
+  }
+
+  if (match.tournament?.sport?.code === 'TABLE_TENNIS') {
+    return (
+      <div className="max-w-5xl mx-auto space-y-6 pb-12">
+        <div className="glass-panel p-5 rounded-2xl border border-gray-800">
+          <h1 className="text-2xl font-extrabold text-white flex items-center gap-2">
+            🏓 Table Tennis Match Control Center
+          </h1>
+          <p className="text-gray-400 text-xs mt-1">
+            {match.teamA?.name} vs {match.teamB?.name} • Tournament: {match.tournament?.name || 'Table Tennis League'}
+          </p>
+        </div>
+        <TableTennisScoringConsole matchId={matchId} token={match.scoringToken} />
+      </div>
+    );
+  }
+
 
   return (
     <div className="max-w-5xl mx-auto space-y-8 pb-12">

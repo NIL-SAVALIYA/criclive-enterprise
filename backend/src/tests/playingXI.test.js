@@ -449,12 +449,35 @@ async function runPlayingXITests() {
       rollbackTeamAPlayers.length === 11 && rollbackTeamAPlayers.some(p => p.playerId === playerExtraA.id)
     );
 
-    // Clean up test data
-    await prisma.playingXI.deleteMany({ where: { matchId: { in: [upcomingMatch.id, liveMatch.id, completedMatch.id] } } });
-    await prisma.match.deleteMany({ where: { id: { in: [upcomingMatch.id, liveMatch.id, completedMatch.id] } } });
-    await prisma.player.deleteMany({ where: { id: { in: [...playersTeamA.map((p) => p.id), ...playersTeamB.map((p) => p.id), playerExtraA.id] } } });
+    // Clean up test data — order matters due to FK RESTRICT constraints.
+    // All three test teams and the tournament are upserted by name, so they may already exist
+    // with orphan children from prior aborted runs. Scope deletions by team/tournament ID.
+
+    const testTeamIds = [teamA.id, teamB.id, teamC.id];
+
+    // 1. Find ALL matches for this tournament (current + orphaned from prior runs)
+    const tournamentMatches = await prisma.match.findMany({ where: { tournamentId: tournament.id }, select: { id: true } });
+    const tournamentMatchIds = tournamentMatches.map((m) => m.id);
+
+    if (tournamentMatchIds.length > 0) {
+      // 2. PlayingXI referencing any of those matches
+      await prisma.playingXI.deleteMany({ where: { matchId: { in: tournamentMatchIds } } });
+      // 3. Match-child state tables (safe no-ops if tables don't have rows)
+      await prisma.footballMatchState.deleteMany({ where: { matchId: { in: tournamentMatchIds } } }).catch(() => {});
+      await prisma.footballEvent.deleteMany({ where: { matchId: { in: tournamentMatchIds } } }).catch(() => {});
+      await prisma.badmintonMatchState.deleteMany({ where: { matchId: { in: tournamentMatchIds } } }).catch(() => {});
+      // 4. All Matches in tournament
+      await prisma.match.deleteMany({ where: { tournamentId: tournament.id } });
+    }
+
+    // 5. ALL players for test teams (by teamId) — handles orphans from prior runs
+    await prisma.player.deleteMany({ where: { teamId: { in: testTeamIds } } });
+
+    // 6. Tournament (now safe — all matches deleted)
     await prisma.tournament.delete({ where: { id: tournament.id } });
-    await prisma.team.deleteMany({ where: { id: { in: [teamA.id, teamB.id, teamC.id] } } });
+
+    // 7. Teams (now safe — all players and matches deleted)
+    await prisma.team.deleteMany({ where: { id: { in: testTeamIds } } });
 
   } catch (err) {
     console.error("❌ Test suite encountered error:", err);
