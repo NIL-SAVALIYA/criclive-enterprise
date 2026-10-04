@@ -53,7 +53,7 @@ export default function CreateTeam() {
         sport: currentSport
       };
       const res = await api.post('/teams', payload);
-      navigate(`/${currentSport.toLowerCase()}/teams`);
+      navigate(`/${currentSport.toLowerCase().replace('_', '-')}/teams`);
     } catch (err) {
       console.error('Create team error:', err);
       setErrorMsg(err.response?.data?.message || `Failed to create ${sportName} ${teamLabel.toLowerCase()}.`);
@@ -67,7 +67,7 @@ export default function CreateTeam() {
       {/* Header */}
       <div className="flex items-center gap-4">
         <button 
-          onClick={() => navigate(`/${currentSport.toLowerCase()}/teams`)}
+          onClick={() => navigate(`/${currentSport.toLowerCase().replace('_', '-')}/teams`)}
           className="p-2 hover:bg-gray-800 rounded-lg text-gray-400 hover:text-white transition-all"
         >
           <ArrowLeft className="w-5 h-5" />

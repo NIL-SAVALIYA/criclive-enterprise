@@ -10,8 +10,8 @@ export default function Home() {
   const [caps, setCaps] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const { currentSport, isBadminton, isCricket, isFootball, terminology, sportConfig, hasCap } = useSport();
-  const sportPrefix = `/${currentSport.toLowerCase()}`;
+  const { currentSport, isBadminton, isCricket, isFootball, isTableTennis, terminology, sportConfig, hasCap } = useSport();
+  const sportPrefix = `/${currentSport.toLowerCase().replace('_', '-')}`;
 
   useEffect(() => {
     async function fetchData() {
@@ -47,7 +47,7 @@ export default function Home() {
         <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl -mr-20 -mt-20 pointer-events-none"></div>
         <div className="relative z-10 max-w-3xl space-y-4">
           <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-xs font-bold uppercase tracking-wider">
-            <Flame className="w-3.5 h-3.5" /> {terminology.heroBadge || (isBadminton ? '🏸 Next-Gen Enterprise Badminton Engine' : '🏏 Next-Gen Enterprise Cricket Engine')}
+            <Flame className="w-3.5 h-3.5" /> {terminology.heroBadge || (isBadminton ? '🏸 Next-Gen Enterprise Badminton Engine' : isTableTennis ? '🏓 Next-Gen Enterprise Table Tennis Engine' : '🏏 Next-Gen Enterprise Cricket Engine')}
           </span>
           <h1 className="text-4xl lg:text-5xl font-extrabold tracking-tight text-white leading-tight">
             {terminology.heroHeadline || (isBadminton ? 'Real-Time Rally Scoring, Match Analytics & Tournament Management' : 'Real-Time Scoring, Deep Analytics & Tournament League Engine')}
@@ -63,7 +63,7 @@ export default function Home() {
               className="px-6 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm flex items-center gap-2 shadow-lg glow-emerald transition-all"
             >
               <Play className="w-4 h-4 fill-white" />
-              {terminology.scorerCta || (isBadminton ? 'Open Rally Scoring Console' : 'Open Ball-by-Ball Scorer Console')}
+              {terminology.scorerCta || (isBadminton || isTableTennis ? 'Open Rally Scoring Console' : 'Open Ball-by-Ball Scorer Console')}
             </Link>
             <Link
               to={`${sportPrefix}/tournaments`}
@@ -89,7 +89,7 @@ export default function Home() {
             <div className="glass-panel p-8 rounded-xl text-center text-gray-400 space-y-2 border border-gray-800">
               <p className="font-semibold text-lg">No matches currently LIVE</p>
               <p className="text-xs">
-                Schedule a match in the Admin Scorer Console to start live {isBadminton ? 'rally' : 'ball'} scoring.
+                Schedule a match in the Admin Scorer Console to start live {isBadminton || isTableTennis ? 'rally' : 'ball'} scoring.
               </p>
             </div>
           ) : (
@@ -104,7 +104,7 @@ export default function Home() {
                       <span className="bg-emerald-500/20 text-emerald-400 font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/30">
                         LIVE
                       </span>
-                      <span>{m.venue || (isBadminton ? 'Badminton Indoor Arena' : 'Stadium Venue')}</span>
+                      <span>{m.venue || (isBadminton ? 'Badminton Indoor Arena' : isTableTennis ? 'Table Tennis Arena' : 'Stadium Venue')}</span>
                     </div>
 
                     {isBadmintonMatch && bState ? (
@@ -135,6 +135,19 @@ export default function Home() {
                         <div className="flex justify-between items-center font-bold text-base">
                           <span className="text-white">{m.teamB?.name}</span>
                           <span className="text-emerald-400 font-mono">0 Goals</span>
+                        </div>
+                      </div>
+                    ) : (isTableTennis || m.tournament?.sport?.code === 'TABLE_TENNIS') ? (
+                      <div className="space-y-3 my-2">
+                        <div className="flex justify-between items-center text-xs text-gray-400">
+                          <span className="font-semibold text-emerald-400">Game {m.tableTennisMatchState?.currentGameNumber || 1}</span>
+                          <span className="font-mono text-gray-300">Games: {m.tableTennisMatchState?.teamAGamesWon || 0} - {m.tableTennisMatchState?.teamBGamesWon || 0}</span>
+                        </div>
+                        <div className="flex justify-between items-center font-bold text-base">
+                          <span className="text-white">{m.teamA?.name}</span>
+                        </div>
+                        <div className="flex justify-between items-center font-bold text-base">
+                          <span className="text-white">{m.teamB?.name}</span>
                         </div>
                       </div>
                     ) : (

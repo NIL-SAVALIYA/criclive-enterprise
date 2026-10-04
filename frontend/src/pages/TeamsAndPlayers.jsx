@@ -206,7 +206,7 @@ export default function TeamsAndPlayers() {
           {/* Create Team Action for Authorized Roles */}
           {hasRole(['ADMIN', 'ORGANIZER']) && (
             <Link
-              to={`/${currentSport.toLowerCase()}/teams/create`}
+              to={`/${currentSport.toLowerCase().replace('_', '-')}/teams/create`}
               className="px-5 py-2.5 rounded-xl bg-gray-900 hover:bg-gray-800 border border-gray-700 text-white font-bold text-xs flex items-center gap-2 shadow-md transition-all"
             >
               <Plus className="w-4 h-4" /> Create New Team

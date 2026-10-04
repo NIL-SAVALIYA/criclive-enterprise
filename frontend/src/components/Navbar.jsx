@@ -57,7 +57,7 @@ export default function Navbar() {
     setSportDropdownOpen(false);
   }, [location.pathname]);
 
-  const sportPrefix = `/${currentSport.toLowerCase()}`;
+  const sportPrefix = `/${currentSport.toLowerCase().replace('_', '-')}`;
   const navLinks = [
     { name: 'Live Center', path: `${sportPrefix}/live`, aliases: ['/', '/cricket/live', '/badminton/live'], icon: Radio },
     { name: 'Fixtures', path: `${sportPrefix}/fixtures`, aliases: ['/fixtures', '/cricket/fixtures', '/badminton/fixtures'], icon: Calendar },

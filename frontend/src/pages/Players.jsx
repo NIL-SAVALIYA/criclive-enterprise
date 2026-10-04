@@ -46,7 +46,7 @@ export default function Players() {
   });
   const [submitting, setSubmitting] = useState(false);
 
-  const { currentSport, isCricket, isBadminton, isFootball } = useSport();
+  const { currentSport, isCricket, isBadminton, isFootball, isTableTennis } = useSport();
 
   function getPlayerPositionLabel(player) {
     if (isFootball) {
@@ -152,7 +152,7 @@ export default function Players() {
       firstName: '',
       lastName: '',
       jerseyNumber: '',
-      playerType: isFootball ? 'FORWARD' : isBadminton ? '' : 'BATSMAN',
+      playerType: isFootball ? 'FORWARD' : (isBadminton || isTableTennis) ? '' : 'BATSMAN',
       position: isFootball ? 'FORWARD' : '',
       battingStyle: 'RIGHT_HAND',
       bowlingStyle: 'RIGHT_ARM_MEDIUM',
@@ -195,7 +195,7 @@ export default function Players() {
         firstName: formData.firstName,
         lastName: formData.lastName,
         jerseyNumber: formData.jerseyNumber ? Number(formData.jerseyNumber) : undefined,
-        playerType: isBadminton ? undefined : isFootball ? (formData.position || formData.playerType) : formData.playerType,
+        playerType: (isBadminton || isTableTennis) ? undefined : isFootball ? (formData.position || formData.playerType) : formData.playerType,
         battingStyle: isCricket ? (formData.battingStyle || undefined) : undefined,
         bowlingStyle: isCricket ? (formData.bowlingStyle || undefined) : undefined,
         isCaptain: isCricket ? Boolean(formData.isCaptain) : false,
@@ -228,7 +228,7 @@ export default function Players() {
         firstName: formData.firstName,
         lastName: formData.lastName,
         jerseyNumber: formData.jerseyNumber ? Number(formData.jerseyNumber) : undefined,
-        playerType: isBadminton ? undefined : isFootball ? (formData.position || formData.playerType) : formData.playerType,
+        playerType: (isBadminton || isTableTennis) ? undefined : isFootball ? (formData.position || formData.playerType) : formData.playerType,
         battingStyle: isCricket ? (formData.battingStyle || undefined) : undefined,
         bowlingStyle: isCricket ? (formData.bowlingStyle || undefined) : undefined,
         isCaptain: Boolean(formData.isCaptain),
@@ -352,13 +352,13 @@ export default function Players() {
           )}
 
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-gray-400">{isFootball ? 'Club:' : isBadminton ? 'Side:' : 'Team:'}</span>
+            <span className="text-xs font-bold text-gray-400">{isFootball ? 'Club:' : (isBadminton || isTableTennis) ? 'Side:' : 'Team:'}</span>
             <select
               value={teamFilter}
               onChange={(e) => { setTeamFilter(e.target.value); setCurrentPage(1); }}
               className="bg-gray-900 border border-gray-700 text-white text-xs font-semibold rounded-lg p-2"
             >
-              <option value="ALL">{isFootball ? 'All Clubs' : isBadminton ? 'All Sides' : 'All Teams'}</option>
+              <option value="ALL">{isFootball ? 'All Clubs' : (isBadminton || isTableTennis) ? 'All Sides' : 'All Teams'}</option>
               {teams.map((t) => (
                 <option key={t.id} value={t.id}>{t.name}</option>
               ))}
@@ -596,7 +596,7 @@ export default function Players() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-gray-300 mb-1">{isFootball ? 'Assigned Club *' : isBadminton ? 'Assigned Side *' : 'Assigned Team *'}</label>
+                  <label className="block text-gray-300 mb-1">{isFootball ? 'Assigned Club *' : (isBadminton || isTableTennis) ? 'Assigned Side *' : 'Assigned Team *'}</label>
                   <select
                     value={formData.teamId}
                     onChange={(e) => setFormData({ ...formData, teamId: e.target.value })}
@@ -747,7 +747,7 @@ export default function Players() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-gray-300 mb-1">{isFootball ? 'Assigned Club' : 'Assigned Team'}</label>
+                  <label className="block text-gray-300 mb-1">{isFootball ? 'Assigned Club' : (isBadminton || isTableTennis) ? 'Assigned Side' : 'Assigned Team'}</label>
                   <select
                     value={formData.teamId}
                     onChange={(e) => setFormData({ ...formData, teamId: e.target.value })}

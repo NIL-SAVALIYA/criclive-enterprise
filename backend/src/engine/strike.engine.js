@@ -67,9 +67,9 @@ export function swapStrike({
 export function rotateStrike({
     strikerId,
     nonStrikerId,
-    batRuns = 0,
-    extraRuns = 0,
-    extraType = "NONE",
+    batRuns,
+    extraRuns,
+    extraType,
     totalRuns = 0
 }) {
     const shouldRotate = (batRuns !== undefined && extraType !== undefined)
@@ -102,9 +102,9 @@ export function rotateAtOverEnd({
 export function getNextStrike({
     strikerId,
     nonStrikerId,
-    batRuns = 0,
-    extraRuns = 0,
-    extraType = "NONE",
+    batRuns,
+    extraRuns,
+    extraType,
     totalRuns = 0,
     overCompleted = false
 }) {
@@ -147,9 +147,9 @@ export function validateStrike({
 export function buildStrikeSummary({
     strikerId,
     nonStrikerId,
-    batRuns = 0,
-    extraRuns = 0,
-    extraType = "NONE",
+    batRuns,
+    extraRuns,
+    extraType,
     totalRuns = 0,
     overCompleted = false
 }) {
@@ -171,7 +171,7 @@ export function buildStrikeSummary({
     return {
         strikerId: players.strikerId,
         nonStrikerId: players.nonStrikerId,
-        strikeRotated: shouldRotateStrike({ batRuns, extraRuns, extraType, totalRuns }),
+        strikeRotated: (batRuns !== undefined && extraType !== undefined) ? shouldRotateStrike({ batRuns, extraRuns, extraType }) : shouldRotateStrike(totalRuns),
         overCompleted
     };
 }

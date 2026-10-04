@@ -88,7 +88,7 @@ test("🏆 Multi-Sport Foundation & API Verification Suite", async (t) => {
         format: "LEAGUE",
         startDate: "2026-09-01T10:00:00Z",
         endDate: "2026-09-10T10:00:00Z",
-        sport: "FOOTBALL"
+        sport: "GOLF"
       })
     });
 

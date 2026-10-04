@@ -144,6 +144,40 @@ export default function App() {
                   }
                 />
 
+                {/* Explicit Sport-Specific Routes (Table Tennis) */}
+                <Route path="/table-tennis" element={<Home />} />
+                <Route path="/table-tennis/live" element={<Home />} />
+                <Route path="/table-tennis/fixtures" element={<Fixtures />} />
+                <Route path="/table-tennis/tournaments" element={<Tournaments />} />
+                <Route path="/table-tennis/teams" element={<TeamsAndPlayers />} />
+                <Route
+                  path="/table-tennis/teams/create"
+                  element={
+                    <ProtectedRoute allowedRoles={['ADMIN', 'ORGANIZER']}>
+                      <CreateTeam />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="/table-tennis/players" element={<Players />} />
+                <Route path="/table-tennis/matches/:matchId" element={<LiveMatchCenter />} />
+                <Route path="/table-tennis/score/:token" element={<DedicatedScorerConsole />} />
+                <Route
+                  path="/table-tennis/admin/scorer"
+                  element={
+                    <ProtectedRoute allowedRoles={['ADMIN', 'SCORER']}>
+                      <AdminScoringConsole />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/table-tennis/admin/match-control/:matchId"
+                  element={
+                    <ProtectedRoute allowedRoles={['ADMIN', 'SCORER']}>
+                      <MatchControlCenter />
+                    </ProtectedRoute>
+                  }
+                />
+
                 {/* User Profile & Capability Routes */}
                 <Route
                   path="/profile"

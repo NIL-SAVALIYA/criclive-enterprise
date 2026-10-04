@@ -43,7 +43,7 @@ export default function Fixtures() {
   const [submitting, setSubmitting] = useState(false);
 
   const { currentSport, isCricket, isBadminton, isFootball, sportConfig, terminology } = useSport();
-  const sportPrefix = `/${currentSport.toLowerCase()}`;
+  const sportPrefix = `/${currentSport.toLowerCase().replace('_', '-')}`;
 
   useEffect(() => {
     fetchData();
